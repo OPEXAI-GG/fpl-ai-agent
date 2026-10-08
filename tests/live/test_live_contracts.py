@@ -6,10 +6,14 @@ import httpx
 import pytest
 
 from fpl_agent import contracts
+from fpl_agent.data import leagues
+from fpl_agent.data.fotmob import FotMobClient
 from fpl_agent.data.fpl_client import FPLClient
 from fpl_agent.data.understat import UnderstatClient
+from fpl_agent.db import ingest_vaastav
 from fpl_agent.db.database import FootballDB
 from fpl_agent.db.ingest_football_data import url
+from fpl_agent.db.ingest_fotmob import FotMobIngestor
 from fpl_agent.db.quality import errors, format_issues
 from fpl_agent.pipeline import OK, UpdateOptions, run_update
 
@@ -43,9 +47,37 @@ def test_football_data(div):
     assert contracts.football_data_csv(r.text, div) == []
 
 
+@pytest.mark.parametrize("league_id", [47, 48, 87, 42])
+def test_fotmob_league_pages(league_id):
+    raw = FotMobClient().league(league_id)
+    assert contracts.fotmob_league(raw) == []
+
+
+def test_fotmob_match_page_and_ingest():
+    fm = FotMobClient()
+    league = fm.league(48, "2025/2026")
+    done = next(m for m in league["fixtures"]["allMatches"] if m["status"].get("finished"))
+    page = fm.match(done["id"])
+    assert contracts.fotmob_match(page) == []
+    db = FootballDB()
+    assert FotMobIngestor(db).load_match(page, leagues.get("ENG2"), 2025) >= 22
+
+
+def test_fotmob_has_2017_history():
+    raw = FotMobClient().league(48, "2017/2018")
+    assert contracts.fotmob_league(raw) == []
+    assert len(raw["fixtures"]["allMatches"]) > 500
+
+
+def test_vaastav_history_file():
+    r = httpx.get(ingest_vaastav.url(2017), follow_redirects=True, timeout=60)
+    assert r.status_code == 200 and ingest_vaastav.problems(r.text) == []
+
+
 def test_full_update_into_a_temp_database():
     db = FootballDB()
-    opts = UpdateOptions(season=SEASON, points=True, players=True, player_limit=5)
+    opts = UpdateOptions(season=SEASON, points=True, players=True, player_limit=5,
+                         fotmob=("ENG2",), fotmob_matches=5)  # fmt: skip
     res = run_update(db, opts, alert=False)
     assert res.exit_code == OK, res.message()
     assert not res.report.failed, res.message()

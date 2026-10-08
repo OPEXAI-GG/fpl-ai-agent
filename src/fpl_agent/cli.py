@@ -65,20 +65,126 @@ def understat(settings: Settings, season: str, with_players: bool, limit: int | 
 def db_update(args: argparse.Namespace) -> int:
     from pathlib import Path
 
+    from fpl_agent.data import leagues
     from fpl_agent.db.database import FootballDB
     from fpl_agent.pipeline import UpdateOptions, run_update
 
+    fotmob = (
+        tuple(leagues.LEAGUES)
+        if args.fotmob == "all"
+        else tuple(c for c in (args.fotmob or "").split(",") if c)
+    )
     opts = UpdateOptions(
         season=int(args.season),
+        fotmob=fotmob,
+        fotmob_matches=args.fotmob_matches,
+        understat_leagues=tuple(c for c in args.understat_leagues.split(",") if c),
         football_data=tuple(d for d in (args.football_data or "").split(",") if d),
         points=args.points,
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
     )
-    result = run_update(FootballDB(args.db), opts)
+    db = FootballDB(args.db)
+    if args.import_dir:
+        db.import_parquet(args.import_dir)
+    result = run_update(db, opts)
     print(result.message())
     return result.exit_code
+
+
+def backfill(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from fpl_agent.data import leagues
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.pipeline import BackfillOptions, run_backfill
+
+    comps = tuple(c for c in args.competitions.split(",") if c) or tuple(leagues.LEAGUES)
+    opts = BackfillOptions(
+        start=args.start,
+        end=args.end,
+        competitions=comps,
+        fotmob_matches=args.fotmob_matches,
+        sources=tuple(s for s in args.sources.split(",") if s),
+        export=Path(args.export) if args.export else None,
+    )
+    db = FootballDB(args.db)
+    if args.import_dir:
+        db.import_parquet(args.import_dir)
+    result = run_backfill(db, opts)
+    print(result.message())
+    return result.exit_code
+
+
+def _open_db(args: argparse.Namespace):
+    from fpl_agent.db.database import FootballDB
+
+    db = FootballDB(args.db)
+    if getattr(args, "import_dir", None):
+        db.import_parquet(args.import_dir)
+    return db
+
+
+def _export(db, args: argparse.Namespace) -> None:
+    if getattr(args, "export", None):
+        db.export_parquet(args.export)
+
+
+def plan(args: argparse.Namespace, settings: Settings) -> int:
+    """Weekly decision. Dry unless AGENT_MODE=live; never needs credentials in dry mode."""
+    from pathlib import Path
+
+    from fpl_agent.agent import RunOptions, run_weekly
+
+    opts = RunOptions(
+        season=int(args.season), horizon=args.horizon,
+        entry_id=args.entry or settings.entry_id, force=args.force,
+        use_chips=not args.no_chips, samples=args.samples,
+        out_dir=Path(args.out) if args.out else None, notify=args.notify,
+    )  # fmt: skip
+    db = _open_db(args)
+    res = run_weekly(db, settings, opts)
+    _export(db, args)
+    print(res.report)
+    return res.exit_code
+
+
+def review_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import review
+
+    db = _open_db(args)
+    season = int(args.season)
+    if args.gw == 0:  # latest gameweek with official points
+        row = db.con.execute(
+            "SELECT max(gw) FROM fpl_points_gw WHERE season = ?", [season]).fetchone()  # fmt: skip
+        args.gw = int(row[0] or 0)
+    out = {
+        "prediction": review.prediction_review(db, season, args.gw),
+        "decision": review.decision_review(db, season, args.gw),
+        "season": review.summarize(db, season),
+    }
+    _export(db, args)
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
+def backtest_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent.model import backtest
+    from fpl_agent.model.simulate import SimConfig
+
+    db = _open_db(args)
+    gws = list(range(args.from_gw, args.to_gw + 1))
+    res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples))
+    if res.empty:
+        print("no gameweeks could be back-tested (not enough history in the database)")
+        return 2
+    summary = backtest.summarize(res)
+    print(summary.round(3).to_string(index=False))
+    print(json.dumps(backtest.beats_baselines(summary), indent=2))
+    if args.out:
+        res.to_csv(args.out, index=False)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -99,12 +205,61 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--players", action="store_true", help="also load Understat player histories")
     d.add_argument("--limit", type=int, default=25, help="max players for --players")
     d.add_argument("--export", default=None, help="write parquet files to this directory")
+    d.add_argument("--import-dir", default=None, help="load previously exported parquet first")
+    d.add_argument("--fotmob", default="", help="'all' or comma list of competition ids")
+    d.add_argument("--fotmob-matches", type=int, default=60, help="match pages per competition")
+    d.add_argument("--understat-leagues", default="EPL", help="comma list, e.g. EPL,La_liga")
+    b = sub.add_parser("backfill", help="fill history from 2017/18 (resumable, bounded per run)")
+    b.add_argument("--db", default="data_cache/football.duckdb")
+    b.add_argument("--start", type=int, default=2017)
+    b.add_argument("--end", type=int, default=2026)
+    b.add_argument("--competitions", default="", help="comma list of competition ids (default all)")
+    b.add_argument("--sources", default="football-data,understat,fotmob,vaastav")
+    b.add_argument("--fotmob-matches", type=int, default=400)
+    b.add_argument("--export", default=None)
+    b.add_argument("--import-dir", default=None)
+    pl = sub.add_parser(
+        "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
+    )
+    pl.add_argument("--db", default="data_cache/football.duckdb")
+    pl.add_argument("--import-dir", default=None)
+    pl.add_argument("--season", default="2026")
+    pl.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    pl.add_argument("--horizon", type=int, default=6)
+    pl.add_argument("--samples", type=int, default=1000)
+    pl.add_argument("--force", action="store_true", help="ignore the deadline-window gate")
+    pl.add_argument("--no-chips", action="store_true")
+    pl.add_argument("--export", default=None, help="write the database as parquet here")
+    pl.add_argument("--out", default=None, help="write gw<N>.md and gw<N>.json here")
+    pl.add_argument("--notify", action="store_true", help="send the report to NOTIFY_WEBHOOK")
+    rv = sub.add_parser("review", help="score a finished gameweek: predictions and decisions")
+    rv.add_argument("--db", default="data_cache/football.duckdb")
+    rv.add_argument("--import-dir", default=None)
+    rv.add_argument("--season", default="2026")
+    rv.add_argument("--export", default=None, help="write the database as parquet here")
+    rv.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    bt = sub.add_parser("backtest", help="point-in-time accuracy of the projection stack")
+    bt.add_argument("--db", default="data_cache/football.duckdb")
+    bt.add_argument("--import-dir", default=None)
+    bt.add_argument("--season", default="2025")
+    bt.add_argument("--from-gw", type=int, default=10)
+    bt.add_argument("--to-gw", type=int, default=20)
+    bt.add_argument("--samples", type=int, default=600)
+    bt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "snapshot":
         return snapshot(settings)
     if args.cmd == "db-update":
         return db_update(args)
+    if args.cmd == "backfill":
+        return backfill(args)
+    if args.cmd == "plan":
+        return plan(args, settings)
+    if args.cmd == "review":
+        return review_cmd(args)
+    if args.cmd == "backtest":
+        return backtest_cmd(args)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2

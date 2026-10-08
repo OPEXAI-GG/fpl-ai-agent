@@ -58,7 +58,7 @@ TABLES: dict[str, str] = {
     "fpl_points_gw": """
         season INTEGER, gw INTEGER, fpl_id INTEGER, player_id INTEGER, fixture_id INTEGER,
         minutes INTEGER, total_points INTEGER, bps INTEGER, bonus INTEGER, stats JSON,
-        explain JSON, ingested_at TIMESTAMP,
+        explain JSON, ingested_at TIMESTAMP, kickoff TIMESTAMP,
         PRIMARY KEY (season, gw, fpl_id, fixture_id)""",
     "projections": """
         run_id VARCHAR, model VARCHAR, created_at TIMESTAMP, season INTEGER, gw INTEGER,
@@ -70,3 +70,11 @@ TABLES: dict[str, str] = {
     "ingest_log": """
         source VARCHAR, run_at TIMESTAMP, table_name VARCHAR, rows INTEGER, note VARCHAR""",
 }
+
+TABLES["ingest_state"] = """
+    source VARCHAR, key VARCHAR, status VARCHAR, detail VARCHAR, updated_at TIMESTAMP,
+    PRIMARY KEY (source, key)"""
+
+TABLES["league_translation"] = """
+    from_comp VARCHAR, to_comp VARCHAR, stat VARCHAR, factor DOUBLE, n_players INTEGER,
+    minutes DOUBLE, updated_at TIMESTAMP, PRIMARY KEY (from_comp, to_comp, stat)"""

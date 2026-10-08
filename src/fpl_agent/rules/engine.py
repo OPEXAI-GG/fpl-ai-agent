@@ -24,6 +24,17 @@ class Rules:
             raise FileNotFoundError(f"no rules file for season {season} in {d}")
         return cls(yaml.safe_load(matches[0].read_text()))
 
+    @classmethod
+    def nearest(cls, season: int, directory: Path | None = None) -> Rules:
+        """The rules file for `season`, or the closest one we have (for back-testing past seasons
+        under the current scoring; the difference is reported by the caller, not hidden)."""
+        d = directory or RULES_DIR
+        seasons = sorted(int(p.name.split("_")[0]) for p in d.glob("*_*.yaml"))
+        if not seasons:
+            raise FileNotFoundError(f"no rules files in {d}")
+        best = min(seasons, key=lambda s: (abs(s - season), s))
+        return cls.load(best, d)
+
     def __getitem__(self, key: str) -> Any:
         return self.data[key]
 

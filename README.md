@@ -1,60 +1,147 @@
 # fpl-ai-agent
 
-Autonomous Fantasy Premier League agent: statistical points model, a news "scout", a learning loop,
-a MILP solver and (later) automatic execution. Build plan lives in the project files; this repo is
-built phase by phase through small PRs.
+An FPL manager that plans your team every week from a simulation of how each player actually scores:
+minutes, team goals for and against, clean sheets, saves, defensive contributions, goals, assists,
+bonus and cards. It plans transfers and chips over a six-gameweek horizon, picks the XI and captain,
+checks everything against safety rails, and reports what it would do.
 
-**Status (plan v2):** the football database (DuckDB; `fpl-agent db-update`) is the core every model will read from. Writers so far: FPL (players, fixtures, official points with explain), Understat (match xG, per-player match stats, shots), football-data.co.uk (PL + Championship results, xG, odds). FotMob, backfill from 2017/18 and the weekly workflow come next.
+**It is in dry-run mode.** Out of the box nothing logs in to FPL and nothing touches your team. The
+agent tells you what it would do each week; you make the moves. Live execution exists in code and
+is tested against mock servers only - see [Going live](#going-live-later-optional).
 
-**Earlier status:** Phase 0 (scaffold) and Phase 1 start (public FPL client, snapshot store, deadline calendar).
+* How it works: [docs/architecture.md](docs/architecture.md)
+* Rules for the 2026/27 season (versioned YAML): [rules/2026_27.yaml](rules/2026_27.yaml)
 
 ## Safety defaults
 
-- `AGENT_MODE` defaults to `dry`. Nothing touches a real FPL account until you set `live`.
-- `AGENT_ENABLED=false` is a kill switch that makes every run a no-op.
-- No secrets in the repo. Credentials come from GitHub repo secrets / environment variables only.
+* `AGENT_MODE` is `dry` unless you set it to `live`. In dry mode no credentials are read and no authenticated request is made.
+* `AGENT_ENABLED=false` is a kill switch: every run becomes a no-op.
+* The scheduled plan workflow pins `AGENT_MODE: dry` inside the workflow file, so a repository variable cannot switch it on by accident.
+* No secrets in the repo. Keys come from environment variables / GitHub secrets only, and are never printed.
+* Rails (hit caps, doubtful players, stale data, chip guard, human edits) are described in [architecture.md](docs/architecture.md).
 
-## Development
+## Setup
 
 ```bash
-uv sync
-uv run ruff check . && uv run ruff format --check .
-uv run pytest -q
-uv run fpl-agent snapshot      # pull public FPL data into data_cache/snapshots (git-ignored)
-uv run fpl-agent db-update --points --players --limit 25   # build data_cache/football.duckdb
+uv sync                                  # Python 3.13, dependencies pinned in uv.lock
+uv run pytest -q                         # whole suite runs offline on recorded data
 ```
 
-Tests run against recorded fixtures in `tests/fixtures/`, so they need no network.
+## Run each part
 
-## Secrets and variables (set when the phase that needs them lands)
+All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (default
+`data_cache/football.duckdb`, git-ignored). In GitHub Actions it is kept as a release asset.
 
-| Name | Kind | Needed from | Purpose |
-|---|---|---|---|
-| `ANTHROPIC_API_KEY` | secret | scout (M2B) | Claude API for the scout |
-| `ODDS_API_KEY` | secret | data pipeline (M1) | The Odds API (free tier to start) |
-| `NOTIFY_WEBHOOK` | secret | dry report (M3) | Telegram/Discord webhook |
-| `FPL_ENTRY_ID` | variable | M3 | your team id |
-| `FPL_REFRESH_TOKEN` | secret | execution (M5) | one-time paste from browser |
-| `GH_SECRETS_PAT` | secret | execution (M5) | fine-grained PAT, Secrets read/write, to rotate the token |
-| `AGENT_MODE` | variable | M3 | `dry` (default) or `live` |
-| `AGENT_ENABLED` | variable | M3 | kill switch |
-
-## Testing layer
-
-CI (`ci.yml`) blocks on: lint, format, the full test suite, a **coverage gate (85%)**, and a CLI smoke check. Run it all locally with `uv run pytest --cov`.
-
-| Level | What it proves | Where |
+| Part | Command | Notes |
 |---|---|---|
-| Unit | rules (scoring, bonus, auto-subs, prices), id matching, calendar, store | `tests/test_rules.py`, `test_data.py`, `test_understat_idmap.py` |
-| Acceptance | the rules engine reproduces FPL's official points and bonus on recorded real gameweeks | `tests/test_rules.py` |
-| Property-based | invariants for any input (bonus never mis-ranks, auto-sub always gives a legal XI) | `tests/test_properties.py` |
-| Recorded real responses | every source's parser/contract passes on real captured payloads | `tests/fixtures/`, `test_contracts.py` |
-| Format-change detection | each renamed/removed field, HTML instead of JSON, empty body is caught before reaching the database | `test_contracts.py`, `test_pipeline.py` |
-| Failure handling | source down, 5xx, changed format: skipped and alerted, critical source aborts with nothing written, partial writes roll back, bad data is never exported | `test_pipeline.py` |
-| Data quality | duplicates, orphan ids, impossible values, source disagreement, stored points vs the rules engine; every check is proven to fire on corrupted data | `db/quality.py`, `test_quality.py` |
-| CLI smoke | the real commands run end to end on recorded data and return the right exit codes | `test_cli.py` |
-| Live canary | the real sources still match the contracts and a full update succeeds (daily, plus manual) | `.github/workflows/canary.yml`, `tests/live/` |
+| Public FPL snapshot | `snapshot` | Stores bootstrap + fixtures under `data_cache/snapshots`. |
+| Build / update the database | `db-update --points --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | FPL, FotMob (15 competitions), Understat, football-data.co.uk. Quality checks run before anything is exported; exit code 2 = FPL failed (nothing written), 3 = data failed checks. |
+| Backfill history to 2017/18 | `backfill --start 2017` | Resumable; includes the vaastav FPL archive (official points since 2016/17). Re-run until it reports nothing left. |
+| Back-test the projections | `backtest --season 2025 --from-gw 10 --to-gw 30` | Point-in-time: models see only data before each deadline. Compares with "last 5 games" and FPL's own xP, per position. |
+| **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
+| Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
 
-`fpl-agent db-update` exit codes: `0` ok (non-critical sources may have been skipped and alerted), `2` a critical source (FPL) failed and nothing was written, `3` data failed quality checks and was not exported.
+`plan` needs a database that has been through `db-update` for the upcoming gameweek. Your squad is
+read from FPL's public endpoints (no login): selling prices are rebuilt from your transfer history,
+free transfers from your gameweek history, and chips left from your chip history.
 
-**Not covered yet:** models, solver and execution (they do not exist yet; each will ship with its own tests and a backtest gate), FotMob (next), authenticated FPL writes (the agent stays in dry mode), and the GitHub Actions scheduling itself. Branch protection must be switched on in the repo settings (require the `test` check) for a red CI to actually block merging; code cannot do that.
+### Optional inputs (each degrades to a logged skip)
+
+* `ODDS_API_KEY` - bookmaker prices are blended into the team goal rates.
+* `ANTHROPIC_API_KEY` - the scout reads injury/news text and nudges availability (bounded, see architecture).
+* `NOTIFY_WEBHOOK` - Discord/Slack-style webhook for the weekly report and failure alerts.
+
+## Automation (GitHub Actions)
+
+| Workflow | When | What |
+|---|---|---|
+| `ci.yml` | every PR | ruff, format check, full tests, **85% coverage gate**, CLI smoke |
+| `data.yml` | daily + Tuesday | update the database from all sources and publish it |
+| `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
+| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 2-26h away; notifies once per gameweek; **fixed to dry** |
+| `review.yml` | Tuesday | score the finished gameweek and publish the reviews |
+| `canary.yml` | daily | check every live source still matches its contract |
+
+## Repository layout
+
+```
+rules/                 season rules as data (YAML)
+src/fpl_agent/
+  data/                source clients (FPL, FotMob, Understat, Odds API), league registry, squad state
+  db/                  schema, ingestors, id resolution, quality checks, gameweek assignment
+  model/               strength, minutes, player rates, league translation, simulator, projection, backtest
+  solver/              MILP planner, chip scenario search, weekly decision
+  execution/           safety rails, FPL auth, writer, dry-by-default executor
+  scout.py review.py agent.py cli.py
+tests/                 unit, acceptance, property, recorded-response, workflow and end-to-end tests
+scripts/               data release restore/publish, fixture recorder
+docs/architecture.md
+```
+
+## Testing
+
+CI blocks on lint, format, the full suite and an 85% coverage gate. Every source has recorded real
+responses and a contract; the simulator is tested against a synthetic league with known truth; the
+planner is checked against brute force on a small problem; execution and auth are tested only against
+mock transports.
+
+| Level | What it proves |
+|---|---|
+| Rules acceptance | the rules engine reproduces FPL's official points and bonus on recorded real gameweeks |
+| Property tests | bonus never mis-ranks, auto-sub always yields a legal XI |
+| Source contracts | each renamed/removed field, HTML-instead-of-JSON, empty body is caught before reaching the database |
+| Failure handling | a source down is skipped and alerted; a critical source aborts with nothing written; bad data is never exported |
+| Data quality | duplicates, orphans, impossible values, cross-source disagreement, stored points vs the rules engine |
+| Model tests | recovery of known strengths, calibrated minutes, double gameweeks, odds blending, determinism |
+| Planner | legal squads, budget, banking, hits, chips, Free Hit, equals brute force |
+| Rails and execution | every rail fires; dry mode makes zero requests; preview must match before confirm |
+| End to end | gate -> squad -> projection -> decision -> rails -> report on a synthetic league |
+| Live canary | daily check of the real sources |
+
+## Known limitations and skipped items
+
+* **No real-data accuracy numbers yet.** The projection stack is tested on a synthetic league with known truth (361 tests, 94% coverage), but the point-in-time backtest on real seasons needs the full history, which the `backfill` workflow builds over several runs. Once it has finished, run `fpl-agent backtest --season 2025` and check that the simulator beats the "last 5 games" and FPL-xP baselines in each position before trusting the plans.
+
+* **Live execution has never been run against a real account.** The FPL sign-in endpoint and client id (`FPL_TOKEN_URL`, `FPL_CLIENT_ID`) must be copied from your own browser session, and the write payloads follow FPL's documented shape but are unverified. That is why the build stops at dry mode.
+* **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
+* **Odds coverage:** only the competitions the Odds API free tier serves for the Premier League are used; without a key the model runs on results and xG alone.
+* **Scout** is deliberately small: availability only, no transfer rumours or tactical claims.
+* **Learning loop** reports and flags (bias by position, component errors, captain regret); it does not retrain models by itself. Refits happen on the weekly data run.
+* **Price-change prediction** is not modelled; money in the bank has a small flat value.
+* **Triple Captain** is shown as used in your chip history; the agent plans only the chips FPL says you still have.
+
+## Going live later (optional)
+
+Do not do this until the dry reports have matched what you would have done for several gameweeks.
+
+1. Run `plan` / the `plan` workflow for at least two gameweeks and compare with your own moves.
+2. Add the FPL secrets below, set `FPL_TOKEN_URL` / `FPL_CLIENT_ID` from your browser session.
+3. Change `AGENT_MODE` in `plan.yml` from `dry` to `live` in a reviewed PR. The first live run previews, compares the preview with the plan, and only then confirms; it reads the team back and alerts on any difference.
+4. The kill switch (`AGENT_ENABLED=false`) stops it immediately.
+
+---
+
+## API keys and secrets checklist (do this last)
+
+Nothing below is needed to read the code, run the tests or run a dry plan from your own machine.
+Add them in **Settings -> Secrets and variables -> Actions** of the repository.
+
+**To get the weekly dry-run reports (the main thing):**
+
+- [ ] `FPL_ENTRY_ID` (**variable**) - your team id: the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
+- [ ] `NOTIFY_WEBHOOK` (**secret**) - a Discord or Slack incoming-webhook URL, so the report reaches you.
+
+**Optional, each improves the plan:**
+
+- [ ] `ANTHROPIC_API_KEY` (**secret**) - turns on the scout (a few cents a week).
+- [ ] `ODDS_API_KEY` (**secret**) - The Odds API free tier (500 requests/month; the agent uses a handful).
+
+**Only for live execution, much later:**
+
+- [ ] `FPL_REFRESH_TOKEN` (**secret**) - pasted once from your browser session.
+- [ ] `FPL_TOKEN_URL` and `FPL_CLIENT_ID` (**variables**) - from the same browser session.
+- [ ] `GH_SECRETS_PAT` (**secret**) - fine-grained token with *Secrets: read and write* on this repo, so the rotating refresh token can be stored back.
+- [ ] `AGENT_MODE` - leave unset (dry). Switching to live is a reviewed change to `plan.yml`.
+- [ ] `AGENT_ENABLED` (**variable**) - `false` stops everything.
+
+Also in repo settings: turn on branch protection requiring the `test` check, so a red CI blocks merges.

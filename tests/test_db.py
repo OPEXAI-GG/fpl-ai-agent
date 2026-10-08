@@ -166,3 +166,17 @@ def test_transaction_rolls_back_on_error():
     except RuntimeError:
         pass
     assert db.counts()["teams"] == 0 and db.counts()["team_ids"] == 0
+
+
+def test_club_names_that_differ_only_by_generic_words_are_one_club():
+    db = FootballDB()
+    a = db.team_id("football-data", "Bolton", "Bolton")
+    assert db.team_id("fotmob", "1", "Bolton Wanderers") == a
+    c = db.team_id("football-data", "Lincoln", "Lincoln")
+    assert db.team_id("fotmob", "2", "Lincoln City") == c
+    # different clubs that share a city stay apart
+    city = db.team_id("fotmob", "3", "Bristol City")
+    assert db.team_id("fotmob", "4", "Bristol Rovers") != city
+    assert db.team_id("fotmob", "5", "Sheffield Wednesday") != db.team_id(
+        "fotmob", "6", "Sheffield United"
+    )

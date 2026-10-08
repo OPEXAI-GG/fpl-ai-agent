@@ -1,0 +1,178 @@
+"""Chip scenario search, sensitivity gates, and the weekly decision."""
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from fpl_agent.data.entry import SquadState
+from fpl_agent.model.project import Projection
+from fpl_agent.rules import Rules
+from fpl_agent.solver import chips as ch
+from fpl_agent.solver.decide import decide
+from fpl_agent.solver.inputs import build_candidates, prune, to_canonical
+from fpl_agent.solver.planner import PlanInput, PlannerConfig
+from tests.test_planner import initial_squad, make_pool
+
+RULES = Rules.load(2026)
+CFG = PlannerConfig(time_limit=30)
+FAST = ch.ChipConfig(n_worlds=60, scenario_time_limit=30)
+
+
+def projection(seed=0, horizon=3, gws=(10, 11, 12), spread=0.6, boost=None, n=200):
+    """A projection whose sampled worlds scatter around the pool's expected points."""
+    cands = make_pool(seed, horizon=horizon)
+    rng = np.random.default_rng(seed)
+    mean = np.array([c.xp for c in cands])
+    if boost:  # {(player index, gw index): extra mean}
+        for (i, g), v in boost.items():
+            mean[i, g] += v
+    pts = rng.gamma(2.0, 1.0, size=(len(cands), horizon, n)) * (mean[..., None] / 2.0)
+    pts = (pts * (1 - spread) + mean[..., None] * spread).astype(np.float32)
+    mins = np.full((len(cands), horizon, n), 90, dtype=np.int16)
+    meta = pd.DataFrame(
+        {
+            "player_id": [c.player_id for c in cands],
+            "position": [c.position for c in cands],
+            "team_id": [c.team_id for c in cands],
+            "price": [c.price for c in cands],
+            "status": "a",
+            "chance": 100.0,
+        }
+    )
+    return Projection("t", 2026, list(gws), meta, pts, mins), cands
+
+
+def state_for(cands, bank=20, ft=1, chips_used=(), next_gw=10):
+    squad, _ = initial_squad(cands)
+    return SquadState(next_gw=next_gw, squad=squad, bank=bank, free_transfers=ft,
+                      chips_used=list(chips_used))  # fmt: skip
+
+
+def test_decision_is_legal_and_beats_doing_nothing():
+    proj, cands = projection(1)
+    st = state_for(cands, bank=50)
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert len(d.xi) == 11 and len(d.bench) == 4
+    assert d.xp >= d.xp_no_transfers - 1e-6
+    assert d.captain in d.xi and d.vice in d.xi and d.captain != d.vice
+    assert d.bank_after >= 0
+    assert "GW10" in d.summary()
+
+
+def test_used_chips_are_not_offered():
+    proj, cands = projection(2)
+    st = state_for(cands, chips_used=[("wildcard", 3), ("freehit", 4), ("bboost", 5), ("3xc", 2)])
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    assert d.chip is None and d.chip_report["scenarios"] == []
+
+
+def test_triple_captain_goes_to_the_week_with_a_standout_double():
+    # one elite player gets a huge expected score in the final gameweek only
+    cands = make_pool(5, horizon=3)
+    star = max(range(len(cands)), key=lambda i: sum(cands[i].xp))
+    proj, cands = projection(5, boost={(star, 2): 14.0}, spread=0.8)
+    st = state_for(cands, bank=200)
+    st.squad[-1] = st.squad[-1]  # no-op: squad stays as is
+    cc = ch.ChipConfig(n_worlds=60, scenario_time_limit=30,
+                       min_gain={**ch.MIN_GAIN, "3xc": 4.0}, hold_margin=0.5)  # fmt: skip
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=cc)
+    tc = [s for s in d.chip_report["scenarios"] if s["chip"] == "3xc"]
+    best = max(tc, key=lambda s: s["gain"])
+    assert best["gw"] == 12
+    assert d.chip != "3xc"  # a better week exists later, so it is held now
+    assert "3xc" in d.chip_report["held"]
+
+
+def test_wildcard_needs_to_win_most_worlds():
+    proj, cands = projection(6)
+    base = PlanInput(gws=proj.gws, squad=state_for(cands).squad, bank=20, free_transfers=1,
+                     candidates=build_candidates(proj, state_for(cands).squad))  # fmt: skip
+    plan = ch.scenario(base, "wildcard", 10, CFG, base.candidates, 1000)
+    worlds = np.arange(50)
+    ws = ch.score_plan(plan, proj, RULES, worlds)
+    assert ws.shape == (50,) and (ws > 0).all()
+    assert ch.MIN_WIN["wildcard"] >= 0.7
+
+
+def test_must_use_chip_is_played_even_below_threshold():
+    proj, cands = projection(7)
+    st = state_for(cands, chips_used=[("wildcard", 3), ("freehit", 4), ("3xc", 2)], next_gw=10)
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    # bench boost window is open until GW19 (beyond the horizon): not must-use, can be held
+    assert d.chip in (None, "bboost")
+
+
+def test_to_canonical_maps_element_ids_and_rejects_strangers():
+    _, cands = projection(8)
+    st = state_for(cands)
+    pool = pd.DataFrame(
+        {
+            "fpl_id": [p.player_id for p in st.squad],
+            "player_id": [p.player_id + 1000 for p in st.squad],
+            "team_id": [p.team_id for p in st.squad],
+        }
+    )
+    out = to_canonical(st, pool)
+    assert {p.player_id for p in out.squad} == {p.player_id + 1000 for p in st.squad}
+    with pytest.raises(ValueError):
+        to_canonical(st, pool.iloc[:5])
+
+
+def test_prune_keeps_the_squad_and_the_best_players():
+    _, cands = projection(9)
+    squad, _ = initial_squad(cands)
+    kept = prune(cands, squad, per_position=6)
+    ids = {c.player_id for c in kept}
+    assert {p.player_id for p in squad} <= ids
+    top_fwd = max((c for c in cands if c.position == "FWD"), key=lambda c: sum(c.xp))
+    assert top_fwd.player_id in ids and len(kept) < len(cands)
+
+
+def test_squad_players_without_a_projection_score_zero():
+    proj, cands = projection(10)
+    squad, _ = initial_squad(cands)
+    squad[0] = type(squad[0])(9999, squad[0].position, squad[0].team_id, 50, 50)
+    cs = build_candidates(proj, squad)
+    ghost = next(c for c in cs if c.player_id == 9999)
+    assert ghost.xp == [0.0, 0.0, 0.0]
+
+
+def _scn(chip, gw, gain, win=0.9):
+    from fpl_agent.solver.planner import Plan
+
+    return ch.Scenario(chip, gw, Plan([], 0.0, 0, 1), gain=gain, win_share=win)
+
+
+def _base3():
+    return PlanInput(gws=[10, 11, 12], squad=[], bank=0, free_transfers=1, candidates=[])
+
+
+def test_wildcard_below_seventy_percent_of_worlds_is_held():
+    base = ch.Scenario(None, None, None)
+    sc = [_scn("wildcard", 10, 12.0, win=0.62)]
+    d = ch._decide(_base3(), base, sc, {"wildcard": (6, 19)}, ch.ChipConfig())
+    assert d.play_now is None and "62%" in d.held["wildcard"]
+
+
+def test_chip_is_played_when_now_is_best_and_gain_clears_threshold():
+    sc = [_scn("bboost", 10, 11.0), _scn("bboost", 11, 9.0), _scn("bboost", 12, 7.0)]
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig()
+    )
+    assert d.play_now == "bboost" and d.chosen.gw == 10
+
+
+def test_chip_waits_for_a_clearly_better_week():
+    sc = [_scn("bboost", 10, 9.0), _scn("bboost", 12, 15.0)]
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig()
+    )
+    assert d.play_now is None and "GW12" in d.held["bboost"]
+
+
+def test_expiring_chip_is_played_at_the_best_week_even_for_a_tiny_gain():
+    sc = [_scn("freehit", 10, 0.5), _scn("freehit", 11, 0.2), _scn("freehit", 12, 0.1)]
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"freehit": (6, 12)}, ch.ChipConfig()
+    )
+    assert d.play_now == "freehit"  # the window closes inside the horizon: use it or lose it

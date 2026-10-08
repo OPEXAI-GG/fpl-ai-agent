@@ -69,3 +69,6 @@ class FPLClient:
 
     def entry_picks_raw(self, entry_id: int, gw: int) -> dict[str, Any]:
         return self._get(f"entry/{entry_id}/event/{gw}/picks/")
+
+    def entry_transfers_raw(self, entry_id: int) -> list[dict[str, Any]]:
+        return self._get(f"entry/{entry_id}/transfers/")

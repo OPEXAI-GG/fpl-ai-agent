@@ -35,10 +35,48 @@ def live_payload(bootstrap: dict) -> dict:
     return {"elements": els}
 
 
+def _synth_match(match_id: str) -> dict | None:
+    """The recorded match page re-labelled as another fixture from the recorded league pages, so
+    update tests can fetch every finished match without hundreds of KB of fixtures."""
+    import copy
+
+    for name in ("championship", "premier"):
+        for m in fixture(f"fotmob_league_{name}.json")["fixtures"]["allMatches"]:
+            if m["id"] == match_id and m["status"].get("finished"):
+                page = copy.deepcopy(fixture(f"fotmob_match_{name}.json"))
+                hg, ag = (int(x) for x in m["status"]["scoreStr"].split(" - "))
+                page["general"].update(
+                    matchId=match_id, homeTeam=m["home"], awayTeam=m["away"],
+                    matchTimeUTCDate=m["status"]["utcTime"].replace("Z", ".000Z"),
+                )  # fmt: skip
+                page["header"]["teams"][0]["score"] = hg
+                page["header"]["teams"][1]["score"] = ag
+                return page
+    return None
+
+
+def _fotmob(request: httpx.Request, all_matches: bool = False) -> httpx.Response:
+    q = dict(request.url.params)
+    if request.url.path.endswith("/leagues"):
+        name = {"48": "championship", "47": "premier"}.get(q.get("id", ""))
+        if name:
+            return httpx.Response(200, json=fixture(f"fotmob_league_{name}.json"))
+    if request.url.path.endswith("/matchDetails"):
+        for name, mid in (("championship", "5836754"), ("premier", "5795363")):
+            if q.get("matchId") == mid:
+                return httpx.Response(200, json=fixture(f"fotmob_match_{name}.json"))
+        page = _synth_match(q.get("matchId", "")) if all_matches else None
+        if page:
+            return httpx.Response(200, json=page)
+    return httpx.Response(404)
+
+
 Response = tuple[int, object]  # (status, json-able body or raw str/bytes)
 
 
-def make_http(overrides: dict[str, Response | Callable[[], Response]] | None = None):
+def make_http(
+    overrides: dict[str, Response | Callable[[], Response]] | None = None, all_matches: bool = False
+):
     """httpx.Client serving the fixtures. `overrides` maps a URL substring to a response (or a
     callable returning one) to inject outages and format changes."""
     overrides = overrides or {}
@@ -58,6 +96,15 @@ def make_http(overrides: dict[str, Response | Callable[[], Response]] | None = N
             return httpx.Response(200, json=fixture("fixtures.json"))
         if "/live/" in url:
             return httpx.Response(200, json=live_payload(boot))
+        if "raw.githubusercontent.com" in url and "vaastav" in url:
+            if "players_raw" in url:
+                return httpx.Response(200, text=(FIX / "vaastav_2017_players_raw.csv").read_text())
+            old = any(f"/{y}-" in url for y in (2016, 2017, 2018, 2019))
+            return httpx.Response(
+                200, text=(FIX / ("vaastav_2017.csv" if old else "vaastav_2024.csv")).read_text()
+            )
+        if "fotmob.com" in url:
+            return _fotmob(request, all_matches)
         if "getLeagueData" in url:
             return httpx.Response(200, json=fixture("understat_league.json"))
         if "getPlayerData" in url:
@@ -81,3 +128,9 @@ def clients(overrides=None):
         UnderstatClient(client=http, backoff=0, retries=1, delay=0),
         http,
     )
+
+
+def fotmob_client(overrides=None, all_matches: bool = False):
+    from fpl_agent.data.fotmob import FotMobClient
+
+    return FotMobClient(client=make_http(overrides, all_matches), backoff=0, retries=1, delay=0)

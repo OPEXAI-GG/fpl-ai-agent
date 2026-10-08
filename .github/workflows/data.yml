@@ -1,0 +1,51 @@
+name: data
+# Weekly full update (Tuesday, after the gameweek's scores lock) and a light daily refresh.
+# The database lives as parquet files in the `data` release asset; nothing is committed to git.
+on:
+  schedule:
+    - cron: "0 9 * * 2"     # weekly: FPL, Understat, football-data, FotMob for every competition
+    - cron: "30 6 * * *"    # daily: prices, ownership, news, fixtures only
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "weekly (all sources) or daily (FPL + football-data only)"
+        default: weekly
+permissions:
+  contents: write           # needed to upload the release asset
+concurrency:
+  group: data
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Decide mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "30 6 * * *" ]; then
+            echo "mode=daily" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=${{ github.event.inputs.mode || 'weekly' }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update database
+        run: |
+          if [ "${{ steps.mode.outputs.mode }}" = "daily" ]; then
+            uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
+              --export data_cache/out --football-data E0,E1
+          else
+            uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
+              --export data_cache/out --football-data E0,E1,E2 --points \
+              --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1 \
+              --fotmob all --fotmob-matches 120
+          fi
+      - name: Publish database
+        run: scripts/data_publish.sh data_cache/out

@@ -36,8 +36,9 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
 
     # --- duplicates ---------------------------------------------------------------------
     check("error", "duplicate_matches",
-          "SELECT count(*) FROM (SELECT 1 FROM matches GROUP BY competition_id, season, "
-          "home_team_id, away_team_id HAVING count(*) > 1)",
+          "SELECT count(*) FROM (SELECT 1 FROM matches WHERE competition_id NOT IN "
+          "(SELECT competition_id FROM competitions WHERE tier = 0) GROUP BY competition_id, "
+          "season, home_team_id, away_team_id HAVING count(*) > 1)",
           "league pairings stored more than once")  # fmt: skip
     check("error", "duplicate_team_keys",
           "SELECT count(*) FROM (SELECT 1 FROM teams GROUP BY key HAVING count(*) > 1)",
@@ -136,11 +137,12 @@ def _points_consistency(db: FootballDB, rules: Rules) -> list[Issue]:
     """Recompute stored official points with the rules engine (single-fixture rows)."""
     rows = db.con.execute(
         "SELECT f.fpl_id, p.position, f.stats, f.total_points, f.gw FROM fpl_points_gw f "
-        "JOIN (SELECT DISTINCT fpl_id, position FROM fpl_players_gw) p USING (fpl_id) "
-        "WHERE f.fixture_id IN (SELECT fixture_id FROM fpl_points_gw GROUP BY fpl_id, gw, "
+        "JOIN (SELECT DISTINCT season, fpl_id, position FROM fpl_players_gw) p "
+        "USING (season, fpl_id) WHERE f.season = ? AND f.fixture_id IN (SELECT fixture_id FROM fpl_points_gw GROUP BY fpl_id, gw, "
         "fixture_id HAVING count(*) = 1) AND f.fpl_id NOT IN (SELECT fpl_id FROM fpl_points_gw "
-        "GROUP BY fpl_id, gw HAVING count(*) > 1)"
-    ).fetchall()
+        "GROUP BY fpl_id, gw HAVING count(*) > 1)",
+        [rules["season"]],
+    ).fetchall()  # older seasons were scored under different rules
     bad = 0
     for _, position, stats, total, _gw in rows:
         if score(json.loads(stats), position, rules)["total"] != total:

@@ -73,3 +73,37 @@ def test_snapshot_command(fake_net, tmp_path, capsys):
 def test_understat_command(fake_net, capsys):
     assert cli.main(["understat"]) == 0
     assert "coverage" in capsys.readouterr().out
+
+
+def test_review_on_an_empty_database_reports_unavailable(tmp_path, capsys):
+    assert (
+        cli.main(["review", "--db", str(tmp_path / "e.duckdb"), "--season", "2026", "--gw", "3"])
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert '"available": false' in out
+
+
+def test_backtest_without_history_says_so(tmp_path, capsys):
+    code = cli.main(["backtest", "--db", str(tmp_path / "e.duckdb"), "--season", "2025"])
+    assert code == 2 and "not enough history" in capsys.readouterr().out
+
+
+def test_plan_reports_an_fpl_outage_with_exit_code_2(tmp_path, capsys, monkeypatch):
+    from fpl_agent import agent
+
+    class Down:
+        def bootstrap(self):
+            raise RuntimeError("down")
+
+    monkeypatch.setattr(agent, "FPLClient", lambda: Down())
+    monkeypatch.delenv("AGENT_MODE", raising=False)
+    assert cli.main(["plan", "--db", str(tmp_path / "e.duckdb"), "--entry", "1"]) == 2
+    assert "DRY mode" in capsys.readouterr().out
+
+
+def test_review_can_export_the_database(tmp_path, capsys):
+    out = tmp_path / "pq"
+    cli.main(["review", "--db", str(tmp_path / "e.duckdb"), "--export", str(out)])
+    capsys.readouterr()
+    assert out.exists()
