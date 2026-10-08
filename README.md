@@ -4,7 +4,9 @@ Autonomous Fantasy Premier League agent: statistical points model, a news "scout
 a MILP solver and (later) automatic execution. Build plan lives in the project files; this repo is
 built phase by phase through small PRs.
 
-**Status:** Phase 0 (scaffold) and Phase 1 start (public FPL client, snapshot store, deadline calendar).
+**Status (plan v2):** the football database (DuckDB; `fpl-agent db-update`) is the core every model will read from. Writers so far: FPL (players, fixtures, official points with explain), Understat (match xG, per-player match stats, shots), football-data.co.uk (PL + Championship results, xG, odds). FotMob, backfill from 2017/18 and the weekly workflow come next.
+
+**Earlier status:** Phase 0 (scaffold) and Phase 1 start (public FPL client, snapshot store, deadline calendar).
 
 ## Safety defaults
 
@@ -19,6 +21,7 @@ uv sync
 uv run ruff check . && uv run ruff format --check .
 uv run pytest -q
 uv run fpl-agent snapshot      # pull public FPL data into data_cache/snapshots (git-ignored)
+uv run fpl-agent db-update --points --players --limit 25   # build data_cache/football.duckdb
 ```
 
 Tests run against recorded fixtures in `tests/fixtures/`, so they need no network.
