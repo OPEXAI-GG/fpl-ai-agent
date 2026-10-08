@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - name: Tests with coverage gate
+        run: uv run pytest -q --cov --cov-report=term-missing --cov-fail-under=85
+      - name: Smoke - CLI starts and rules file loads
+        run: |
+          uv run fpl-agent --help
+          uv run python -c "from fpl_agent.rules import Rules; Rules.load(2026)"
