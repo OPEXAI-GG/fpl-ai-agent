@@ -30,6 +30,8 @@ TEAM_ALIASES = {
     "west bromwich albion": "west brom",
     "sheffield united": "sheffield utd",
     "sheffield wednesday": "sheffield wed",
+    "sheffield weds": "sheffield wed",
+    "nott m forest": "nott m forest",
     "leeds united": "leeds",
     "leicester city": "leicester",
     "norwich city": "norwich",
@@ -59,6 +61,20 @@ def team_key(name: str) -> str:
     n = normalise(name)
     n = n[:-3] if n.endswith(" fc") else n
     return TEAM_ALIASES.get(n, n)
+
+
+# Words clubs add or drop between sources ("Bolton" vs "Bolton Wanderers", "Lincoln City").
+GENERIC_TOKENS = {"city", "town", "athletic", "wanderers", "rovers", "county", "albion", "united",
+                  "hotspur", "fc", "afc", "cf", "sc", "rangers", "argyle", "orient"}  # fmt: skip
+
+
+def _same_club(a: str, b: str) -> bool:
+    """Equal once generic club words are ignored, and only when that leaves a name behind."""
+    ta, tb = set(a.split()), set(b.split())
+    if ta == tb:
+        return True
+    ca, cb = ta - GENERIC_TOKENS, tb - GENERIC_TOKENS
+    return bool(ca) and ca == cb and (ta <= tb or tb <= ta)
 
 
 def now() -> datetime:
@@ -132,6 +148,11 @@ class FootballDB:
             return row[0]
         key = team_key(name)
         row = self.con.execute("SELECT team_id FROM teams WHERE key = ?", [key]).fetchone()
+        if not row:
+            for tid_, k in self.con.execute("SELECT team_id, key FROM teams").fetchall():
+                if _same_club(key, k):
+                    row = (tid_,)
+                    break
         if row:
             tid = row[0]
         else:
@@ -171,12 +192,14 @@ class FootballDB:
         match_date: date,
         home_team_id: int,
         away_team_id: int,
+        allow_repeat: bool = False,
         **fields: Any,
     ) -> int:
         """Find or create a league match by (competition, season, home, away).
 
         Dates move (postponements, TV picks), so they are updated, never used as the key. A
-        cup competition with repeat pairings would need its own key.
+        cup competition can repeat a pairing (two legs, knockout rounds), so with `allow_repeat`
+        the date is part of the key and a new source id never merges into an earlier leg.
         """
         if source_id is not None:
             row = self.con.execute(
@@ -186,11 +209,16 @@ class FootballDB:
             if row:
                 self._update_match(row[0], {"match_date": match_date, **fields})
                 return row[0]
-        row = self.con.execute(
+        sql = (
             "SELECT match_id FROM matches WHERE competition_id = ? AND season = ? "
-            "AND home_team_id = ? AND away_team_id = ?",
-            [competition_id, season, home_team_id, away_team_id],
-        ).fetchone()  # a league pairing happens once per season, so a moved date can't duplicate
+            "AND home_team_id = ? AND away_team_id = ?"
+        )
+        params: list[Any] = [competition_id, season, home_team_id, away_team_id]
+        if allow_repeat:
+            sql += " AND match_date = ?"
+            params.append(match_date)
+        # a league pairing happens once per season, so a moved date can't duplicate
+        row = self.con.execute(sql, params).fetchone()
         if row:
             mid = row[0]
             self._update_match(mid, {"match_date": match_date, **fields})
@@ -241,8 +269,9 @@ class FootballDB:
             n = self.con.execute(f"SELECT count(*) FROM {name}").fetchone()[0]
             counts[name] = n
             if n:
+                target = out / f"{name}.parquet"
                 self.con.execute(
-                    f"COPY (SELECT * FROM {name}) TO '{out / (name + '.parquet')}' (FORMAT parquet)"
+                    f"COPY (SELECT * FROM {name}) TO '{target}' (FORMAT parquet, COMPRESSION zstd)"
                 )
         return counts
 

@@ -9,7 +9,8 @@ import pandas as pd
 
 from fpl_agent.db.database import FootballDB, now
 
-COMPETITIONS = {"EPL": "ENG1"}
+COMPETITIONS = {"EPL": "ENG1", "La_liga": "ESP1", "Serie_A": "ITA1", "Bundesliga": "GER1",
+                "Ligue_1": "FRA1"}  # fmt: skip
 STATS = ["goals", "assists", "shots", "xG", "xA", "key_passes", "npg", "npxG", "xGChain",
          "xGBuildup"]  # fmt: skip
 

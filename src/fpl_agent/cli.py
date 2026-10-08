@@ -65,18 +65,54 @@ def understat(settings: Settings, season: str, with_players: bool, limit: int | 
 def db_update(args: argparse.Namespace) -> int:
     from pathlib import Path
 
+    from fpl_agent.data import leagues
     from fpl_agent.db.database import FootballDB
     from fpl_agent.pipeline import UpdateOptions, run_update
 
+    fotmob = (
+        tuple(leagues.LEAGUES)
+        if args.fotmob == "all"
+        else tuple(c for c in (args.fotmob or "").split(",") if c)
+    )
     opts = UpdateOptions(
         season=int(args.season),
+        fotmob=fotmob,
+        fotmob_matches=args.fotmob_matches,
+        understat_leagues=tuple(c for c in args.understat_leagues.split(",") if c),
         football_data=tuple(d for d in (args.football_data or "").split(",") if d),
         points=args.points,
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
     )
-    result = run_update(FootballDB(args.db), opts)
+    db = FootballDB(args.db)
+    if args.import_dir:
+        db.import_parquet(args.import_dir)
+    result = run_update(db, opts)
+    print(result.message())
+    return result.exit_code
+
+
+def backfill(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from fpl_agent.data import leagues
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.pipeline import BackfillOptions, run_backfill
+
+    comps = tuple(c for c in args.competitions.split(",") if c) or tuple(leagues.LEAGUES)
+    opts = BackfillOptions(
+        start=args.start,
+        end=args.end,
+        competitions=comps,
+        fotmob_matches=args.fotmob_matches,
+        sources=tuple(s for s in args.sources.split(",") if s),
+        export=Path(args.export) if args.export else None,
+    )
+    db = FootballDB(args.db)
+    if args.import_dir:
+        db.import_parquet(args.import_dir)
+    result = run_backfill(db, opts)
     print(result.message())
     return result.exit_code
 
@@ -99,12 +135,27 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--players", action="store_true", help="also load Understat player histories")
     d.add_argument("--limit", type=int, default=25, help="max players for --players")
     d.add_argument("--export", default=None, help="write parquet files to this directory")
+    d.add_argument("--import-dir", default=None, help="load previously exported parquet first")
+    d.add_argument("--fotmob", default="", help="'all' or comma list of competition ids")
+    d.add_argument("--fotmob-matches", type=int, default=60, help="match pages per competition")
+    d.add_argument("--understat-leagues", default="EPL", help="comma list, e.g. EPL,La_liga")
+    b = sub.add_parser("backfill", help="fill history from 2017/18 (resumable, bounded per run)")
+    b.add_argument("--db", default="data_cache/football.duckdb")
+    b.add_argument("--start", type=int, default=2017)
+    b.add_argument("--end", type=int, default=2026)
+    b.add_argument("--competitions", default="", help="comma list of competition ids (default all)")
+    b.add_argument("--sources", default="football-data,understat,fotmob,vaastav")
+    b.add_argument("--fotmob-matches", type=int, default=400)
+    b.add_argument("--export", default=None)
+    b.add_argument("--import-dir", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "snapshot":
         return snapshot(settings)
     if args.cmd == "db-update":
         return db_update(args)
+    if args.cmd == "backfill":
+        return backfill(args)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2

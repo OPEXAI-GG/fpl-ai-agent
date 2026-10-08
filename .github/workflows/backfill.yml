@@ -1,0 +1,40 @@
+name: backfill
+# Fills history from 2017/18. Resumable: each run continues where the last stopped (finished
+# seasons are remembered, FotMob match pages are capped per run). Re-run until the log shows
+# nothing left, or leave the nightly schedule on and switch it off afterwards.
+on:
+  workflow_dispatch:
+    inputs:
+      competitions:
+        description: "comma list of competition ids (empty = all)"
+        default: ""
+      start:
+        description: "first season (start year)"
+        default: "2017"
+  schedule:
+    - cron: "15 1 * * *"
+permissions:
+  contents: write
+concurrency:
+  group: data
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Backfill
+        run: |
+          uv run fpl-agent backfill --db data_cache/football.duckdb --import-dir data_cache/export \
+            --export data_cache/out --start "${{ github.event.inputs.start || '2017' }}" \
+            --competitions "${{ github.event.inputs.competitions }}" --fotmob-matches 400
+      - name: Publish database
+        run: scripts/data_publish.sh data_cache/out

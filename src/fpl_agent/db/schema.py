@@ -70,3 +70,7 @@ TABLES: dict[str, str] = {
     "ingest_log": """
         source VARCHAR, run_at TIMESTAMP, table_name VARCHAR, rows INTEGER, note VARCHAR""",
 }
+
+TABLES["ingest_state"] = """
+    source VARCHAR, key VARCHAR, status VARCHAR, detail VARCHAR, updated_at TIMESTAMP,
+    PRIMARY KEY (source, key)"""

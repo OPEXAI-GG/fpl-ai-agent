@@ -85,6 +85,44 @@ def understat_player(raw: Any) -> list[str]:
     return errs
 
 
+def fotmob_league(raw: Any) -> list[str]:
+    errs = _keys(raw, {"details", "fixtures"}, "fotmob league")
+    if errs:
+        return errs
+    errs += _keys(raw["details"], {"id", "name", "selectedSeason"}, "fotmob details")
+    errs += _keys(raw["fixtures"], {"allMatches"}, "fotmob fixtures")
+    if errs:
+        return errs
+    matches = raw["fixtures"]["allMatches"]
+    if not isinstance(matches, list):
+        return ["fotmob fixtures: allMatches is not a list"]
+    if matches:
+        errs += _keys(matches[0], {"id", "home", "away", "status"}, "fotmob fixture")
+        if not errs:
+            errs += _keys(matches[0]["home"], {"id", "name"}, "fotmob fixture home")
+            errs += _keys(matches[0]["status"], {"utcTime", "finished"}, "fotmob fixture status")
+    return errs
+
+
+def fotmob_match(raw: Any) -> list[str]:
+    errs = _keys(raw, {"general", "header", "content"}, "fotmob match")
+    if errs:
+        return errs
+    errs += _keys(raw["general"], {"matchId", "homeTeam", "awayTeam", "finished"}, "fotmob general")
+    errs += _keys(raw["content"], {"lineup", "playerStats", "shotmap", "stats"}, "fotmob content")
+    if errs:
+        return errs
+    lineup = raw["content"]["lineup"]
+    errs += _keys(lineup, {"homeTeam", "awayTeam"}, "fotmob lineup")
+    if not errs and lineup["homeTeam"]:
+        errs += _keys(lineup["homeTeam"], {"id", "name", "starters", "subs"}, "fotmob lineup team")
+    stats = raw["content"]["playerStats"]
+    if stats:
+        first = next(iter(stats.values()))
+        errs += _keys(first, {"id", "name", "stats"}, "fotmob playerStats entry")
+    return errs
+
+
 def football_data_csv(text: str, div: str = "") -> list[str]:
     import pandas as pd
 
