@@ -72,3 +72,9 @@ def test_review_workflow_runs_after_the_data_update():
     assert wf["on"]["schedule"][0]["cron"] == "30 10 * * 2"
     text = (WF / "review.yml").read_text()
     assert "review --db" in text and "--export" in text
+
+
+def test_backtest_workflow_is_read_only_and_manual():
+    wf = load(WF / "backtest.yml")
+    assert wf["permissions"] == {"contents": "read"}
+    assert "workflow_dispatch" in wf["on"] and "schedule" not in wf["on"]

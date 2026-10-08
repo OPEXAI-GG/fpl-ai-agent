@@ -1,0 +1,41 @@
+name: backtest
+# Click "Run workflow" once the history backfill has finished. Scores the projection stack on a
+# past season using only data available before each deadline, and compares it with simple
+# baselines (last 5 games, FPL's own expected points). Read-only: changes nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "season start year to test (2025 = 2025/26)"
+        default: "2025"
+      from_gw:
+        description: "first gameweek"
+        default: "10"
+      to_gw:
+        description: "last gameweek"
+        default: "30"
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Back-test
+        run: |
+          uv run fpl-agent backtest --db data_cache/football.duckdb --import-dir data_cache/export \
+            --season "${{ github.event.inputs.season }}" --from-gw "${{ github.event.inputs.from_gw }}" \
+            --to-gw "${{ github.event.inputs.to_gw }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest
+          path: backtest.csv
+          if-no-files-found: ignore
