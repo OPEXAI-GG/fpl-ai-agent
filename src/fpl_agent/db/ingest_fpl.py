@@ -101,6 +101,12 @@ def load_fixtures(db: FootballDB, fixtures: list[dict[str, Any]], raw: dict[str,
 def load_live(db: FootballDB, live: dict[str, Any], season: int, gw: int) -> int:
     """Official points per player per fixture, with FPL's own explain breakdown."""
     rows = []
+    kickoffs = dict(
+        db.con.execute(
+            "SELECT i.source_id::INTEGER, m.kickoff FROM match_ids i JOIN matches m USING "
+            "(match_id) WHERE i.source = 'fpl'"
+        ).fetchall()
+    )
     for el in live["elements"]:
         row = db.con.execute(
             "SELECT player_id FROM player_ids WHERE source = 'fpl' AND source_id = ?",
@@ -127,6 +133,7 @@ def load_live(db: FootballDB, live: dict[str, Any], season: int, gw: int) -> int
                     "stats": json.dumps(stats),
                     "explain": json.dumps(explain.get(fx, [])),
                     "ingested_at": now(),
+                    "kickoff": kickoffs.get(fx),
                 }
             )
     n = db.upsert("fpl_points_gw", pd.DataFrame(rows))

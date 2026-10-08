@@ -61,6 +61,12 @@ def problems(text: str) -> list[str]:
     return [f"vaastav: missing columns {sorted(missing)}"] if missing else []
 
 
+def _kickoff(value) -> datetime | None:
+    if value is None or pd.isna(value):
+        return None
+    return datetime.fromisoformat(str(value).replace("Z", "")).replace(tzinfo=None)
+
+
 def load_csv(
     db: FootballDB, text: str, season: int, positions: dict[int, str] | None = None
 ) -> int:
@@ -83,6 +89,10 @@ def load_csv(
         canon[int(el)] = pid
         if link is None:
             index.setdefault(key, []).append(pid)
+    team_of: dict[str, int] = {}
+    if "team" in df.columns:
+        for name in df["team"].dropna().unique():
+            team_of[str(name)] = db.team_id("vaastav-team", f"{season}:{name}", str(name))
     pts, snaps = [], []
     for r in df.itertuples(index=False):
         row = r._asdict()
@@ -96,7 +106,8 @@ def load_csv(
              "total_points": int(row["total_points"]),
              "bps": int(row["bps"]) if pd.notna(row.get("bps")) else None,
              "bonus": int(row["bonus"]) if pd.notna(row.get("bonus")) else None,
-             "stats": json.dumps(stats), "explain": "[]", "ingested_at": stamp}
+             "stats": json.dumps(stats), "explain": "[]", "ingested_at": stamp,
+             "kickoff": _kickoff(row.get("kickoff_time"))}
         )  # fmt: skip
         if pd.notna(row.get("kickoff_time")):
             ko = datetime.fromisoformat(str(row["kickoff_time"]).replace("Z", "")).replace(
@@ -105,6 +116,7 @@ def load_csv(
             snaps.append(
                 {"season": season, "gw": gw, "snapshot_at": ko, "fpl_id": el,
                  "player_id": canon[el], "position": POS.get(str(row["position"])),
+                 "team_id": team_of.get(str(row.get("team"))), "status": "a",
                  "now_cost": int(row["value"]),
                  "raw": json.dumps({"was_home": row.get("was_home")})}
             )  # fmt: skip
