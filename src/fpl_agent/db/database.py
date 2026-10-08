@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -71,6 +72,17 @@ class FootballDB:
         self.con = duckdb.connect(str(path))
         for name, ddl in TABLES.items():
             self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
+
+    @contextmanager
+    def transaction(self):
+        """All-or-nothing writes: a source that fails half way leaves no partial rows."""
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            yield
+        except BaseException:
+            self.con.execute("ROLLBACK")
+            raise
+        self.con.execute("COMMIT")
 
     def close(self) -> None:
         self.con.close()

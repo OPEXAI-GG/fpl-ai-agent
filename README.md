@@ -38,3 +38,23 @@ Tests run against recorded fixtures in `tests/fixtures/`, so they need no networ
 | `GH_SECRETS_PAT` | secret | execution (M5) | fine-grained PAT, Secrets read/write, to rotate the token |
 | `AGENT_MODE` | variable | M3 | `dry` (default) or `live` |
 | `AGENT_ENABLED` | variable | M3 | kill switch |
+
+## Testing layer
+
+CI (`ci.yml`) blocks on: lint, format, the full test suite, a **coverage gate (85%)**, and a CLI smoke check. Run it all locally with `uv run pytest --cov`.
+
+| Level | What it proves | Where |
+|---|---|---|
+| Unit | rules (scoring, bonus, auto-subs, prices), id matching, calendar, store | `tests/test_rules.py`, `test_data.py`, `test_understat_idmap.py` |
+| Acceptance | the rules engine reproduces FPL's official points and bonus on recorded real gameweeks | `tests/test_rules.py` |
+| Property-based | invariants for any input (bonus never mis-ranks, auto-sub always gives a legal XI) | `tests/test_properties.py` |
+| Recorded real responses | every source's parser/contract passes on real captured payloads | `tests/fixtures/`, `test_contracts.py` |
+| Format-change detection | each renamed/removed field, HTML instead of JSON, empty body is caught before reaching the database | `test_contracts.py`, `test_pipeline.py` |
+| Failure handling | source down, 5xx, changed format: skipped and alerted, critical source aborts with nothing written, partial writes roll back, bad data is never exported | `test_pipeline.py` |
+| Data quality | duplicates, orphan ids, impossible values, source disagreement, stored points vs the rules engine; every check is proven to fire on corrupted data | `db/quality.py`, `test_quality.py` |
+| CLI smoke | the real commands run end to end on recorded data and return the right exit codes | `test_cli.py` |
+| Live canary | the real sources still match the contracts and a full update succeeds (daily, plus manual) | `.github/workflows/canary.yml`, `tests/live/` |
+
+`fpl-agent db-update` exit codes: `0` ok (non-critical sources may have been skipped and alerted), `2` a critical source (FPL) failed and nothing was written, `3` data failed quality checks and was not exported.
+
+**Not covered yet:** models, solver and execution (they do not exist yet; each will ship with its own tests and a backtest gate), FotMob (next), authenticated FPL writes (the agent stays in dry mode), and the GitHub Actions scheduling itself. Branch protection must be switched on in the repo settings (require the `test` check) for a red CI to actually block merging; code cannot do that.

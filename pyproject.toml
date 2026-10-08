@@ -16,7 +16,13 @@ dependencies = [
 fpl-agent = "fpl_agent.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.5", "respx>=0.21"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+    "respx>=0.21",
+    "hypothesis>=6.168.5",
+    "pytest-cov>=7.1.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -34,3 +40,13 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = ["live: hits real external services (daily canary only)"]
+
+[tool.coverage.run]
+source = ["src/fpl_agent"]
+branch = true
+
+[tool.ruff.lint.per-file-ignores]
+"src/fpl_agent/db/quality.py" = ["E501"]  # long SQL strings
+"tests/test_quality.py" = ["E501"]  # one-line corruption statements

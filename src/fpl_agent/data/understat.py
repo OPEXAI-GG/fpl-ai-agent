@@ -12,6 +12,8 @@ from typing import Any
 
 import httpx
 
+from fpl_agent.errors import SourceFormatError, SourceUnavailable
+
 BASE = "https://understat.com"
 
 
@@ -39,14 +41,17 @@ class UnderstatClient:
                     raise httpx.HTTPStatusError("retryable", request=resp.request, response=resp)
                 resp.raise_for_status()
                 time.sleep(self._delay)
-                return resp.json()  # httpx transparently gunzips
-            except (httpx.TransportError, httpx.HTTPStatusError, ValueError) as exc:
+                try:
+                    return resp.json()  # httpx transparently gunzips
+                except ValueError as exc:
+                    raise SourceFormatError(f"GET {url}: response is not JSON") from exc
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 last = exc
                 if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 429:
-                    raise
+                    raise SourceUnavailable(f"GET {url}: HTTP {exc.response.status_code}") from exc
                 if attempt < self._retries:
                     time.sleep(self._backoff * 2**attempt)
-        raise RuntimeError(f"GET {url} failed after {self._retries + 1} attempts") from last
+        raise SourceUnavailable(f"GET {url} failed after {self._retries + 1} attempts") from last
 
     def league_data(self, season: str, league: str = "EPL") -> dict[str, Any]:
         """teams (with per-match history), players (season totals), dates (fixtures + xG)."""

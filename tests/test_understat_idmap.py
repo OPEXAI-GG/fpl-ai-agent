@@ -6,6 +6,7 @@ import pytest
 
 from fpl_agent.data.id_map import build_id_map, coverage, normalise, team_key
 from fpl_agent.data.understat import UnderstatClient
+from fpl_agent.errors import SourceUnavailable
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -76,7 +77,7 @@ def test_client_raises_on_404():
         delay=0,
         backoff=0,
     )
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(SourceUnavailable):
         c.player_data(1)
 
 

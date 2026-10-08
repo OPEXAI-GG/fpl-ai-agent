@@ -33,7 +33,6 @@ def snapshot(settings: Settings) -> int:
 
 
 def understat(settings: Settings, season: str, with_players: bool, limit: int | None) -> int:
-    import json
 
     import pandas as pd
 
@@ -64,45 +63,22 @@ def understat(settings: Settings, season: str, with_players: bool, limit: int | 
 
 
 def db_update(args: argparse.Namespace) -> int:
-    import httpx
+    from pathlib import Path
 
-    from fpl_agent.db import ingest_football_data, ingest_fpl, ingest_understat
     from fpl_agent.db.database import FootballDB
+    from fpl_agent.pipeline import UpdateOptions, run_update
 
-    season = int(args.season)
-    db = FootballDB(args.db)
-    fpl = FPLClient()
-    raw, fixtures = fpl.bootstrap_raw(), fpl.fixtures_raw()
-    nxt = next_event(Bootstrap.model_validate(raw))
-    gw = nxt.id if nxt else 38
-    ingest_fpl.load_bootstrap(db, raw, season, gw)
-    ingest_fpl.load_fixtures(db, fixtures, raw, season)
-    for ev in raw["events"]:
-        if ev["finished"] and args.points:
-            ingest_fpl.load_live(db, fpl.live_raw(ev["id"]), season, ev["id"])
-    us = UnderstatClient()
-    league = us.league_data(str(season))
-    ingest_understat.load_league(db, league, season)
-    id_map = build_id_map(raw, league["players"])
-    if args.players:
-        fpl_to_canon = dict(
-            db.con.execute(
-                "SELECT source_id::INTEGER, player_id FROM player_ids WHERE source = 'fpl'"
-            ).fetchall()
-        )
-        rows = id_map.dropna(subset=["fpl_id"]).head(args.limit)
-        for r in rows.itertuples():
-            ingest_understat.load_player(
-                db, us.player_data(r.understat_id), fpl_to_canon.get(int(r.fpl_id))
-            )
-    for div in args.football_data.split(",") if args.football_data else []:
-        resp = httpx.get(ingest_football_data.url(div, season), follow_redirects=True, timeout=30)
-        resp.raise_for_status()
-        ingest_football_data.load_csv(db, resp.text, div, season)
-    print(json.dumps(db.counts()))
-    if args.export:
-        db.export_parquet(args.export)
-    return 0
+    opts = UpdateOptions(
+        season=int(args.season),
+        football_data=tuple(d for d in (args.football_data or "").split(",") if d),
+        points=args.points,
+        players=args.players,
+        player_limit=args.limit,
+        export=Path(args.export) if args.export else None,
+    )
+    result = run_update(FootballDB(args.db), opts)
+    print(result.message())
+    return result.exit_code
 
 
 def main(argv: list[str] | None = None) -> int:

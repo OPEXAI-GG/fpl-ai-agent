@@ -9,6 +9,7 @@ import httpx
 
 from fpl_agent.config import FPL_BASE_URL
 from fpl_agent.data.schemas import Bootstrap, Fixture
+from fpl_agent.errors import SourceFormatError, SourceUnavailable
 
 
 class FPLClient:
@@ -33,14 +34,17 @@ class FPLClient:
                 if resp.status_code in (429, 500, 502, 503, 504):
                     raise httpx.HTTPStatusError("retryable", request=resp.request, response=resp)
                 resp.raise_for_status()
-                return resp.json()
+                try:
+                    return resp.json()
+                except ValueError as exc:  # HTML maintenance page, empty body, ...
+                    raise SourceFormatError(f"GET {url}: response is not JSON") from exc
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 last = exc
                 if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 429:
-                    raise
+                    raise SourceUnavailable(f"GET {url}: HTTP {exc.response.status_code}") from exc
                 if attempt < self._retries:
                     time.sleep(self._backoff * 2**attempt)
-        raise RuntimeError(f"GET {url} failed after {self._retries + 1} attempts") from last
+        raise SourceUnavailable(f"GET {url} failed after {self._retries + 1} attempts") from last
 
     def bootstrap_raw(self) -> dict[str, Any]:
         return self._get("bootstrap-static/")

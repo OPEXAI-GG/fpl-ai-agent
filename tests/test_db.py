@@ -131,3 +131,38 @@ def test_moved_fixture_does_not_duplicate():
     m2 = db.match_id("understat", "u9", "ENG1", 2026, date(2026, 11, 9), h, a)
     assert m1 == m2
     assert db.query("SELECT match_date FROM matches").loc[0, "match_date"].day == 9
+
+
+def test_understat_player_appearances_link_to_known_matches():
+    """A player's Understat match rows attach to the canonical match, club and stats."""
+    db = FootballDB()
+    league = {
+        "dates": [
+            {"id": "31222", "isResult": True, "datetime": "2026-09-20 15:30:00",
+             "h": {"id": "88", "title": "Manchester City"}, "a": {"id": "5", "title": "Sunderland"},
+             "goals": {"h": "5", "a": "3"}, "xG": {"h": "3.2", "a": "1.9"}}
+        ]
+    }  # fmt: skip
+    ingest_understat.load_league(db, league, 2026)
+    ingest_understat.load_player(db, load("understat_player.json"))
+    app = db.query("SELECT * FROM appearances")
+    assert len(app) == 1 and app.loc[0, "minutes"] == 90
+    assert (
+        db.query("SELECT name FROM teams WHERE team_id = ?", [int(app.loc[0, "team_id"])]).iloc[
+            0, 0
+        ]
+        == "Manchester City"
+    )
+    stats = db.query("SELECT stat, value FROM player_match_stats").set_index("stat")["value"]
+    assert stats["goals"] == 1 and round(stats["xG"], 2) == 1.34
+
+
+def test_transaction_rolls_back_on_error():
+    db = FootballDB()
+    try:
+        with db.transaction():
+            db.team_id("fpl", 1, "Arsenal")
+            raise RuntimeError("source died")
+    except RuntimeError:
+        pass
+    assert db.counts()["teams"] == 0 and db.counts()["team_ids"] == 0

@@ -9,6 +9,7 @@ from fpl_agent.data.fpl_client import FPLClient
 from fpl_agent.data.players import fixtures_frame, players_frame
 from fpl_agent.data.schemas import Bootstrap, Fixture
 from fpl_agent.data.store import SnapshotStore
+from fpl_agent.errors import SourceUnavailable
 
 
 def test_schema_validates_and_keeps_extras(bootstrap_raw):
@@ -77,7 +78,7 @@ def test_client_does_not_retry_404():
         return httpx.Response(404)
 
     client = FPLClient(client=httpx.Client(transport=httpx.MockTransport(handler)), backoff=0)
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(SourceUnavailable):
         client.bootstrap_raw()
     assert calls["n"] == 1
 
