@@ -1,0 +1,77 @@
+# FPL rules for 2026/27. Every number the engine uses lives here; a rule change is a new file.
+# `scoring`, `squad`, `chips` mirror the official bootstrap-static game_config / chips (checked
+# 8 Oct 2026). `defcon` and `bps` come from FPL's published rules and are NOT exposed by the API
+# in detail, so only their totals are verified (see tests/test_rules.py).
+season: 2026
+
+scoring:
+  minutes_short: 1        # 1-59 minutes
+  minutes_long: 2         # 60+ minutes
+  goal: {GKP: 10, DEF: 6, MID: 5, FWD: 4}
+  assist: 3
+  clean_sheet: {GKP: 4, DEF: 4, MID: 1, FWD: 0}   # needs 60+ minutes
+  goals_conceded_per: 2   # -1 per N goals conceded
+  goals_conceded: {GKP: -1, DEF: -1, MID: 0, FWD: 0}
+  saves_per: 3            # +1 per N saves
+  save_points: 1
+  penalty_saved: 5
+  penalty_missed: -2
+  yellow_card: -1
+  red_card: -3
+  own_goal: -2
+  bonus: 1                # per bonus point
+  defcon:                 # defensive contribution: 2 points once per match
+    points: 2
+    cap_per_match: 1
+    threshold: {DEF: 10, MID: 12, FWD: 12}   # CBIT for DEF; CBIRT (adds recoveries) for MID/FWD
+    # GKP cannot score defensive contribution points
+
+bps:                      # Bonus Points System (event weights). null = not confirmed for 2026/27
+  minutes_1_59: 3
+  minutes_60_plus: 6
+  goal: {GKP: 12, DEF: 12, MID: 18, FWD: 24}
+  assist: 9
+  clean_sheet: {GKP: 12, DEF: 12, MID: 0, FWD: 0}
+  goals_conceded: {GKP: -4, DEF: -4, MID: 0, FWD: 0}   # per goal conceded
+  penalty_saved: 9
+  penalty_missed: -6
+  own_goal: -6
+  yellow_card: -3
+  red_card: -9
+  save: null              # 2026/27 changed GK save values: confirm before use
+  cbi_per_3: 1            # 2026/27: clearances/blocks/interceptions, 1 per 3
+  tackle_won: 2
+  shot_on_target: 2
+  key_pass: 1
+  big_chance_created: 3
+  dribble: 1
+  fouled: 1
+  foul_committed: -1
+  offside: -1
+  error_leading_to_goal: -3
+  error_leading_to_shot: -3
+  penalty_conceded: -3
+
+bonus_points: [3, 2, 1]   # for the top three BPS in a match, ties handled in engine.bonus
+
+squad:
+  size: 15
+  starting: 11
+  budget: 1000            # tenths of a million
+  per_club: 3
+  positions: {GKP: 2, DEF: 5, MID: 5, FWD: 3}
+  formation_min: {GKP: 1, DEF: 3, MID: 2, FWD: 1}
+  formation_max: {GKP: 1, DEF: 5, MID: 5, FWD: 3}
+
+transfers:
+  free_per_gw: 1
+  max_banked: 5
+  hit_cost: 4
+  sell_on_fee: 0.5        # you keep half of any price rise, rounded down to 0.1m
+
+chips:                    # first set GW1-19, second set GW20-38; one chip per GW
+  wildcard: [[2, 19], [20, 38]]
+  freehit: [[2, 19], [20, 38]]
+  bboost: [[1, 19], [20, 38]]
+  3xc: [[1, 19], [20, 38]]
+captain_multiplier: 2
