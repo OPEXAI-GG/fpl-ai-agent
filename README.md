@@ -59,6 +59,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `data.yml` | daily + Tuesday | update the database from all sources and publish it |
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
 | `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 2-26h away; notifies once per gameweek; **fixed to dry** |
+| `backtest.yml` | manual button | back-test a past season against simple baselines; results in the run summary (read-only) |
 | `review.yml` | Tuesday | score the finished gameweek and publish the reviews |
 | `canary.yml` | daily | check every live source still matches its contract |
 
@@ -100,7 +101,7 @@ mock transports.
 
 ## Known limitations and skipped items
 
-* **No real-data accuracy numbers yet.** The projection stack is tested on a synthetic league with known truth (361 tests, 94% coverage), but the point-in-time backtest on real seasons needs the full history, which the `backfill` workflow builds over several runs. Once it has finished, run `fpl-agent backtest --season 2025` and check that the simulator beats the "last 5 games" and FPL-xP baselines in each position before trusting the plans.
+* **No real-data accuracy numbers yet.** The projection stack is tested on a synthetic league with known truth (361 tests, 94% coverage), but the point-in-time backtest on real seasons needs the full history, which the `backfill` workflow builds over several runs. Once it has finished, click **Actions -> backtest -> Run workflow** (or run `fpl-agent backtest --season 2025`) and check that the simulator beats the "last 5 games" and FPL-xP baselines in each position before trusting the plans.
 
 * **Live execution has never been run against a real account.** The FPL sign-in endpoint and client id (`FPL_TOKEN_URL`, `FPL_CLIENT_ID`) must be copied from your own browser session, and the write payloads follow FPL's documented shape but are unverified. That is why the build stops at dry mode.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
