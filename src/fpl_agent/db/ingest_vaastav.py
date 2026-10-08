@@ -21,7 +21,7 @@ POS = {"GKP": "GKP", "GK": "GKP", "DEF": "DEF", "MID": "MID", "FWD": "FWD", "AM"
 STAT_COLS = ["minutes", "goals_scored", "assists", "clean_sheets", "goals_conceded", "own_goals",
              "penalties_saved", "penalties_missed", "yellow_cards", "red_cards", "saves", "bonus",
              "bps", "defensive_contribution", "starts", "expected_goals", "expected_assists",
-             "expected_goals_conceded"]  # fmt: skip
+             "expected_goals_conceded", "xP"]  # fmt: skip
 REQUIRED = {"name", "element", "total_points", "minutes", "round", "fixture", "value"}
 
 

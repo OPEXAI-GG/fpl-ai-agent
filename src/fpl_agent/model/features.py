@@ -18,6 +18,7 @@ STAT_FIELDS = {
     "yellow": "yellow_cards", "red": "red_cards", "own_goals": "own_goals",
     "pen_missed": "penalties_missed", "pen_saved": "penalties_saved",
     "conceded": "goals_conceded", "clean_sheet": "clean_sheets", "starts": "starts",
+    "xp": "xP",
 }  # fmt: skip
 
 
