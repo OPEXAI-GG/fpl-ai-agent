@@ -8,9 +8,11 @@ import sys
 from fpl_agent.config import Settings
 from fpl_agent.data.calendar import next_event
 from fpl_agent.data.fpl_client import FPLClient
+from fpl_agent.data.id_map import build_id_map, coverage
 from fpl_agent.data.players import fixtures_frame, players_frame
 from fpl_agent.data.schemas import Bootstrap
 from fpl_agent.data.store import SnapshotStore
+from fpl_agent.data.understat import UnderstatClient, player_frames
 
 
 def snapshot(settings: Settings) -> int:
@@ -29,14 +31,53 @@ def snapshot(settings: Settings) -> int:
     return 0
 
 
+def understat(settings: Settings, season: str, with_players: bool, limit: int | None) -> int:
+    import json
+
+    import pandas as pd
+
+    fpl_raw = FPLClient().bootstrap_raw()
+    nxt = next_event(Bootstrap.model_validate(fpl_raw))
+    gw = nxt.id if nxt else None
+    store = SnapshotStore(settings.snapshot_dir)
+    client = UnderstatClient()
+    league = client.league_data(season)
+    store.write("understat_league", gw, league)
+    id_map = build_id_map(fpl_raw, league["players"])
+    store.write_frame("id_map", id_map, gw)
+    cov = coverage(id_map, fpl_raw)
+    print(json.dumps({k: v for k, v in cov.items() if k != "missing"}))
+    if cov["missing"]:
+        print("unmapped players with minutes:", ", ".join(cov["missing"]))
+    if with_players:
+        ids = id_map.dropna(subset=["fpl_id"])["understat_id"].tolist()[:limit]
+        matches, shots = [], []
+        for uid in ids:
+            m, s = player_frames(client.player_data(uid))
+            matches.append(m)
+            shots.append(s)
+        store.write_frame("understat_matches", pd.concat(matches, ignore_index=True), gw)
+        store.write_frame("understat_shots", pd.concat(shots, ignore_index=True), gw)
+        print(f"stored match + shot history for {len(ids)} players")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("snapshot", help="pull public FPL data and store a point-in-time snapshot")
+    u = sub.add_parser("understat", help="pull Understat xG data and map players to FPL ids")
+    u.add_argument("--season", default="2026", help="start year, e.g. 2026 for 2026/27")
+    u.add_argument(
+        "--players", action="store_true", help="also pull per-player match + shot history"
+    )
+    u.add_argument("--limit", type=int, default=None, help="cap players pulled (testing)")
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "snapshot":
         return snapshot(settings)
+    if args.cmd == "understat":
+        return understat(settings, args.season, args.players, args.limit)
     return 2
 
 
