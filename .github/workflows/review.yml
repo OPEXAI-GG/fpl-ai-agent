@@ -1,0 +1,33 @@
+name: review
+# After the gameweek's points are final (the data workflow runs Tuesday 09:00 UTC), score the
+# projections and the dry-run decision for that gameweek, and publish the reviews.
+on:
+  schedule:
+    - cron: "30 10 * * 2"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: data
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Review the latest finished gameweek
+        run: |
+          uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
+            --football-data E0 --points
+          uv run fpl-agent review --db data_cache/football.duckdb --gw 0 \
+            --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publish database
+        run: scripts/data_publish.sh data_cache/out

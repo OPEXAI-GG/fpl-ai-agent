@@ -8,8 +8,8 @@ import pytest
 
 from fpl_agent.solver.planner import (
     Candidate,
-    PlannerConfig,
     PlanInput,
+    PlannerConfig,
     SquadPlayer,
     free_hit_value,
     solve_plan,
@@ -118,7 +118,10 @@ def test_banking_a_free_transfer_is_valued():
     need = {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3}
     clubs = {}
     for c in best:
-        if sum(1 for s in squad if s.position == c.position) < need[c.position] and clubs.get(c.team_id, 0) < 3:
+        if (
+            sum(1 for s in squad if s.position == c.position) < need[c.position]
+            and clubs.get(c.team_id, 0) < 3
+        ):
             squad.append(SquadPlayer(c.player_id, c.position, c.team_id, c.price, c.price))
             clubs[c.team_id] = clubs.get(c.team_id, 0) + 1
     pi = PlanInput(gws=[10, 11, 12], squad=squad, bank=0, free_transfers=1, candidates=cands)
@@ -164,7 +167,7 @@ def test_triple_captain_triples_the_captain():
 
 
 def cfg_decay(t):
-    return PlannerConfig().decay**t
+    return PlannerConfig().decay ** t
 
 
 def test_free_hit_week_leaves_the_real_squad_untouched():
@@ -185,7 +188,9 @@ def test_free_hit_team_respects_the_budget_and_beats_a_weak_squad():
     value, squad = free_hit_value(pi.candidates, 0, budget, CFG)
     price = {c.player_id: c.price for c in pi.candidates}
     assert sum(price[i] for i in squad) <= budget
-    weak = sum(next(c for c in pi.candidates if c.player_id == p.player_id).xp[0] for p in pi.squad[:11])
+    weak = sum(
+        next(c for c in pi.candidates if c.player_id == p.player_id).xp[0] for p in pi.squad[:11]
+    )
     assert value > weak
 
 
@@ -206,35 +211,32 @@ def test_squad_players_must_be_candidates():
 
 
 def test_matches_brute_force_on_a_tiny_one_week_problem():
-    """One gameweek, a squad of 15 from 17 candidates: enumerate every single swap and compare."""
+    """One gameweek, a legal 15-man squad plus one spare DEF and MID: try every single swap."""
     rng = np.random.default_rng(10)
-    spec = [("GKP", 2), ("DEF", 5), ("MID", 5), ("FWD", 3)]
     cands, pid = [], 0
-    for pos, n in spec:
-        for k in range(n + 1 if pos in ("DEF", "MID") else n):
+    for pos, n in (("GKP", 2), ("DEF", 6), ("MID", 6), ("FWD", 3)):
+        for _ in range(n):
             pid += 1
-            cands.append(Candidate(pid, pos, 1 + pid % 6, int(rng.integers(45, 90)),
+            cands.append(Candidate(pid, pos, 1 + pid % 8, int(rng.integers(45, 90)),
                                    [float(rng.uniform(0.5, 7.0))]))  # fmt: skip
-    squad = [SquadPlayer(c.player_id, c.position, c.team_id, c.price, c.price) for c in cands
-             if c.player_id not in (7, 13)][:15]
-    squad = sorted(squad, key=lambda s: s.player_id)
-    chosen = {s.player_id for s in squad}
-    for c in cands:  # make sure the squad is legal in the chosen shape
-        pass
-    cfg = PlannerConfig(time_limit=30, bench_weights=(0, 0, 0), bench_gk_weight=0, transfer_epsilon=0,
-                        bank_value_per_tenth=0, ft_values=(0, 0, 0, 0))  # fmt: skip
+    spare = {c.player_id for c in cands if c.position in ("DEF", "MID")}
+    spare = {max(i for i in spare if next(c for c in cands if c.player_id == i).position == p)
+             for p in ("DEF", "MID")}  # fmt: skip
+    chosen = {c.player_id for c in cands} - spare
+    squad = [SquadPlayer(c.player_id, c.position, c.team_id, c.price, c.price)
+             for c in cands if c.player_id in chosen]  # fmt: skip
+    cfg = PlannerConfig(time_limit=30, bench_weights=(0, 0, 0), bench_gk_weight=0,
+                        transfer_epsilon=0, bank_value_per_tenth=0, ft_values=(0, 0, 0, 0))  # fmt: skip
     pi = PlanInput(gws=[1], squad=squad, bank=40, free_transfers=1, candidates=cands)
-    try:
-        plan = solve_plan(pi, cfg)
-    except Exception:
-        pytest.skip("random squad was not legal")
+    plan = solve_plan(pi, cfg)
     pos = {c.player_id: c.position for c in cands}
     xp = {c.player_id: c.xp[0] for c in cands}
+    price = {c.player_id: c.price for c in cands}
 
     def value(sq):
+        """Best XI + captain bonus for a fixed squad, over every legal formation."""
         best = 0.0
-        gk = [i for i in sq if pos[i] == "GKP"]
-        for g in gk:
+        for g in (i for i in sq if pos[i] == "GKP"):
             others = sorted((i for i in sq if pos[i] != "GKP"), key=lambda i: -xp[i])
             for nd, nm, nf in itertools.product(range(3, 6), range(2, 6), range(1, 4)):
                 if nd + nm + nf != 10:
@@ -242,21 +244,16 @@ def test_matches_brute_force_on_a_tiny_one_week_problem():
                 pick = []
                 for p, n in (("DEF", nd), ("MID", nm), ("FWD", nf)):
                     pick += [i for i in others if pos[i] == p][:n]
-                if len(pick) != 10:
-                    continue
-                s = xp[g] + sum(xp[i] for i in pick)
-                cap = max(xp[i] for i in pick + [g])
-                best = max(best, s + cap)
+                if len(pick) == 10:
+                    best = max(
+                        best, xp[g] + sum(xp[i] for i in pick) + max(xp[i] for i in [*pick, g])
+                    )
         return best
 
-    base = value(list(chosen))
-    price = {c.player_id: c.price for c in cands}
-    best_alt = base
-    for out in chosen:
+    best = value(chosen)  # keep the squad
+    for out in chosen:  # or make any one same-position swap we can afford
         for inn in set(price) - chosen:
-            if pos[inn] != pos[out] or price[inn] - price[out] > 40:
-                continue
-            sq = (chosen - {out}) | {inn}
-            best_alt = max(best_alt, value(list(sq)) - 6.0 * 0)  # one free transfer, no hit
+            if pos[inn] == pos[out] and price[inn] - price[out] <= 40:
+                best = max(best, value((chosen - {out}) | {inn}))
     got = sum(xp[i] for i in plan.first.xi) + xp[plan.first.captain]
-    assert got == pytest.approx(best_alt, abs=1e-6) or got >= best_alt - 1e-6
+    assert got == pytest.approx(best, abs=1e-6)

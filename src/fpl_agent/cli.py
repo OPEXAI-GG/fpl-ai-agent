@@ -117,6 +117,76 @@ def backfill(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+def _open_db(args: argparse.Namespace):
+    from fpl_agent.db.database import FootballDB
+
+    db = FootballDB(args.db)
+    if getattr(args, "import_dir", None):
+        db.import_parquet(args.import_dir)
+    return db
+
+
+def _export(db, args: argparse.Namespace) -> None:
+    if getattr(args, "export", None):
+        db.export_parquet(args.export)
+
+
+def plan(args: argparse.Namespace, settings: Settings) -> int:
+    """Weekly decision. Dry unless AGENT_MODE=live; never needs credentials in dry mode."""
+    from pathlib import Path
+
+    from fpl_agent.agent import RunOptions, run_weekly
+
+    opts = RunOptions(
+        season=int(args.season), horizon=args.horizon,
+        entry_id=args.entry or settings.entry_id, force=args.force,
+        use_chips=not args.no_chips, samples=args.samples,
+        out_dir=Path(args.out) if args.out else None, notify=args.notify,
+    )  # fmt: skip
+    db = _open_db(args)
+    res = run_weekly(db, settings, opts)
+    _export(db, args)
+    print(res.report)
+    return res.exit_code
+
+
+def review_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import review
+
+    db = _open_db(args)
+    season = int(args.season)
+    if args.gw == 0:  # latest gameweek with official points
+        row = db.con.execute(
+            "SELECT max(gw) FROM fpl_points_gw WHERE season = ?", [season]).fetchone()  # fmt: skip
+        args.gw = int(row[0] or 0)
+    out = {
+        "prediction": review.prediction_review(db, season, args.gw),
+        "decision": review.decision_review(db, season, args.gw),
+        "season": review.summarize(db, season),
+    }
+    _export(db, args)
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
+def backtest_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent.model import backtest
+    from fpl_agent.model.simulate import SimConfig
+
+    db = _open_db(args)
+    gws = list(range(args.from_gw, args.to_gw + 1))
+    res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples))
+    if res.empty:
+        print("no gameweeks could be back-tested (not enough history in the database)")
+        return 2
+    summary = backtest.summarize(res)
+    print(summary.round(3).to_string(index=False))
+    print(json.dumps(backtest.beats_baselines(summary), indent=2))
+    if args.out:
+        res.to_csv(args.out, index=False)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -148,6 +218,34 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--fotmob-matches", type=int, default=400)
     b.add_argument("--export", default=None)
     b.add_argument("--import-dir", default=None)
+    pl = sub.add_parser(
+        "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
+    )
+    pl.add_argument("--db", default="data_cache/football.duckdb")
+    pl.add_argument("--import-dir", default=None)
+    pl.add_argument("--season", default="2026")
+    pl.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    pl.add_argument("--horizon", type=int, default=6)
+    pl.add_argument("--samples", type=int, default=1000)
+    pl.add_argument("--force", action="store_true", help="ignore the deadline-window gate")
+    pl.add_argument("--no-chips", action="store_true")
+    pl.add_argument("--export", default=None, help="write the database as parquet here")
+    pl.add_argument("--out", default=None, help="write gw<N>.md and gw<N>.json here")
+    pl.add_argument("--notify", action="store_true", help="send the report to NOTIFY_WEBHOOK")
+    rv = sub.add_parser("review", help="score a finished gameweek: predictions and decisions")
+    rv.add_argument("--db", default="data_cache/football.duckdb")
+    rv.add_argument("--import-dir", default=None)
+    rv.add_argument("--season", default="2026")
+    rv.add_argument("--export", default=None, help="write the database as parquet here")
+    rv.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    bt = sub.add_parser("backtest", help="point-in-time accuracy of the projection stack")
+    bt.add_argument("--db", default="data_cache/football.duckdb")
+    bt.add_argument("--import-dir", default=None)
+    bt.add_argument("--season", default="2025")
+    bt.add_argument("--from-gw", type=int, default=10)
+    bt.add_argument("--to-gw", type=int, default=20)
+    bt.add_argument("--samples", type=int, default=600)
+    bt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "snapshot":
@@ -156,6 +254,12 @@ def main(argv: list[str] | None = None) -> int:
         return db_update(args)
     if args.cmd == "backfill":
         return backfill(args)
+    if args.cmd == "plan":
+        return plan(args, settings)
+    if args.cmd == "review":
+        return review_cmd(args)
+    if args.cmd == "backtest":
+        return backtest_cmd(args)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2

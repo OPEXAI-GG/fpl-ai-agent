@@ -16,8 +16,15 @@ def _bootstrap():
         for typ, n in ((1, 2), (2, 5), (3, 5), (4, 3)):
             for _ in range(n):
                 eid += 1
-                els.append({"id": eid, "team": team, "element_type": typ,
-                            "now_cost": 45 + eid % 40, "cost_change_start": eid % 3})
+                els.append(
+                    {
+                        "id": eid,
+                        "team": team,
+                        "element_type": typ,
+                        "now_cost": 45 + eid % 40,
+                        "cost_change_start": eid % 3,
+                    }
+                )
     return {"elements": els}
 
 
@@ -36,15 +43,26 @@ def legal_squad():
 
 
 def picks_for(els, bank=15, value=1000):
-    return {"picks": [{"element": e["id"], "position": i + 1, "multiplier": 1,
-                       "is_captain": i == 0, "is_vice_captain": i == 1}
-                      for i, e in enumerate(els)],
-            "entry_history": {"bank": bank, "value": value}}
+    return {
+        "picks": [
+            {
+                "element": e["id"],
+                "position": i + 1,
+                "multiplier": 1,
+                "is_captain": i == 0,
+                "is_vice_captain": i == 1,
+            }
+            for i, e in enumerate(els)
+        ],
+        "entry_history": {"bank": bank, "value": value},
+    }
 
 
 def history(chips=(), made=None):
-    return {"chips": [{"name": n, "event": ev} for n, ev in chips],
-            "current": [{"event": g, "event_transfers": n} for g, n in (made or {}).items()]}
+    return {
+        "chips": [{"name": n, "event": ev} for n, ev in chips],
+        "current": [{"event": g, "event_transfers": n} for g, n in (made or {}).items()],
+    }
 
 
 def test_first_week_has_one_free_transfer():
@@ -73,8 +91,14 @@ def test_wildcard_and_free_hit_weeks_do_not_consume_free_transfers():
 def test_selling_price_is_half_the_profit_rounded_down():
     els = legal_squad()
     e = els[3]
-    transfers = [{"element_in": e["id"], "element_in_cost": e["now_cost"] - 5, "event": 2,
-                  "time": "2026-08-20T10:00:00Z"}]
+    transfers = [
+        {
+            "element_in": e["id"],
+            "element_in_cost": e["now_cost"] - 5,
+            "event": 2,
+            "time": "2026-08-20T10:00:00Z",
+        }
+    ]
     st = parse_squad(picks_for(els), transfers, history(), BOOT, 6, RULES)
     sp = next(s for s in st.squad if s.player_id == e["id"])
     assert sp.buy_price == e["now_cost"] - 5
@@ -91,7 +115,14 @@ def test_original_squad_uses_the_opening_price():
 
 def test_transfers_already_made_for_the_next_week_are_reported_not_applied():
     els = legal_squad()
-    t = [{"element_in": els[0]["id"], "element_in_cost": 1, "event": 6, "time": "2026-09-01T10:00:00Z"}]
+    t = [
+        {
+            "element_in": els[0]["id"],
+            "element_in_cost": 1,
+            "event": 6,
+            "time": "2026-09-01T10:00:00Z",
+        }
+    ]
     st = parse_squad(picks_for(els), t, history(), BOOT, 6, RULES)
     assert st.already_transferred == 1
 
@@ -100,11 +131,15 @@ def test_chips_available_by_window():
     st = parse_squad(picks_for(legal_squad()), [], history(chips=[("3xc", 2)]), BOOT, 6, RULES)
     avail = st.chips_available(RULES)
     assert "3xc" not in avail
-    assert avail["wildcard"] == (6, 19) and avail["bboost"] == (6, 19) and avail["freehit"] == (6, 19)
+    assert (
+        avail["wildcard"] == (6, 19) and avail["bboost"] == (6, 19) and avail["freehit"] == (6, 19)
+    )
 
 
 def test_second_half_window_resets_chips():
-    st = parse_squad(picks_for(legal_squad()), [], history(chips=[("wildcard", 3)]), BOOT, 20, RULES)
+    st = parse_squad(
+        picks_for(legal_squad()), [], history(chips=[("wildcard", 3)]), BOOT, 20, RULES
+    )
     assert st.chips_available(RULES)["wildcard"] == (20, 38)
 
 

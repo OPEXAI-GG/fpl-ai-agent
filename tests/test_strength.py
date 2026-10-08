@@ -95,7 +95,9 @@ def test_matches_after_as_of_are_not_used(world):
     m = strength.load_matches(world.db)
     early = strength.fit_ratings(m, date(2024, 9, 1))
     assert len(early.att) > 0
-    assert strength.load_matches(world.db, as_of=date(2024, 8, 11)).shape[0] <= len(world.teams) // 2
+    assert (
+        strength.load_matches(world.db, as_of=date(2024, 8, 11)).shape[0] <= len(world.teams) // 2
+    )
 
 
 # ---- odds -------------------------------------------------------------------------------

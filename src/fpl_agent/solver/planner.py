@@ -144,8 +144,8 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             for k in range(3):
                 m.var(("b", i, t, k))
         m.var(("bank", t), ub=1e6, integer=False)
-        m.var(("hit", t), ub=0.0 if (t in wc or t in fh or t in forced_roll) else cfg.max_hits_per_gw,
-              integer=True)  # fmt: skip
+        no_hit = t in wc or t in fh or t in forced_roll
+        m.var(("hit", t), ub=0.0 if no_hit else cfg.max_hits_per_gw, integer=True)
         m.var(("use", t), ub=cfg.max_free, integer=True)  # free transfers used
         m.var(("ft", t + 1), lb=1, ub=cfg.max_free, integer=True)
     ft0 = min(max(pi.free_transfers, 1), cfg.max_free)
@@ -166,7 +166,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             lo, hi = FORMATION_MIN[pos], FORMATION_MAX[pos]
             m.ge({("x", i, t): 1.0 for i in by_pos[pos]}, lo)
             m.le({("x", i, t): 1.0 for i in by_pos[pos]}, hi)
-        for club, members in by_club.items():
+        for members in by_club.values():
             if len(members) > cfg.club_limit:
                 m.le({("s", i, t): 1.0 for i in members}, cfg.club_limit)
         m.eq({("x", i, t): 1.0 for i in ids}, 11)
@@ -241,7 +241,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         xi = [i for i in ids if on(("x", i, t))]
         bench_out = [next(i for i in outfield if on(("b", i, t, k))) for k in range(3)]
         bench_gk = [i for i in gks if on(("s", i, t)) and not on(("x", i, t))]
-        xp_t = lambda i: cands[i].xp[t]  # noqa: E731
+        xp_t = lambda i, t=t: cands[i].xp[t]  # noqa: E731
         cap = next(i for i in ids if on(("c", i, t)))
         others = sorted((i for i in xi if i != cap), key=lambda i: -xp_t(i))
         weeks.append(WeekPlan(
@@ -285,7 +285,10 @@ def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerCon
     m.eq({("x", i): 1.0 for i in ids}, 11)
     m.eq({("c", i): 1.0 for i in ids}, 1)
     for i in outfield:
-        m.eq({("b", i, 0): 1.0, ("b", i, 1): 1.0, ("b", i, 2): 1.0, ("s", i): -1.0, ("x", i): 1.0}, 0.0)
+        m.eq(
+            {("b", i, 0): 1.0, ("b", i, 1): 1.0, ("b", i, 2): 1.0, ("s", i): -1.0, ("x", i): 1.0},
+            0.0,
+        )
     for k in range(3):
         m.eq({("b", i, k): 1.0 for i in outfield}, 1)
     m.le({("s", i): float(cd[i].price) for i in ids}, float(budget))

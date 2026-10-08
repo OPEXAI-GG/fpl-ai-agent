@@ -6,8 +6,8 @@ objective is *maximised* (the builder negates it for scipy).
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from dataclasses import dataclass, field
-from typing import Hashable
 
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
@@ -67,7 +67,9 @@ class Model:
     def ge(self, coeffs: dict[Hashable, float], rhs: float) -> None:
         self.con(coeffs, rhs, np.inf)
 
-    def solve(self, time_limit: float = 60.0, gap: float = 1e-3) -> tuple[dict[Hashable, float], float]:
+    def solve(
+        self, time_limit: float = 60.0, gap: float = 1e-3
+    ) -> tuple[dict[Hashable, float], float]:
         n, m = len(self.keys), len(self.lo)
         if m:
             a = coo_array((self.vals, (self.rows, self.cols)), shape=(m, n)).tocsr()

@@ -39,8 +39,10 @@ def player_comp_rates(pm: pd.DataFrame) -> pd.DataFrame:
     d = pm[pm["minutes"] > 0].copy()
     d["exposure"] = d["team_xg"] * d["minutes"] / 90.0
     g = d.groupby(["player_id", "comp"])
-    out = g.agg(minutes=("minutes", "sum"), xg=("xg", "sum"), xa=("xa", "sum"),
-                cbit=("cbit", "sum"), cbirt=("cbirt", "sum"), exposure=("exposure", "sum")).reset_index()  # fmt: skip
+    out = g.agg(
+        minutes=("minutes", "sum"), xg=("xg", "sum"), xa=("xa", "sum"),
+        cbit=("cbit", "sum"), cbirt=("cbirt", "sum"), exposure=("exposure", "sum"),
+    ).reset_index()  # fmt: skip
     out["xg_share"] = out["xg"] / out["exposure"].replace(0, np.nan)
     out["xa_share"] = out["xa"] / out["exposure"].replace(0, np.nan)
     out["cbit"] = out["cbit"] / out["minutes"] * 90
@@ -49,7 +51,9 @@ def player_comp_rates(pm: pd.DataFrame) -> pd.DataFrame:
 
 
 def estimate(
-    pm: pd.DataFrame, target: str = TARGET, min_minutes: float = 450.0,
+    pm: pd.DataFrame,
+    target: str = TARGET,
+    min_minutes: float = 450.0,
     prior_minutes: float = PRIOR_MINUTES,
 ) -> pd.DataFrame:
     """Translation factors (from_comp -> target) per stat, from players seen in both."""
@@ -123,6 +127,9 @@ def validate(pm: pd.DataFrame, target: str = TARGET, min_minutes: float = 450.0)
                     errs_t.append(abs(a * f - b))
                     errs_n.append(abs(a - b))
         if errs_t:
-            out[stat] = {"mae_translated": float(np.mean(errs_t)), "mae_naive": float(np.mean(errs_n)),
-                         "n": len(errs_t)}  # fmt: skip
+            out[stat] = {
+                "mae_translated": float(np.mean(errs_t)),
+                "mae_naive": float(np.mean(errs_n)),
+                "n": len(errs_t),
+            }
     return out

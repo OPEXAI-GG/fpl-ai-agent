@@ -14,7 +14,7 @@ from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
 from fpl_agent.solver import chips as chips_mod
 from fpl_agent.solver.inputs import build_candidates, prune
-from fpl_agent.solver.planner import PlannerConfig, PlanInput, WeekPlan
+from fpl_agent.solver.planner import PlanInput, PlannerConfig, WeekPlan
 
 
 @dataclass
@@ -97,7 +97,9 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
     if state.already_transferred:
-        warnings.append(f"{state.already_transferred} transfer(s) already made for GW{state.next_gw}")
+        warnings.append(
+            f"{state.already_transferred} transfer(s) already made for GW{state.next_gw}"
+        )
     if avail:
         cd = chips_mod.search(base, proj, rules, avail, value, cfg, chip_cfg)
         chosen, report = cd.chosen, {
@@ -108,7 +110,10 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     else:
         from fpl_agent.solver.planner import solve_plan
 
-        chosen, report = chips_mod.Scenario(None, None, solve_plan(base, cfg)), {"held": {}, "play_now": None, "scenarios": []}
+        chosen, report = (
+            chips_mod.Scenario(None, None, solve_plan(base, cfg)),
+            {"held": {}, "play_now": None, "scenarios": []},
+        )
     wk = chosen.plan.first
     return Decision(
         gw=wk.gw, week=wk, chip=wk.chip, transfers_in=wk.transfers_in,
@@ -116,7 +121,9 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         xi=wk.xi, bench=wk.bench, xp=wk.xp,
         xp_no_transfers=_best_xi_points(proj, [p.player_id for p in state.squad], 0),
         bank_after=_bank_after(state, wk, cands),
-        ft_after=chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end,
+        ft_after=(
+            chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end
+        ),
         names=names or {}, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
     )  # fmt: skip
 
@@ -124,4 +131,6 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
 def _bank_after(state: SquadState, wk: WeekPlan, cands) -> int:
     sell = {p.player_id: p.sell_price for p in state.squad}
     price = {c.player_id: c.price for c in cands}
-    return state.bank + sum(sell[o] for o in wk.transfers_out) - sum(price[i] for i in wk.transfers_in)
+    return (
+        state.bank + sum(sell[o] for o in wk.transfers_out) - sum(price[i] for i in wk.transfers_in)
+    )

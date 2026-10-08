@@ -53,14 +53,16 @@ def position_priors(pm: pd.DataFrame, target: str = TARGET) -> dict[str, dict[st
     return {"share": share, "cbit": cbit}
 
 
-def nb_dispersion(pm: pd.DataFrame, positions: dict[int, str], target: str = TARGET) -> dict[str, float]:
+def nb_dispersion(
+    pm: pd.DataFrame, positions: dict[int, str], target: str = TARGET
+) -> dict[str, float]:
     """Negative-binomial size `r` per position by method of moments on per-90 counts."""
     out = {}
     d = pm[(pm["comp"] == target) & (pm["minutes"] >= 60)].copy()
     d["pos"] = d["player_id"].map(positions)
     for pos, g in d.groupby("pos"):
         col = "cbit" if pos == "DEF" else "cbirt"
-        x = (g[col].dropna() / g.loc[g[col].notna(), "minutes"] * 90)
+        x = g[col].dropna() / g.loc[g[col].notna(), "minutes"] * 90
         if len(x) < 100:
             continue
         mu, var = float(x.mean()), float(x.var())
@@ -99,8 +101,12 @@ def fit_player_rates(
     d["cb_w"] = d["w"] * np.where(d["player_id"].map(positions) == "DEF",
                                   d["cbit"].fillna(0) * d["fx_cbit"],
                                   d["cbirt"].fillna(0) * d["fx_cbirt"])  # fmt: skip
-    d["cb_min_w"] = d["w"] * d["minutes"] * np.where(
-        np.where(d["player_id"].map(positions) == "DEF", d["cbit"], d["cbirt"]) >= 0, 1.0, 0.0
+    d["cb_min_w"] = (
+        d["w"]
+        * d["minutes"]
+        * np.where(
+            np.where(d["player_id"].map(positions) == "DEF", d["cbit"], d["cbirt"]) >= 0, 1.0, 0.0
+        )
     )
     agg = d.groupby("player_id").agg(
         ew=("ew", "sum"), xg_w=("xg_w", "sum"), xa_w=("xa_w", "sum"), cb_w=("cb_w", "sum"),
@@ -121,7 +127,9 @@ def fit_player_rates(
         else:
             xg_s = (a["xg_w"] + EXPOSURE_PRIOR * base_share) / (a["ew"] + EXPOSURE_PRIOR)
             xa_s = (a["xa_w"] + EXPOSURE_PRIOR * base_share * 0.8) / (a["ew"] + EXPOSURE_PRIOR)
-            finish = float(np.clip((a["goals"] + FINISH_PRIOR_XG) / (a["xg_raw"] + FINISH_PRIOR_XG), 0.8, 1.3))
+            finish = float(
+                np.clip((a["goals"] + FINISH_PRIOR_XG) / (a["xg_raw"] + FINISH_PRIOR_XG), 0.8, 1.3)
+            )
             cb_mu = (a["cb_w"] + CBIT_PRIOR_MINUTES / 90 * base_cb) / (
                 a["cb_min_w"] / 90 + CBIT_PRIOR_MINUTES / 90
             )
@@ -136,8 +144,11 @@ def fit_player_rates(
     out = pd.DataFrame(rows, columns=FRAME_COLUMNS)
     # discipline defaults to the position mean where a player has no official history
     for col in ("yellow90", "red90"):
-        out[col] = out[col].fillna(out.groupby("position")[col].transform("mean")).fillna(
-            {"yellow90": 0.12, "red90": 0.006}[col])
+        out[col] = (
+            out[col]
+            .fillna(out.groupby("position")[col].transform("mean"))
+            .fillna({"yellow90": 0.12, "red90": 0.006}[col])
+        )
     return out
 
 

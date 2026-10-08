@@ -45,7 +45,9 @@ def projection_backtest(
         if fx.empty:
             continue
         as_of = pd.Timestamp(fx["kickoff"].min()).date()
-        history = frame[(frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))]
+        history = frame[
+            (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
+        ]
         if len(history) < 200:
             continue
         if model is None or fitted_at is None or gw - fitted_at >= refit_every:
@@ -58,14 +60,21 @@ def projection_backtest(
         f = proj.frame().set_index("player_id")
         hist5 = history.sort_values(["player_id", "season", "gw"]).groupby("player_id").tail(5)
         last5 = hist5.groupby("player_id")["points"].mean()
-        xp = frame[(frame["season"] == season) & (frame["gw"] == gw)].groupby("player_id")["xp"].sum(min_count=1)
+        xp = (
+            frame[(frame["season"] == season) & (frame["gw"] == gw)]
+            .groupby("player_id")["xp"]
+            .sum(min_count=1)
+        )
         for pid, r in f.iterrows():
             if (pid, gw) not in actual.index:
                 continue
             a = actual.loc[(pid, gw)]
-            rows.append({"player_id": pid, "gw": gw, "position": r["position"], "actual": a["actual"],
-                         "sim": r["xpts"], "last5": last5.get(pid, np.nan) * a["fixtures"],
-                         "fpl_xp": xp.get(pid, np.nan)})  # fmt: skip
+            rows.append({
+                "player_id": pid, "gw": gw, "position": r["position"],
+                "actual": a["actual"], "sim": r["xpts"],
+                "last5": last5.get(pid, np.nan) * a["fixtures"],
+                "fpl_xp": xp.get(pid, np.nan),
+            })  # fmt: skip
     return pd.DataFrame(rows)
 
 

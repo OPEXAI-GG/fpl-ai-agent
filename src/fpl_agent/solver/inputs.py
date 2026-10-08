@@ -17,7 +17,8 @@ def to_canonical(state: SquadState, pool: pd.DataFrame) -> SquadState:
     missing = [p.player_id for p in state.squad if p.player_id not in m]
     if missing:
         raise ValueError(f"squad players not in the player database: {missing}")
-    squad = [replace(p, player_id=m[p.player_id]) for p in state.squad]
+    team = dict(zip(pool["fpl_id"].astype(int), pool["team_id"].astype(int), strict=True))
+    squad = [replace(p, player_id=m[p.player_id], team_id=team[p.player_id]) for p in state.squad]
     return replace(state, squad=squad)
 
 
@@ -35,7 +36,9 @@ def build_candidates(proj: Projection, squad: list[SquadPlayer]) -> list[Candida
     return out
 
 
-def prune(cands: list[Candidate], squad: list[SquadPlayer], per_position: int = 40) -> list[Candidate]:
+def prune(
+    cands: list[Candidate], squad: list[SquadPlayer], per_position: int = 40
+) -> list[Candidate]:
     """Keep the squad plus the best candidates per position by total expected points and by
     points per £ (so cheap enablers survive). Keeps the MILP small without removing real options."""
     keep = {p.player_id for p in squad}

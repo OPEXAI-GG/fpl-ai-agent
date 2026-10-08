@@ -51,5 +51,6 @@ source = ["src/fpl_agent"]
 branch = true
 
 [tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "B007"]  # long fixture lines; unused loop variables in table-driven tests
 "src/fpl_agent/db/quality.py" = ["E501"]  # long SQL strings
 "tests/test_quality.py" = ["E501"]  # one-line corruption statements

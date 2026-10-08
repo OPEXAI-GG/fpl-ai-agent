@@ -152,14 +152,34 @@ def _play(db, world, rng, rules, season, gw, mid, h, a, hg, ag, squads, stamp, x
                      "saves": int(rng.poisson(2.5)) if t["pos"] == "GKP" and m > 0 else 0,
                      "bonus": 0, "bps": 20 if m > 0 else 0, "defensive_contribution": 0}  # fmt: skip
             if m > 0:
-                for stat, val in (("xG", xg_i), ("xA", xa_i), ("cbit", cbit), ("cbirt", cbit + 1),
-                                  ("goals", scored[p]), ("assists", assisted[p]),
-                                  ("yellow_cards", yellow), ("red_cards", 0)):
-                    pstats.append({"match_id": mid, "player_id": p, "source": "fotmob",
-                                   "stat": stat, "value": float(val), "ingested_at": stamp})
-            stats.update({"expected_goals": xg_i, "expected_assists": xa_i,
-                          "defensive_contribution": cbit if t["pos"] == "DEF" else cbit + 1,
-                          "starts": int(m >= 55)})
+                for stat, val in (
+                    ("xG", xg_i),
+                    ("xA", xa_i),
+                    ("cbit", cbit),
+                    ("cbirt", cbit + 1),
+                    ("goals", scored[p]),
+                    ("assists", assisted[p]),
+                    ("yellow_cards", yellow),
+                    ("red_cards", 0),
+                ):
+                    pstats.append(
+                        {
+                            "match_id": mid,
+                            "player_id": p,
+                            "source": "fotmob",
+                            "stat": stat,
+                            "value": float(val),
+                            "ingested_at": stamp,
+                        }
+                    )
+            stats.update(
+                {
+                    "expected_goals": xg_i,
+                    "expected_assists": xa_i,
+                    "defensive_contribution": cbit if t["pos"] == "DEF" else cbit + 1,
+                    "starts": int(m >= 55),
+                }
+            )
             total = score(stats, t["pos"], rules)["total"]
             stats["total_points"] = total
             pts.append({"season": season, "gw": gw, "fpl_id": p, "player_id": p,

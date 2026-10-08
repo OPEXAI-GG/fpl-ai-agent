@@ -59,9 +59,7 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFra
 
 
 def _prev_rolling(s: pd.Series, by: pd.Series, window: int) -> pd.Series:
-    return (
-        s.groupby(by).transform(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
-    )
+    return s.groupby(by).transform(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
 
 
 def minutes_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -76,8 +74,11 @@ def minutes_features(df: pd.DataFrame) -> pd.DataFrame:
     out["p5"] = _prev_rolling(played, g, 5)
     # long-run view: everything before this row, exponentially weighted (~30 fixtures)
     out["s_all"] = started.groupby(g).transform(lambda x: x.shift(1).ewm(halflife=30).mean())
-    out["m_all"] = out["minutes"].astype(float).groupby(g).transform(
-        lambda x: x.shift(1).ewm(halflife=30).mean()
+    out["m_all"] = (
+        out["minutes"]
+        .astype(float)
+        .groupby(g)
+        .transform(lambda x: x.shift(1).ewm(halflife=30).mean())
     )
     out["last_minutes"] = out.groupby("player_id")["minutes"].shift(1)
     out["last_started"] = started.groupby(g).shift(1)
@@ -99,7 +100,8 @@ def minutes_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 MINUTES_FEATURES = [
-    "m3", "m5", "m10", "s3", "s5", "s10", "p5", "s_all", "m_all", "last_minutes", "last_started", "n_prev",
+    "m3", "m5", "m10", "s3", "s5", "s10", "p5", "s_all", "m_all",
+    "last_minutes", "last_started", "n_prev",
     "n_prev_season", "first_of_season", "days_rest", "zero_streak", "pos_code", "price",
     "price_vs_best", "gw_number",
 ]  # fmt: skip

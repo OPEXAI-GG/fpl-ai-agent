@@ -9,7 +9,9 @@ from tests.synth import build_world
 @pytest.fixture(scope="module")
 def results():
     w = build_world(n_teams=10, seasons=(2022, 2023, 2024), seed=41)
-    return backtest.projection_backtest(w.db, 2024, list(range(4, 14)), SimConfig(n=500), refit_every=5)
+    return backtest.projection_backtest(
+        w.db, 2024, list(range(4, 14)), SimConfig(n=500), refit_every=5
+    )
 
 
 def test_backtest_scores_every_position(results):
@@ -32,8 +34,12 @@ def test_no_look_ahead_actuals_never_enter_the_projection():
     w.db.con.execute("UPDATE fpl_points_gw SET total_points = total_points + 50, minutes = 90 "
                      "WHERE season = 2024 AND gw = 8")  # fmt: skip
     b = backtest.projection_backtest(w.db, 2024, [8], SimConfig(n=300))
-    assert np.allclose(a.sort_values("player_id").sim.to_numpy(), b.sort_values("player_id").sim.to_numpy())
-    assert not np.allclose(a.sort_values("player_id").actual.to_numpy(), b.sort_values("player_id").actual.to_numpy())
+    assert np.allclose(
+        a.sort_values("player_id").sim.to_numpy(), b.sort_values("player_id").sim.to_numpy()
+    )
+    assert not np.allclose(
+        a.sort_values("player_id").actual.to_numpy(), b.sort_values("player_id").actual.to_numpy()
+    )
 
 
 def test_summary_columns_and_small_samples_are_skipped():

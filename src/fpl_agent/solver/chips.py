@@ -26,14 +26,18 @@ from fpl_agent.rules.engine import auto_sub, effective_captain
 from fpl_agent.solver.planner import (
     Candidate,
     Plan,
-    PlannerConfig,
     PlanInput,
-    WeekPlan,
+    PlannerConfig,
     free_hit_team,
     solve_plan,
 )
 
-MIN_GAIN = {"wildcard": 6.0, "freehit": 8.0, "bboost": 8.0, "3xc": 4.0}  # expected points over baseline
+MIN_GAIN = {
+    "wildcard": 6.0,
+    "freehit": 8.0,
+    "bboost": 8.0,
+    "3xc": 4.0,
+}  # expected points over baseline
 MIN_WIN = {"wildcard": 0.70, "freehit": 0.55, "bboost": 0.55, "3xc": 0.50}
 
 

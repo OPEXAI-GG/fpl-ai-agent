@@ -37,7 +37,7 @@ def test_features_never_see_the_row_they_predict(frame):
     new = features.minutes_features(tampered)
     cols = ["m3", "m5", "m10", "s3", "s5", "s10", "last_minutes", "zero_streak"]
     # rows up to and including the first changed one are unaffected: their windows end before it
-    same = base.loc[rows[: 21], cols].fillna(-1).equals(new.loc[rows[:21], cols].fillna(-1))
+    same = base.loc[rows[:21], cols].fillna(-1).equals(new.loc[rows[:21], cols].fillna(-1))
     assert same
 
 
@@ -61,9 +61,16 @@ def test_probabilities_track_the_true_start_rate(world, frame):
     model = minutes.MinutesModel.fit(frame[frame.season < 2024])
     last = frame[frame.season < 2024]
     up = (
-        last.groupby("player_id").tail(1)[["player_id", "position", "team_id", "price"]]
-        .assign(season=2024, gw=1, horizon=1, status="a", chance=100.0,
-                kickoff=pd.Timestamp("2024-08-10"))  # fmt: skip
+        last.groupby("player_id")
+        .tail(1)[["player_id", "position", "team_id", "price"]]
+        .assign(
+            season=2024,
+            gw=1,
+            horizon=1,
+            status="a",
+            chance=100.0,
+            kickoff=pd.Timestamp("2024-08-10"),
+        )  # fmt: skip
     )
     out = model.forecast(last, up)
     truth = out.player_id.map(lambda p: world.players[p]["start_p"])

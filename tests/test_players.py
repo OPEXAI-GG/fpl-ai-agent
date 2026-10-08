@@ -46,7 +46,9 @@ def test_attacking_share_recovers_who_takes_the_chances(world, inputs):
 
 def test_defcon_rate_and_dispersion(world, inputs):
     pm, frame, positions = inputs
-    rates = players.fit_player_rates(pm, frame, positions, current_season=2024).set_index("player_id")
+    rates = players.fit_player_rates(pm, frame, positions, current_season=2024).set_index(
+        "player_id"
+    )
     defenders = [p for p, t in world.players.items() if t["pos"] == "DEF"]
     truth = np.array([world.players[p]["cbit_mu"] for p in defenders])
     assert np.corrcoef(truth, rates.loc[defenders, "cbit_mu"])[0, 1] > 0.8
@@ -61,7 +63,10 @@ def test_shrinkage_moves_thin_evidence_toward_the_position_mean(world, inputs):
     full = players.fit_player_rates(pm, frame, positions, 2024).set_index("player_id")
     little = players.fit_player_rates(thin, frame, positions, 2024).set_index("player_id")
     prior = players.position_priors(pm)["share"]["FWD"]
-    assert abs(little.loc[forward, "xg_share"] - prior) <= abs(full.loc[forward, "xg_share"] - prior) + 1e-9
+    assert (
+        abs(little.loc[forward, "xg_share"] - prior)
+        <= abs(full.loc[forward, "xg_share"] - prior) + 1e-9
+    )
 
 
 def test_unknown_player_gets_the_position_prior(inputs):
@@ -75,10 +80,27 @@ def test_recent_seasons_count_more():
     rows = []
     for season, xg in ((2022, 1.2), (2024, 0.2)):  # an old hot season, a recent cold one
         for i in range(20):
-            rows.append({"match_id": season * 100 + i, "player_id": 1, "team_id": 1, "comp": "ENG1",
-                         "season": season, "date": pd.Timestamp(season, 9, 1), "minutes": 90,
-                         "position": "FWD", "team_xg": 1.5, "xg": xg * 0.5, "xa": 0.1, "cbit": 2.0,
-                         "cbirt": 3.0, "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0})
+            rows.append(
+                {
+                    "match_id": season * 100 + i,
+                    "player_id": 1,
+                    "team_id": 1,
+                    "comp": "ENG1",
+                    "season": season,
+                    "date": pd.Timestamp(season, 9, 1),
+                    "minutes": 90,
+                    "position": "FWD",
+                    "team_xg": 1.5,
+                    "xg": xg * 0.5,
+                    "xa": 0.1,
+                    "cbit": 2.0,
+                    "cbirt": 3.0,
+                    "goals": 0,
+                    "assists": 0,
+                    "yellow_cards": 0,
+                    "red_cards": 0,
+                }
+            )
     pm = pd.DataFrame(rows)
     frame = pd.DataFrame({"player_id": [1], "minutes": [90], "yellow": [0.0], "red": [0.0]})
     new = players.fit_player_rates(pm, frame, {1: "FWD"}, 2024).iloc[0].xg_share
@@ -101,12 +123,27 @@ def movers(n=30, factor=0.6, seed=0, minutes=900):
         base = rng.uniform(0.04, 0.2)
         for comp, mult in (("ENG2", 1 / factor), ("ENG1", 1.0)):
             for i in range(minutes // 90):
-                rows.append({"match_id": hash((pid, comp, i)) % 10**9, "player_id": pid,
-                             "team_id": 1, "comp": comp, "season": 2024,
-                             "date": pd.Timestamp("2024-09-01"), "minutes": 90, "position": "MID",
-                             "team_xg": 1.5, "xg": base * mult * 1.5, "xa": base * mult * 0.7 * 1.5,
-                             "cbit": 6.0 * (1.2 if comp == "ENG2" else 1.0), "cbirt": 7.0,
-                             "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0})
+                rows.append(
+                    {
+                        "match_id": hash((pid, comp, i)) % 10**9,
+                        "player_id": pid,
+                        "team_id": 1,
+                        "comp": comp,
+                        "season": 2024,
+                        "date": pd.Timestamp("2024-09-01"),
+                        "minutes": 90,
+                        "position": "MID",
+                        "team_xg": 1.5,
+                        "xg": base * mult * 1.5,
+                        "xa": base * mult * 0.7 * 1.5,
+                        "cbit": 6.0 * (1.2 if comp == "ENG2" else 1.0),
+                        "cbirt": 7.0,
+                        "goals": 0,
+                        "assists": 0,
+                        "yellow_cards": 0,
+                        "red_cards": 0,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -126,10 +163,15 @@ def test_translation_without_movers_falls_back_to_the_prior():
 
 
 def test_thin_evidence_is_pulled_toward_the_prior():
-    thin = translation.estimate(movers(n=2, factor=0.3, minutes=450)).set_index(["from_comp", "stat"])
+    thin = translation.estimate(movers(n=2, factor=0.3, minutes=450)).set_index(
+        ["from_comp", "stat"]
+    )
     thick = translation.estimate(movers(n=60, factor=0.3)).set_index(["from_comp", "stat"])
     p = translation.prior("ENG2")
-    f_thin, f_thick = thin.loc[("ENG2", "xg_share"), "factor"], thick.loc[("ENG2", "xg_share"), "factor"]
+    f_thin, f_thick = (
+        thin.loc[("ENG2", "xg_share"), "factor"],
+        thick.loc[("ENG2", "xg_share"), "factor"],
+    )
     assert abs(f_thin - p) < abs(f_thick - p) and f_thick == pytest.approx(0.3, abs=0.12)
 
 

@@ -78,8 +78,13 @@ def parse_squad(
         e = els[p["element"]]
         buy = bought.get(e["id"], e["now_cost"] - e.get("cost_change_start", 0))
         squad.append(
-            SquadPlayer(e["id"], POSITIONS[e["element_type"]], e["team"], buy,
-                        selling_price(buy, e["now_cost"], rules))  # fmt: skip
+            SquadPlayer(
+                e["id"],
+                POSITIONS[e["element_type"]],
+                e["team"],
+                buy,
+                selling_price(buy, e["now_cost"], rules),
+            )  # fmt: skip
         )
     hist = picks.get("entry_history", {})
     chips = [(c["name"], c["event"]) for c in history.get("chips", []) if c["event"] <= last_gw]

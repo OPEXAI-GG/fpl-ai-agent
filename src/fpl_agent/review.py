@@ -42,7 +42,9 @@ def _actuals(db: FootballDB, season: int, gw: int) -> pd.DataFrame:
     return db.query(
         "SELECT player_id, sum(total_points) AS actual, sum(minutes) AS minutes, "
         "any_value(explain) AS explain FROM fpl_points_gw "
-        "WHERE season = ? AND gw = ? AND player_id IS NOT NULL GROUP BY player_id", [season, gw])
+        "WHERE season = ? AND gw = ? AND player_id IS NOT NULL GROUP BY player_id",
+        [season, gw],
+    )
 
 
 def _explain_components(blob: str | None) -> dict[str, float]:
@@ -55,7 +57,9 @@ def _explain_components(blob: str | None) -> dict[str, float]:
 def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     proj = db.query(
         "SELECT player_id, xpts, detail FROM projections WHERE season = ? AND gw = ? "
-        "QUALIFY created_at = max(created_at) OVER (PARTITION BY player_id)", [season, gw])
+        "QUALIFY created_at = max(created_at) OVER (PARTITION BY player_id)",
+        [season, gw],
+    )
     act = _actuals(db, season, gw)
     if proj.empty or act.empty:
         return {"gw": gw, "available": False}
@@ -80,8 +84,11 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
             c[2] += 1
     components = {k: {"predicted": round(v[0] / v[2], 4), "actual": round(v[1] / v[2], 4)}
                   for k, v in comp.items() if v[2]}  # fmt: skip
-    flags = [f"{p} over/under-projected by {m['bias']:+.2f} pts per player"
-             for p, m in by_pos.items() if abs(m["bias"]) > BIAS_FLAG and m["n"] >= 30]
+    flags = [
+        f"{p} over/under-projected by {m['bias']:+.2f} pts per player"
+        for p, m in by_pos.items()
+        if abs(m["bias"]) > BIAS_FLAG and m["n"] >= 30
+    ]
     # top-end calibration: did the players we rated highest deliver?
     top = df.nlargest(20, "xpts")
     report = {"gw": gw, "available": True, "n": len(df),
@@ -96,8 +103,10 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
 
 def decision_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     row = db.con.execute(
-        "SELECT payload FROM decisions WHERE season = ? AND gw = ? ORDER BY created_at DESC LIMIT 1",
-        [season, gw]).fetchone()  # fmt: skip
+        "SELECT payload FROM decisions WHERE season = ? AND gw = ? "
+        "ORDER BY created_at DESC LIMIT 1",
+        [season, gw],
+    ).fetchone()
     act = _actuals(db, season, gw).set_index("player_id")
     if not row or act.empty:
         return {"gw": gw, "available": False}
@@ -120,20 +129,30 @@ def decision_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
 
 
 def _store(db: FootballDB, season: int, gw: int, kind: str, payload: dict) -> None:
-    db.con.execute("DELETE FROM reviews WHERE season = ? AND gw = ? AND kind = ?", [season, gw, kind])
-    db.append("reviews", pd.DataFrame([{"season": season, "gw": gw, "created_at": now(),
-                                        "kind": kind, "payload": json.dumps(payload)}]))  # fmt: skip
+    db.con.execute(
+        "DELETE FROM reviews WHERE season = ? AND gw = ? AND kind = ?", [season, gw, kind]
+    )
+    row = {"season": season, "gw": gw, "created_at": now(), "kind": kind}
+    db.append("reviews", pd.DataFrame([{**row, "payload": json.dumps(payload)}]))
 
 
 def summarize(db: FootballDB, season: int) -> dict[str, Any]:
     """Running totals across reviewed gameweeks, for the weekly report."""
     rows = db.query("SELECT gw, kind, payload FROM reviews WHERE season = ? ORDER BY gw", [season])
-    pred = [json.loads(p) for k, p in zip(rows["kind"], rows["payload"], strict=True) if k == "prediction"]
-    dec = [json.loads(p) for k, p in zip(rows["kind"], rows["payload"], strict=True) if k == "decision"]
+    pred = [
+        json.loads(p)
+        for k, p in zip(rows["kind"], rows["payload"], strict=True)
+        if k == "prediction"
+    ]
+    dec = [
+        json.loads(p) for k, p in zip(rows["kind"], rows["payload"], strict=True) if k == "decision"
+    ]
     return {
         "weeks_reviewed": len(pred),
         "mean_rmse": round(float(np.mean([p["rmse"] for p in pred])), 3) if pred else None,
         "mean_bias": round(float(np.mean([p["bias"] for p in pred])), 3) if pred else None,
         "total_points": sum(d["points_after_hits"] for d in dec),
-        "captain_regret": round(float(np.mean([d["captain_regret"] for d in dec])), 2) if dec else None,
-    }  # fmt: skip
+        "captain_regret": (
+            round(float(np.mean([d["captain_regret"] for d in dec])), 2) if dec else None
+        ),
+    }

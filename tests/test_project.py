@@ -19,7 +19,11 @@ def world():
 @pytest.fixture(scope="module")
 def proj(world):
     return project.build_projection(
-        world.db, 2024, [10, 11, 12], as_of=date(2024, 10, 20), cfg=SimConfig(n=600, seed=1),
+        world.db,
+        2024,
+        [10, 11, 12],
+        as_of=date(2024, 10, 20),
+        cfg=SimConfig(n=600, seed=1),
         pool_gw=9,
     )
 

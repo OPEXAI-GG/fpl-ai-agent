@@ -37,7 +37,9 @@ def gh_secret_writer(repo: str | None = None) -> SecretWriter:
             cmd += ["--repo", repo]
         res = subprocess.run(cmd, input=value, text=True, capture_output=True, timeout=60)
         if res.returncode != 0:
-            raise AuthError(f"could not store the rotated refresh token: {res.stderr.strip()[:200]}")
+            raise AuthError(
+                f"could not store the rotated refresh token: {res.stderr.strip()[:200]}"
+            )
 
     return write
 
@@ -63,8 +65,13 @@ class TokenExchange:
 
     @classmethod
     def from_env(cls, write_back: SecretWriter | None = None) -> TokenExchange:
-        return cls(os.environ.get("FPL_REFRESH_TOKEN", ""), os.environ.get("FPL_TOKEN_URL", ""),
-                   os.environ.get("FPL_CLIENT_ID", ""), write_back or gh_secret_writer())  # fmt: skip
+        env = os.environ.get
+        return cls(
+            env("FPL_REFRESH_TOKEN", ""),
+            env("FPL_TOKEN_URL", ""),
+            env("FPL_CLIENT_ID", ""),
+            write_back or gh_secret_writer(),
+        )
 
     def exchange(self) -> Tokens:
         try:

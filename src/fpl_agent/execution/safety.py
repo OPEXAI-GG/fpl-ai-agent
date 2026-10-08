@@ -89,9 +89,15 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
 
     # data sanity
     if ctx.bootstrap_next_gw is not None and ctx.bootstrap_next_gw != d.gw:
-        add("global", "stale_data", f"plan is for GW{d.gw} but FPL's next gameweek is GW{ctx.bootstrap_next_gw}")
+        add(
+            "global",
+            "stale_data",
+            f"plan is for GW{d.gw} but FPL's next gameweek is GW{ctx.bootstrap_next_gw}",
+        )
     if (1 - ctx.projected_share) > MAX_MISSING_PROJECTIONS:
-        add("global", "missing_projections", f"{1 - ctx.projected_share:.0%} of players unprojected")
+        add(
+            "global", "missing_projections", f"{1 - ctx.projected_share:.0%} of players unprojected"
+        )
     lo, hi = XP_BOUNDS
     odd = [p for p in d.xi + d.bench if not lo <= ctx.xp.get(p, 0.0) <= hi]
     if odd:
@@ -148,6 +154,14 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
                     if s["chip"] == "wildcard" and s["gw"] == d.gw]  # fmt: skip
             if not wins or wins[0] < WILDCARD_MIN_WIN:
                 add("global", "wildcard_sensitivity", "Wildcard did not win 70% of sampled worlds")
-        if d.chip == "3xc" and ctx.xp.get(d.captain, 0.0) < TC_MIN_XP and d.captain not in ctx.double_gw_players:
-            add("global", "triple_captain", "captain is neither a double-gameweek player nor above the xP bar")
+        if (
+            d.chip == "3xc"
+            and ctx.xp.get(d.captain, 0.0) < TC_MIN_XP
+            and d.captain not in ctx.double_gw_players
+        ):
+            add(
+                "global",
+                "triple_captain",
+                "captain is neither a double-gameweek player nor above the xP bar",
+            )
     return Verdict(v)

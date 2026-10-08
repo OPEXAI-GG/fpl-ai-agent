@@ -10,7 +10,7 @@ from fpl_agent.rules import Rules
 from fpl_agent.solver import chips as ch
 from fpl_agent.solver.decide import decide
 from fpl_agent.solver.inputs import build_candidates, prune, to_canonical
-from fpl_agent.solver.planner import PlannerConfig, PlanInput
+from fpl_agent.solver.planner import PlanInput, PlannerConfig
 from tests.test_planner import initial_squad, make_pool
 
 RULES = Rules.load(2026)
@@ -29,10 +29,16 @@ def projection(seed=0, horizon=3, gws=(10, 11, 12), spread=0.6, boost=None, n=20
     pts = rng.gamma(2.0, 1.0, size=(len(cands), horizon, n)) * (mean[..., None] / 2.0)
     pts = (pts * (1 - spread) + mean[..., None] * spread).astype(np.float32)
     mins = np.full((len(cands), horizon, n), 90, dtype=np.int16)
-    meta = pd.DataFrame({"player_id": [c.player_id for c in cands],
-                         "position": [c.position for c in cands],
-                         "team_id": [c.team_id for c in cands],
-                         "price": [c.price for c in cands], "status": "a", "chance": 100.0})
+    meta = pd.DataFrame(
+        {
+            "player_id": [c.player_id for c in cands],
+            "position": [c.position for c in cands],
+            "team_id": [c.team_id for c in cands],
+            "price": [c.price for c in cands],
+            "status": "a",
+            "chance": 100.0,
+        }
+    )
     return Projection("t", 2026, list(gws), meta, pts, mins), cands
 
 
@@ -99,8 +105,13 @@ def test_must_use_chip_is_played_even_below_threshold():
 def test_to_canonical_maps_element_ids_and_rejects_strangers():
     _, cands = projection(8)
     st = state_for(cands)
-    pool = pd.DataFrame({"fpl_id": [p.player_id for p in st.squad],
-                         "player_id": [p.player_id + 1000 for p in st.squad]})  # fmt: skip
+    pool = pd.DataFrame(
+        {
+            "fpl_id": [p.player_id for p in st.squad],
+            "player_id": [p.player_id + 1000 for p in st.squad],
+            "team_id": [p.team_id for p in st.squad],
+        }
+    )
     out = to_canonical(st, pool)
     assert {p.player_id for p in out.squad} == {p.player_id + 1000 for p in st.squad}
     with pytest.raises(ValueError):
@@ -145,17 +156,23 @@ def test_wildcard_below_seventy_percent_of_worlds_is_held():
 
 def test_chip_is_played_when_now_is_best_and_gain_clears_threshold():
     sc = [_scn("bboost", 10, 11.0), _scn("bboost", 11, 9.0), _scn("bboost", 12, 7.0)]
-    d = ch._decide(_base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig())
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig()
+    )
     assert d.play_now == "bboost" and d.chosen.gw == 10
 
 
 def test_chip_waits_for_a_clearly_better_week():
     sc = [_scn("bboost", 10, 9.0), _scn("bboost", 12, 15.0)]
-    d = ch._decide(_base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig())
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig()
+    )
     assert d.play_now is None and "GW12" in d.held["bboost"]
 
 
 def test_expiring_chip_is_played_at_the_best_week_even_for_a_tiny_gain():
     sc = [_scn("freehit", 10, 0.5), _scn("freehit", 11, 0.2), _scn("freehit", 12, 0.1)]
-    d = ch._decide(_base3(), ch.Scenario(None, None, None), sc, {"freehit": (6, 12)}, ch.ChipConfig())
+    d = ch._decide(
+        _base3(), ch.Scenario(None, None, None), sc, {"freehit": (6, 12)}, ch.ChipConfig()
+    )
     assert d.play_now == "freehit"  # the window closes inside the horizon: use it or lose it

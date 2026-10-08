@@ -41,8 +41,14 @@ class Adjustment:
 
 
 class Scout:
-    def __init__(self, key: str | None = None, client: httpx.Client | None = None,
-                 model: str | None = None, limit: int = 40, max_shift: float = 0.35) -> None:  # fmt: skip
+    def __init__(
+        self,
+        key: str | None = None,
+        client: httpx.Client | None = None,
+        model: str | None = None,
+        limit: int = 40,
+        max_shift: float = 0.35,
+    ) -> None:
         self.key = key or os.environ.get("ANTHROPIC_API_KEY") or None
         self.model = model or os.environ.get("SCOUT_MODEL", DEFAULT_MODEL)
         self.limit, self.max_shift = limit, max_shift

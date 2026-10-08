@@ -5,7 +5,6 @@ import json
 from dataclasses import replace
 
 import httpx
-import pandas as pd
 import pytest
 
 from fpl_agent.config import Settings
@@ -69,7 +68,9 @@ def test_unavailable_or_doubtful_buys_and_starters_are_blocked(base):
     pool2 = base[3].copy()
     pool2.loc[pool2.player_id == d.xi[0], "status"] = "i"
     v2 = safety.check(d, ctx_for(base, pool=pool2), RULES)
-    assert rules_hit(v2, "availability_start") and v2.blocked("lineup") and not v2.blocked("transfers")
+    assert (
+        rules_hit(v2, "availability_start") and v2.blocked("lineup") and not v2.blocked("transfers")
+    )
 
 
 def test_hit_caps(base):
@@ -111,7 +112,9 @@ def test_chip_guard(base):
     used = ctx_for(base)
     used.state.chips_used.append(("bboost", 5))
     try:
-        assert rules_hit(safety.check(replace(base[2], chip="bboost"), used, RULES), "chip_unavailable")
+        assert rules_hit(
+            safety.check(replace(base[2], chip="bboost"), used, RULES), "chip_unavailable"
+        )
     finally:
         used.state.chips_used.pop()
 
@@ -138,8 +141,11 @@ def test_default_settings_are_dry(monkeypatch):
 
 # ---- payloads and the live path against a fake FPL --------------------------------------------
 def fid(base):
-    return {p: p + 5000 for p in base[1] and [x.player_id for x in base[1].squad] +
-            base[2].transfers_in + base[2].xi + base[2].bench}
+    return {
+        p: p + 5000
+        for p in base[1]
+        and [x.player_id for x in base[1].squad] + base[2].transfers_in + base[2].xi + base[2].bench
+    }
 
 
 def test_payloads(base):
@@ -151,14 +157,20 @@ def test_payloads(base):
     assert len(tp["transfers"]) == len(d.transfers_in)
     lp = lineup_payload(d, ids)
     assert [p["position"] for p in lp["picks"]] == list(range(1, 16))
-    assert sum(p["is_captain"] for p in lp["picks"]) == 1 and sum(p["is_vice_captain"] for p in lp["picks"]) == 1
+    assert (
+        sum(p["is_captain"] for p in lp["picks"]) == 1
+        and sum(p["is_vice_captain"] for p in lp["picks"]) == 1
+    )
 
 
 def test_preview_comparison_catches_a_different_plan(base):
     d = base[2]
     ids = fid(base)
-    good = {"transfers": [{"element_in": ids[i]} for i in d.transfers_in],
-            "points_cost": 4 * d.hits, "bank": d.bank_after}
+    good = {
+        "transfers": [{"element_in": ids[i]} for i in d.transfers_in],
+        "points_cost": 4 * d.hits,
+        "bank": d.bank_after,
+    }
     assert preview_matches(good, d, ids) == []
     bad = {**good, "points_cost": 4 * d.hits + 4}
     assert preview_matches(bad, d, ids)
@@ -174,8 +186,14 @@ class FakeFPL:
         assert req.headers["X-API-Authorization"] == "Bearer access"
         if req.url.path.endswith("/transfers/"):
             ins = [{"element_in": self.ids[i]} for i in self.d.transfers_in]
-            return httpx.Response(200, json={"transfers": ins, "bank": self.d.bank_after if self.ok else 0,
-                                             "points_cost": 4 * self.d.hits})
+            return httpx.Response(
+                200,
+                json={
+                    "transfers": ins,
+                    "bank": self.d.bank_after if self.ok else 0,
+                    "points_cost": 4 * self.d.hits,
+                },
+            )
         if req.method == "POST":
             return httpx.Response(200, json={})
         picks = [{"element": self.ids[p], "is_captain": p == self.d.captain} for p in self.d.xi]
@@ -231,7 +249,10 @@ def exchange_with(handler, writes):
 
 def test_rotated_refresh_token_is_written_back_before_use():
     writes = []
-    ex = exchange_with(lambda r: httpx.Response(200, json={"access_token": "acc-secret", "refresh_token": "rt1"}), writes)
+    ex = exchange_with(
+        lambda r: httpx.Response(200, json={"access_token": "acc-secret", "refresh_token": "rt1"}),
+        writes,
+    )
     t = ex.exchange()
     assert t.access == "acc-secret" and writes == [("FPL_REFRESH_TOKEN", "rt1")]
     assert "acc-secret" not in repr(t) and "rt1" not in repr(t)

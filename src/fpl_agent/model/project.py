@@ -62,7 +62,9 @@ class Projection:
 
 
 # ---- inputs from the database ------------------------------------------------------------------
-def current_pool(db: FootballDB, season: int, gw: int, as_of: datetime | None = None) -> pd.DataFrame:
+def current_pool(
+    db: FootballDB, season: int, gw: int, as_of: datetime | None = None
+) -> pd.DataFrame:
     """Latest FPL snapshot at or before `as_of` for the gameweek (or the newest one)."""
     sql = (
         "SELECT player_id, team_id, position, now_cost AS price, status, chance_next AS chance, "
@@ -77,7 +79,9 @@ def current_pool(db: FootballDB, season: int, gw: int, as_of: datetime | None = 
     return df.drop_duplicates("player_id").reset_index(drop=True)
 
 
-def fixtures_for(db: FootballDB, season: int, gws: list[int], comp: str = COMPETITION) -> pd.DataFrame:
+def fixtures_for(
+    db: FootballDB, season: int, gws: list[int], comp: str = COMPETITION
+) -> pd.DataFrame:
     marks = ", ".join("?" for _ in gws)
     return db.query(
         "SELECT match_id, matchday AS gw, home_team_id AS home, away_team_id AS away, kickoff "
@@ -118,7 +122,8 @@ def fit_bps_noise(frame: pd.DataFrame, rules: Rules, save_bps: float = 2.0) -> B
         + f["goals"].fillna(0) * by(bp["goal"]) + f["assists"].fillna(0) * bp["assist"]
         + f["clean_sheet"].fillna(0) * by(bp["clean_sheet"])
         + f["conceded"].fillna(0) * by(bp["goals_conceded"]) + f["saves"].fillna(0) * save_bps
-        + f["pen_saved"].fillna(0) * bp["penalty_saved"] + f["pen_missed"].fillna(0) * bp["penalty_missed"]
+        + f["pen_saved"].fillna(0) * bp["penalty_saved"]
+        + f["pen_missed"].fillna(0) * bp["penalty_missed"]
         + f["own_goals"].fillna(0) * bp["own_goal"] + f["yellow"].fillna(0) * bp["yellow_card"]
         + f["red"].fillna(0) * bp["red_card"]
     )  # fmt: skip
@@ -155,7 +160,9 @@ def build_projection(
     first = gws[0]
     as_of = as_of or date.today()
     frame = frame if frame is not None else features.player_gw_frame(db)
-    history = frame[(frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))]
+    history = frame[
+        (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
+    ]
     pool = pool if pool is not None else current_pool(db, season, pool_gw or first)
     fx = fixtures_for(db, season, gws)
     pool = pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))].reset_index(drop=True)

@@ -23,18 +23,41 @@ def make_db():
 
 
 EVENT = {
-    "home_team": "Arsenal", "away_team": "Manchester City", "commence_time": "2026-10-17T12:30:00Z",
+    "home_team": "Arsenal",
+    "away_team": "Manchester City",
+    "commence_time": "2026-10-17T12:30:00Z",
     "bookmakers": [
-        {"markets": [
-            {"key": "h2h", "outcomes": [{"name": "Arsenal", "price": 2.6},
-                                        {"name": "Manchester City", "price": 2.7},
-                                        {"name": "Draw", "price": 3.4}]},
-            {"key": "totals", "outcomes": [{"name": "Over", "point": 2.5, "price": 1.8},
-                                           {"name": "Under", "point": 2.5, "price": 2.0}]}]},
-        {"markets": [
-            {"key": "h2h", "outcomes": [{"name": "Arsenal", "price": 2.8},
-                                        {"name": "Manchester City", "price": 2.5},
-                                        {"name": "Draw", "price": 3.6}]}]},
+        {
+            "markets": [
+                {
+                    "key": "h2h",
+                    "outcomes": [
+                        {"name": "Arsenal", "price": 2.6},
+                        {"name": "Manchester City", "price": 2.7},
+                        {"name": "Draw", "price": 3.4},
+                    ],
+                },
+                {
+                    "key": "totals",
+                    "outcomes": [
+                        {"name": "Over", "point": 2.5, "price": 1.8},
+                        {"name": "Under", "point": 2.5, "price": 2.0},
+                    ],
+                },
+            ]
+        },
+        {
+            "markets": [
+                {
+                    "key": "h2h",
+                    "outcomes": [
+                        {"name": "Arsenal", "price": 2.8},
+                        {"name": "Manchester City", "price": 2.5},
+                        {"name": "Draw", "price": 3.6},
+                    ],
+                }
+            ]
+        },
     ],
 }
 
@@ -69,10 +92,15 @@ def test_odds_client_fetches_with_a_key():
     assert c.upcoming()[0]["home_team"] == "Arsenal"
 
 
-POOL = pd.DataFrame({
-    "player_id": [1, 2, 3, 4], "status": ["d", "i", "a", "n"], "chance": [50.0, 0.0, 100.0, 0.0],
-    "news": ["Knock - 50%", "Hamstring", "", "Left club"], "price": [100, 90, 80, 70],
-})
+POOL = pd.DataFrame(
+    {
+        "player_id": [1, 2, 3, 4],
+        "status": ["d", "i", "a", "n"],
+        "chance": [50.0, 0.0, 100.0, 0.0],
+        "news": ["Knock - 50%", "Hamstring", "", "Left club"],
+        "price": [100, 90, 80, 70],
+    }
+)
 
 
 def test_scout_is_a_no_op_without_a_key(monkeypatch):
@@ -88,8 +116,10 @@ def test_scout_selects_only_players_with_news():
 
 
 def test_parse_drops_malformed_and_unknown_entries():
-    text = 'Sure: [{"id": 1, "p_play": 0.9, "reason": "back in training"}, {"id": 9, "p_play": 0.5}, ' \
-           '{"id": 2, "p_play": 1.7}, {"id": "x"}]'
+    text = (
+        'Sure: [{"id": 1, "p_play": 0.9, "reason": "back in training"}, {"id": 9, "p_play": 0.5}, '
+        '{"id": 2, "p_play": 1.7}, {"id": "x"}]'
+    )
     out = parse(text, {1, 2})
     assert out == [Adjustment(1, 0.9, "back in training")]
     assert parse("no json", {1}) == [] and parse("[not json]", {1}) == []
@@ -108,8 +138,17 @@ def test_scout_end_to_end_with_a_mocked_api():
     def handler(req):
         sent = json.loads(req.content)
         assert sent["max_tokens"] <= 1500 and req.headers["x-api-key"] == "k"
-        return httpx.Response(200, json={"content": [{"type": "text", "text":
-                              '[{"id": 1, "p_play": 0.7, "reason": "trained Friday"}]'}]})
+        return httpx.Response(
+            200,
+            json={
+                "content": [
+                    {
+                        "type": "text",
+                        "text": '[{"id": 1, "p_play": 0.7, "reason": "trained Friday"}]',
+                    }
+                ]
+            },
+        )
 
     s = Scout(key="k", client=httpx.Client(transport=httpx.MockTransport(handler)))
     out, adj = s.run(POOL)

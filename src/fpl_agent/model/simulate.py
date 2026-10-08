@@ -37,7 +37,9 @@ class BpsNoise:
 @dataclass(frozen=True)
 class SimConfig:
     n: int = 2000
-    dispersion: float = 25.0  # gamma shape of the shared team intensity (higher = closer to Poisson)
+    dispersion: float = (
+        25.0  # gamma shape of the shared team intensity (higher = closer to Poisson)
+    )
     sot_conversion: float = 0.33  # goals per shot on target, sets how many saves a GK makes
     assist_prob: float = 0.75
     cbit_opp_exponent: float = 0.25  # more opposition attack -> more defensive actions
@@ -185,7 +187,9 @@ def _side(rng, specs, g_for, g_against, lam_against, minutes, cfg, rules):
         return np.array([table[k] for k in ("GKP", "DEF", "MID", "FWD")])[pos]
 
     comps = {
-        "minutes": np.where(minutes >= 60, sc["minutes_long"], np.where(played, sc["minutes_short"], 0)),
+        "minutes": np.where(
+            minutes >= 60, sc["minutes_long"], np.where(played, sc["minutes_short"], 0)
+        ),
         "goals": goals * by_pos(sc["goal"]),
         "assists": assists * sc["assist"],
         "clean_sheets": cs * by_pos(sc["clean_sheet"]),
