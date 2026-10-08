@@ -236,6 +236,10 @@ def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int
     f = proj.frame()
     stamp = now()
     detail = f[["p_zero", "p10", "q10", "q90", "exp_minutes"]].round(4).to_dict("records")
+    for name, arr in proj.components.items():  # per-component expectations, same row order
+        col = np.concatenate([arr[:, gi] for gi in range(len(proj.gws))])
+        for d, v in zip(detail, col, strict=True):
+            d.setdefault("components", {})[name] = round(float(v), 4)
     out = pd.DataFrame({
         "run_id": proj.run_id, "model": model, "created_at": stamp, "season": proj.season,
         "gw": f["gw"], "player_id": f["player_id"], "xpts": f["xpts"],
