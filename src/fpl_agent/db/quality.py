@@ -15,6 +15,9 @@ VALID_STATUS = {"a", "d", "i", "n", "s", "u"}
 EXPECTED_MATCHES = {"ENG1": 380, "ENG2": 552, "ENG3": 552}
 
 
+MAX_DISAGREEMENT = 0.005  # share of finished matches whose sources may disagree
+
+
 @dataclass(frozen=True)
 class Issue:
     severity: str  # "error" | "warn"
@@ -124,8 +127,12 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
         "AND t.team_id = m.home_team_id WHERE m.finished AND t.goals_for <> m.home_goals",
     )
     if mismatched:
+        finished = max(_count(db, "SELECT count(*) FROM matches WHERE finished"), 1)
+        # a few disagreements are expected across sources (late corrections, awarded results);
+        # a lot means a source or a team mapping is broken
+        severity = "error" if mismatched / finished > MAX_DISAGREEMENT else "warn"
         issues.append(
-            Issue("error", "score_disagreement", f"{mismatched} matches where sources disagree")
+            Issue(severity, "score_disagreement", f"{mismatched} matches where sources disagree")
         )
 
     # --- FPL points vs the rules engine ---------------------------------------------------
@@ -158,3 +165,55 @@ def errors(issues: list[Issue]) -> list[Issue]:
 
 def format_issues(issues: list[Issue]) -> str:
     return "\n".join(f"[{i.severity}] {i.check}: {i.detail}" for i in issues) or "no issues"
+
+
+def quarantine(db: FootballDB) -> list[Issue]:
+    """Remove individually impossible rows and report each removal as a warning.
+
+    One bad shot or one mis-mapped match must not throw away a multi-hour load, and it must not
+    be used either, so the rows are dropped and named (with enough context to find the cause).
+    Anything systematic is still caught by `run_checks`, which runs after this.
+    """
+    out: list[Issue] = []
+    with db.transaction():
+        n = _count(
+            db,
+            "SELECT count(*) FROM shots WHERE xg < 0 OR xg > 1 OR x < 0 OR x > 1 OR y < 0 "
+            "OR y > 1 OR minute < 0 OR minute > 130",
+        )
+        if n:
+            db.con.execute(
+                "DELETE FROM shots WHERE xg < 0 OR xg > 1 OR x < 0 OR x > 1 OR y < 0 OR y > 1 "
+                "OR minute < 0 OR minute > 130"
+            )
+            out.append(
+                Issue("warn", "quarantined_shots", f"dropped {n} shots with impossible values")
+            )
+        n = _count(db, "SELECT count(*) FROM fpl_players_gw WHERE now_cost < 30 OR now_cost > 250")
+        if n:
+            db.con.execute("DELETE FROM fpl_players_gw WHERE now_cost < 30 OR now_cost > 250")
+            out.append(Issue("warn", "quarantined_prices",
+                             f"dropped {n} FPL price rows outside the possible range"))  # fmt: skip
+        own = db.query(
+            "SELECT m.match_id, m.competition_id AS comp, m.season, m.match_date, t.name "
+            "FROM matches m JOIN teams t ON t.team_id = m.home_team_id "
+            "WHERE m.home_team_id = m.away_team_id"
+        )
+        for r in own.itertuples():
+            out.append(Issue("warn", "quarantined_match",
+                             f"{r.comp} {r.season} {r.match_date}: {r.name} vs itself "
+                             "(two clubs mapped to one team); match dropped"))  # fmt: skip
+        if len(own):
+            ids = [int(i) for i in own["match_id"]]
+            marks = ", ".join("?" for _ in ids)
+            for table in (
+                "team_match",
+                "appearances",
+                "player_match_stats",
+                "shots",
+                "match_odds",
+                "match_ids",
+                "matches",
+            ):
+                db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+    return out

@@ -25,7 +25,7 @@ from fpl_agent.db import (
     ingest_vaastav,
 )
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import Issue, errors, format_issues, run_checks
+from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, run_checks
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from fpl_agent.health import HealthReport, guard
 
@@ -177,7 +177,7 @@ def run_update(
             )
 
     # 5. Quality gate. Errors mean the data must not be used or exported.
-    issues = run_checks(db)
+    issues = quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, opts, alert)
 
@@ -338,7 +338,7 @@ def run_backfill(
                         db, ing, fm, c, s, opts.fotmob_matches
                     ),
                 )
-    issues = run_checks(db)
+    issues = quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
 
