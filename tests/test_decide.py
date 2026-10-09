@@ -195,3 +195,18 @@ def test_rank_mode_captain_prefers_the_higher_haul_chance_within_the_slack():
     assert (cap, vice) == (2, 1) and opts[0]["player_id"] == 1
     cap, _, _ = captain_choice(proj, [1, 2, 3], slack=0.0)
     assert cap == 1
+
+
+def test_unavailable_or_doubtful_players_are_never_offered_as_buys():
+    from fpl_agent.solver.inputs import build_candidates
+
+    proj, cands = projection(1)
+    st = state_for(cands, bank=60)
+    owned = {p.player_id for p in st.squad}
+    outsider = next(i for i in proj.player_ids if i not in owned)
+    meta = proj.meta.assign(status="a", chance=100.0)
+    meta.loc[meta.player_id == outsider, "chance"] = 50.0
+    proj.meta = meta
+    assert outsider not in {c.player_id for c in build_candidates(proj, st.squad)}
+    meta.loc[meta.player_id == outsider, ["status", "chance"]] = ["a", float("nan")]
+    assert outsider in {c.player_id for c in build_candidates(proj, st.squad)}

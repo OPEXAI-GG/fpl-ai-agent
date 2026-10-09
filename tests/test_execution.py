@@ -229,7 +229,22 @@ def test_a_preview_that_disagrees_is_not_confirmed(base):
                   {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
     assert any("preview differs" in b for b in out.blocked)
     assert not any(conf is True for _, _, conf in fake.log)
-    assert any(p.endswith("/my-team/77/") for _, p, _ in fake.log)  # lineup is still attempted
+    # the lineup needs players the blocked transfers would have brought in, so it is not sent
+    assert not any(m == "POST" and p.endswith("/my-team/77/") for m, p, _ in fake.log)
+    assert any("lineup not set" in b for b in out.blocked)
+
+
+def test_blocked_transfers_never_send_a_lineup_of_unowned_players(base):
+    d = base[2]
+    pool = base[3].copy()
+    pool.loc[pool.player_id == d.transfers_in[0], "chance"] = 50.0
+    c = ctx_for(base, mode="live", pool=pool)
+    fake = FakeFPL(base)
+    http = httpx.Client(transport=httpx.MockTransport(fake))
+    out = execute(d, c, RULES, fid(base), {}, 77, exchange=live_exchange(), http=http)
+    assert out.blocked and not any(m == "POST" for m, _, _ in fake.log)
+    dry = execute(d, ctx_for(base, pool=pool), RULES, {}, {}, 77)
+    assert not dry.done
 
 
 def test_auth_failure_alerts_and_touches_nothing(base):

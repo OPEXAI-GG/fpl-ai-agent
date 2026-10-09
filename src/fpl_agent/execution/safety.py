@@ -13,8 +13,8 @@ from fpl_agent.config import Settings
 from fpl_agent.data.entry import SquadState
 from fpl_agent.rules import Rules
 from fpl_agent.solver.decide import Decision
+from fpl_agent.solver.inputs import MIN_CHANCE  # noqa: F401  (never buy/start below this chance)
 
-MIN_CHANCE = 75  # never buy or start a player below this chance of playing
 MAX_TRANSFERS_OUTSIDE_CHIP = 3
 MAX_HITS_PER_GW = 1
 MAX_HITS_PER_WINDOW = 2  # i.e. -8 over any four gameweeks

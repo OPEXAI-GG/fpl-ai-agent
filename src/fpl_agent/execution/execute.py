@@ -69,11 +69,18 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
     allow_lineup = not verdict.blocked("lineup")
     if verdict.blocked("global"):
         return out
+    owned = {p.player_id for p in ctx.state.squad}
+    needs_transfers = (
+        not (set(d.xi) | set(d.bench)) <= owned
+    )  # the lineup uses players not owned yet
+    no_lineup = "lineup not set: it needs players that the transfers did not bring in"
     if not s.is_live:  # dry: report only, no network, no credentials
         if allow_transfers:
             out.done += [f"would {x}" for x in transfer_steps(d)]
-        if allow_lineup:
+        if allow_lineup and (allow_transfers or not needs_transfers):
             out.done += [f"would {x}" for x in lineup_steps(d)]
+        elif allow_lineup:
+            out.blocked.append(no_lineup)
         return out
     if entry is None:
         out.errors.append("FPL_ENTRY_ID is not set")
@@ -84,6 +91,7 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
         out.errors.append(str(exc))
         return out
     w = FPLWriter(tokens.access, entry, client=http)
+    transfers_done = False
     try:
         if allow_transfers:
             try:
@@ -94,11 +102,14 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
                 else:
                     w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, True))
                     out.done += transfer_steps(d)
+                    transfers_done = True
             except httpx.HTTPError as exc:
                 out.errors.append(f"transfers failed ({type(exc).__name__}); trying the lineup")
-        if allow_lineup:
+        if allow_lineup and (transfers_done or not needs_transfers):
             w.set_lineup(lineup_payload(d, fpl_id))
             out.done += lineup_steps(d)
+        elif allow_lineup:
+            out.blocked.append(no_lineup)
         team = w.my_team()
         got = {p["element"]: p for p in team.get("picks", [])}
         want_cap = fpl_id[d.captain]

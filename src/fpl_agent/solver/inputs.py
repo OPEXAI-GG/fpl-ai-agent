@@ -22,12 +22,25 @@ def to_canonical(state: SquadState, pool: pd.DataFrame) -> SquadState:
     return replace(state, squad=squad)
 
 
+MIN_CHANCE = 75  # never buy or start a player below this chance of playing (also a safety rail)
+
+
+def _buyable(status, chance) -> bool:
+    return status == "a" and (chance is None or pd.isna(chance) or float(chance) >= MIN_CHANCE)
+
+
 def build_candidates(proj: Projection, squad: list[SquadPlayer]) -> list[Candidate]:
-    """One candidate per projected player; squad players with no fixture score zero."""
+    """One candidate per projected player; squad players with no fixture score zero.
+
+    Players you do not own are only offered if they are available to buy, so the plan never
+    proposes a transfer the safety rails would then refuse.
+    """
     mean = proj.mean()
+    owned = {p.player_id for p in squad}
     out = [
         Candidate(int(r.player_id), r.position, int(r.team_id), int(r.price), mean[i].tolist())
         for i, r in enumerate(proj.meta.itertuples())
+        if int(r.player_id) in owned or _buyable(r.status, r.chance)
     ]
     have = {c.player_id for c in out}
     zeros = [0.0] * len(proj.gws)
