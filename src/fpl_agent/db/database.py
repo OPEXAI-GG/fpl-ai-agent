@@ -68,11 +68,17 @@ GENERIC_TOKENS = {"city", "town", "athletic", "wanderers", "rovers", "county", "
                   "hotspur", "fc", "afc", "cf", "sc", "rangers", "argyle", "orient"}  # fmt: skip
 
 
+# Neighbouring clubs whose names differ only by a generic word; never merge them with each other.
+DISTINCT_CLUBS = {frozenset({"dundee", "dundee united"})}
+
+
 def _same_club(a: str, b: str) -> bool:
     """Equal once generic club words are ignored, and only when that leaves a name behind."""
     ta, tb = set(a.split()), set(b.split())
     if ta == tb:
         return True
+    if frozenset({a, b}) in DISTINCT_CLUBS:
+        return False
     ca, cb = ta - GENERIC_TOKENS, tb - GENERIC_TOKENS
     return bool(ca) and ca == cb and (ta <= tb or tb <= ta)
 

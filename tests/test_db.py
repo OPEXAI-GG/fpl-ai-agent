@@ -180,3 +180,10 @@ def test_club_names_that_differ_only_by_generic_words_are_one_club():
     assert db.team_id("fotmob", "5", "Sheffield Wednesday") != db.team_id(
         "fotmob", "6", "Sheffield United"
     )
+
+
+def test_dundee_and_dundee_united_stay_two_clubs():
+    db = FootballDB()
+    a = db.team_id("fotmob", "1", "Dundee")
+    b = db.team_id("fotmob", "2", "Dundee United")
+    assert a != b
