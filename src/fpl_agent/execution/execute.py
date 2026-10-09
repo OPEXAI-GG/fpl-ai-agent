@@ -53,6 +53,15 @@ def lineup_steps(d: Decision) -> list[str]:
     return steps + [f"set captain {d.name(d.captain)}, vice {d.name(d.vice)}"]
 
 
+def _why(exc: httpx.HTTPError) -> str:
+    """What FPL answered, for the report: status, call and the start of its message."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        r = exc.response
+        body = " ".join(r.text.split())[:300]
+        return f"HTTP {r.status_code} {r.request.method} {r.request.url.path}: {body}"
+    return type(exc).__name__
+
+
 def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, int],
             price: dict[int, int], entry: int | None,
             exchange: Callable[[], TokenExchange] | None = None,
@@ -104,7 +113,7 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
                     out.done += transfer_steps(d)
                     transfers_done = True
             except httpx.HTTPError as exc:
-                out.errors.append(f"transfers failed ({type(exc).__name__}); trying the lineup")
+                out.errors.append(f"transfers failed ({_why(exc)}); trying the lineup")
         if allow_lineup and (transfers_done or not needs_transfers):
             w.set_lineup(lineup_payload(d, fpl_id))
             out.done += lineup_steps(d)
@@ -117,5 +126,5 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
         if not out.verified:
             out.errors.append("read-back does not match the plan")
     except httpx.HTTPError as exc:
-        out.errors.append(f"FPL request failed: {type(exc).__name__}")
+        out.errors.append(f"FPL request failed: {_why(exc)}")
     return out

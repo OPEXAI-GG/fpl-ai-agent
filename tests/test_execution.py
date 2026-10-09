@@ -305,3 +305,17 @@ def test_failed_sign_in_says_why_without_leaking_the_token():
     with pytest.raises(AuthError, match="HTTP 400 invalid_grant token expired") as e:
         ex.exchange()
     assert "secret-rt" not in str(e.value)
+
+
+def test_a_refused_transfer_reports_what_fpl_said(base):
+    def refuse(req: httpx.Request):
+        if req.method == "POST" and req.url.path.endswith("/transfers/"):
+            return httpx.Response(400, text='{"non_field_errors": ["You cannot wildcard now"]}')
+        return httpx.Response(200, json={"picks": []})
+
+    http = httpx.Client(transport=httpx.MockTransport(refuse))
+    d = base[2]
+    out = execute(d, ctx_for(base, mode="live"), RULES, fid(base),
+                  {i: 50 for i in d.transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
+    assert any("HTTP 400 POST /api/transfers/" in e and "cannot wildcard" in e for e in out.errors)
+    assert "Bearer" not in " ".join(out.errors)
