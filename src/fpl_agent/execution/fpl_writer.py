@@ -51,8 +51,13 @@ def transfers_payload(d: Decision, state: SquadState, entry: int, fpl_id: dict[i
 def lineup_payload(d: Decision, fpl_id: dict[int, int],
                    position: dict[int, str] | None = None) -> dict[str, Any]:  # fmt: skip
     xi, bench = list(d.xi), list(d.bench)
-    if position:  # FPL wants the starting keeper in slot 1 and the spare keeper in slot 12
-        xi.sort(key=lambda p: position.get(p) != "GKP")
+    if (
+        position
+    ):  # FPL wants the XI ordered keeper, defenders, midfielders, forwards; spare keeper 12th
+        kind = {"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}
+        xi.sort(
+            key=lambda p: kind.get(position.get(p, ""), 4)
+        )  # stable: keeps our order within a line
         bench.sort(key=lambda p: position.get(p) != "GKP")
     order = xi + bench
     # slots 1..15: starting XI, then the bench in priority order

@@ -382,3 +382,17 @@ def test_lineup_puts_the_keepers_in_slots_1_and_12_because_fpl_demands_it():
     picks = lineup_payload(d, {p: p + 1000 for p in xi + bench}, pos)["picks"]
     by_slot = {p["position"]: p["element"] - 1000 for p in picks}
     assert by_slot[1] == 14 and by_slot[12] == 24 and sorted(by_slot) == list(range(1, 16))
+
+
+def test_lineup_orders_the_xi_by_position_line():
+    from types import SimpleNamespace
+
+    xi = list(range(10, 21))
+    kinds = ["MID", "FWD", "DEF", "GKP", "MID", "DEF", "FWD", "DEF", "MID", "DEF", "MID"]
+    bench = [21, 22, 23, 24]
+    pos = dict(zip(xi, kinds, strict=True)) | {21: "DEF", 22: "MID", 23: "FWD", 24: "GKP"}
+    d = SimpleNamespace(xi=xi, bench=bench, captain=10, vice=11, chip=None)
+    picks = lineup_payload(d, {p: p + 1000 for p in xi + bench}, pos)["picks"]
+    order = [{"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}[pos[p["element"] - 1000]] for p in picks[:11]]
+    assert order == sorted(order)
+    assert picks[11]["element"] - 1000 == 24
