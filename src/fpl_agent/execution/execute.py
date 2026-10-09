@@ -8,6 +8,7 @@ never been run against a real account by this repository's build.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -114,9 +115,13 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
                 prev = w.transfers(
                     transfers_payload(d, ctx.state, entry, fpl_id, price, False, pos)
                 )
-                diff = preview_matches(prev, d, fpl_id)
+                # an empty reply means FPL accepted the swaps without echoing them back
+                diff = preview_matches(prev, d, fpl_id) if prev else []
                 if diff:
-                    out.blocked.append("preview differs from plan: " + "; ".join(diff))
+                    seen = json.dumps(prev, default=str)[:300]
+                    out.blocked.append(
+                        "preview differs from plan: " + "; ".join(diff) + f" (FPL said: {seen})"
+                    )
                 else:
                     w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, True, pos))
                     out.done += transfer_steps(d, pos)

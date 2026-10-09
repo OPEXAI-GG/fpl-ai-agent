@@ -177,14 +177,17 @@ def test_preview_comparison_catches_a_different_plan(base):
 
 
 class FakeFPL:
-    def __init__(self, base, preview_ok=True):
+    def __init__(self, base, preview_ok=True, empty_preview=False):
         self.log, self.d, self.ids, self.ok = [], base[2], fid(base), preview_ok
+        self.empty = empty_preview
 
     def __call__(self, req: httpx.Request):
         body = json.loads(req.content) if req.content else {}
         self.log.append((req.method, req.url.path, body.get("confirmed")))
         assert req.headers["X-API-Authorization"] == "Bearer access"
         if req.url.path.endswith("/transfers/"):
+            if self.empty and body.get("confirmed") is False:
+                return httpx.Response(200, json={})
             ins = [{"element_in": self.ids[i]} for i in self.d.transfers_in]
             return httpx.Response(
                 200,
@@ -332,3 +335,20 @@ def test_transfers_are_paired_by_position_because_fpl_rejects_other_swaps():
     assert paired_transfers(d, pos) == [(1, 10), (2, 20), (3, 30)]
     with pytest.raises(ValueError, match="no player leaving"):
         paired_transfers(d, {**pos, 3: "MID"})
+
+
+def test_an_empty_preview_reply_counts_as_accepted(base):
+    fake = FakeFPL(base, empty_preview=True)
+    http = httpx.Client(transport=httpx.MockTransport(fake))
+    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
+                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
+    assert out.ok and out.verified, out
+    assert any(conf is True for _, _, conf in fake.log)
+
+
+def test_a_disagreeing_preview_shows_what_fpl_said(base):
+    fake = FakeFPL(base, preview_ok=False)
+    http = httpx.Client(transport=httpx.MockTransport(fake))
+    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
+                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
+    assert any("FPL said:" in b for b in out.blocked)
