@@ -34,7 +34,7 @@ sources ──► L1 database ──► L2 team strength ─┐
 * **Distributions, not point estimates.** Every decision can ask "how often would this have been better?" - this is what gates the Wildcard and what captain choice can use.
 * **Skip safely.** A failing optional source (odds, scout, FotMob endpoint) is skipped and reported; only a failing critical source (FPL) aborts, and then nothing is written.
 * **No look-ahead.** Every model sees only data before the gameweek's first kickoff (`model/backtest.py` replays this).
-* **Dry by default, in three places.** `Settings.mode` defaults to `dry`; `execute()` returns before any credential is touched unless mode is `live`; the plan workflow pins `AGENT_MODE: dry` in the file.
+* **Dry by default, in three places.** `Settings.mode` defaults to `dry`; `execute()` returns before any credential is touched unless mode is `live`; the plan workflow reads `AGENT_MODE` from a repository variable that is unset by default.
 
 ## Data in the database
 

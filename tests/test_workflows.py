@@ -57,13 +57,14 @@ def test_helper_scripts_are_executable_and_strict():
         assert "set -" in path.read_text()
 
 
-def test_plan_workflow_is_dry_and_publishes_after_planning():
+def test_plan_workflow_defaults_to_dry_and_publishes_after_planning():
     wf = load(WF / "plan.yml")
     job = wf["jobs"]["plan"]
-    assert job["env"]["AGENT_MODE"] == "dry"  # fixed in the file: a repo variable cannot flip it
+    mode = job["env"]["AGENT_MODE"]
+    assert "vars.AGENT_MODE" in mode and "'dry'" in mode  # one variable, dry when unset
     names = [s.get("name") for s in job["steps"]]
-    assert names.index("Plan (dry run)") < names.index("Publish database")
-    assert "FPL_REFRESH_TOKEN" not in (WF / "plan.yml").read_text()  # no login in this workflow
+    assert names.index("Plan") < names.index("Publish database")
+    assert "AGENT_MODE: live" not in (WF / "plan.yml").read_text()  # never hard-coded live
     assert wf["concurrency"]["group"] == "data"  # serialised with the data updates
 
 

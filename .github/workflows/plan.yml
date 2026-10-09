@@ -1,8 +1,10 @@
 name: plan
-# Weekly decision in DRY-RUN mode: transfers, chip, XI, captain, written to the run summary and
-# (if NOTIFY_WEBHOOK is set) sent to you. Nothing here logs in to FPL or changes your team;
-# AGENT_MODE is fixed to `dry` in this file on purpose. Runs every 2 hours; the agent acts only
-# when a deadline is 2-26 hours away and notifies once per gameweek.
+# Weekly decision: transfers, chip, XI, captain.
+# THE ONE SWITCH: the repository variable AGENT_MODE.
+#   unset or "dry"  -> report only. Nothing logs in to FPL; your team is never touched (default).
+#   "live"          -> the agent makes the moves on your FPL team itself, then reports what it did.
+# AGENT_ENABLED=false stops everything either way. Runs every 2 hours; the agent acts only when a
+# deadline is 2-26 hours away and notifies once per gameweek.
 on:
   schedule:
     - cron: "10 */2 * * *"
@@ -23,12 +25,16 @@ jobs:
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
-      AGENT_MODE: dry
+      AGENT_MODE: ${{ vars.AGENT_MODE || 'dry' }}
       AGENT_ENABLED: ${{ vars.AGENT_ENABLED || 'true' }}
       FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
       NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+      # only read when AGENT_MODE is live
+      FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
+      FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
+      FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -39,7 +45,12 @@ jobs:
         run: |
           uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
             --football-data E0
-      - name: Plan (dry run)
+      - name: Check settings
+        run: uv run fpl-agent status | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Plan
+        env:
+          # lets the agent store FPL's rotating login token back into the repo secret (live only)
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}
         run: |
           FORCE=""
           if [ "${{ github.event.inputs.force }}" = "true" ]; then FORCE="--force"; fi

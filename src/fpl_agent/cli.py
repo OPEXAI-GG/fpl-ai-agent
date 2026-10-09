@@ -126,6 +126,26 @@ def _open_db(args: argparse.Namespace):
     return db
 
 
+def status(settings: Settings) -> int:
+    """What the agent will do on its next run, and which settings are missing (never values)."""
+    import os
+
+    live = ["FPL_REFRESH_TOKEN", "FPL_TOKEN_URL", "FPL_CLIENT_ID", "FPL_ENTRY_ID"]
+    missing = [k for k in live if not os.environ.get(k)]
+    if not settings.enabled:
+        print("Kill switch is ON (AGENT_ENABLED=false): the agent will do nothing.")
+    elif settings.is_live:
+        print("Mode: LIVE - the agent will make moves on your FPL team and then report them.")
+        if missing:
+            print("Cannot act yet; missing: " + ", ".join(missing) + ". Runs will stop.")
+            return 2
+    else:
+        print("Mode: DRY - the agent only reports; it never logs in to FPL or changes your team.")
+    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "NOTIFY_WEBHOOK"):
+        print(f"{k}: {'set' if os.environ.get(k) else 'not set'}")
+    return 0
+
+
 def _export(db, args: argparse.Namespace) -> None:
     if getattr(args, "export", None):
         db.export_parquet(args.export)
@@ -190,6 +210,7 @@ def backtest_cmd(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("status", help="show dry/live mode and which settings are missing")
     sub.add_parser("snapshot", help="pull public FPL data and store a point-in-time snapshot")
     u = sub.add_parser("understat", help="pull Understat xG data and map players to FPL ids")
     u.add_argument("--season", default="2026", help="start year, e.g. 2026 for 2026/27")
@@ -248,6 +269,8 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
+    if args.cmd == "status":
+        return status(settings)
     if args.cmd == "snapshot":
         return snapshot(settings)
     if args.cmd == "db-update":

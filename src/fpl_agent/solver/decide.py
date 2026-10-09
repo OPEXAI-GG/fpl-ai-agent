@@ -37,6 +37,9 @@ class Decision:
     chip_report: dict[str, Any] = field(default_factory=dict)
     horizon: list[WeekPlan] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    captain_options: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # top candidates, with upside
 
     @property
     def action(self) -> str:
@@ -55,6 +58,10 @@ class Decision:
         if self.hits:
             lines.append(f"  hit: -{4 * self.hits}")
         lines.append(f"  captain {n(self.captain)}, vice {n(self.vice)}")
+        if self.captain_options:
+            lines.append("  captain options (expected / haul chance): " + "; ".join(
+                f"{n(o['player_id'])} {o['xpts']:.1f} / {o['p_haul']:.0%}"
+                for o in self.captain_options))  # fmt: skip
         lines.append("  XI: " + ", ".join(n(p) for p in self.xi))
         lines.append("  bench: " + ", ".join(n(p) for p in self.bench))
         for chip, why in self.chip_report.get("held", {}).items():
@@ -83,6 +90,26 @@ def _best_xi_points(proj: Projection, squad_ids: list[int], g: int) -> float:
         if sum(1 for c in chosen if pos[c] == pos[i]) < FORMATION_MAX[pos[i]]:
             chosen.append(i)
     return sum(xp[i] for i in chosen) + max(xp[i] for i in chosen)
+
+
+# Rank mode: among XI players whose expected points are within this many points of the best,
+# captain the one most likely to haul (10+ points). Costs at most this much expected, buys upside.
+RANK_CAPTAIN_SLACK = 0.5
+
+
+def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_SLACK):
+    """(captain, vice, options): options are the top XI players by expected points this week."""
+    rows = {pid: i for i, pid in enumerate(proj.player_ids)}
+    mean = proj.mean()[:, 0]
+    haul = (proj.points[:, 0, :] >= 10).mean(axis=1)
+    info = {p: (float(mean[rows[p]]), float(haul[rows[p]])) for p in xi if p in rows}
+    ranked = sorted(info, key=lambda p: -info[p][0])
+    best = info[ranked[0]][0]
+    pool = [p for p in ranked if info[p][0] >= best - slack]
+    cap = max(pool, key=lambda p: (info[p][1], info[p][0]))
+    vice = next(p for p in ranked if p != cap)
+    opts = [{"player_id": p, "xpts": info[p][0], "p_haul": info[p][1]} for p in ranked[:4]]
+    return cap, vice, opts
 
 
 def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, str] | None = None,
@@ -115,6 +142,9 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             {"held": {}, "play_now": None, "scenarios": []},
         )
     wk = chosen.plan.first
+    options: list[dict[str, Any]] = []
+    if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
+        wk.captain, wk.vice, options = captain_choice(proj, wk.xi)
     return Decision(
         gw=wk.gw, week=wk, chip=wk.chip, transfers_in=wk.transfers_in,
         transfers_out=wk.transfers_out, hits=wk.hits, captain=wk.captain, vice=wk.vice,
@@ -125,6 +155,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end
         ),
         names=names or {}, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
+        captain_options=options,
     )  # fmt: skip
 
 

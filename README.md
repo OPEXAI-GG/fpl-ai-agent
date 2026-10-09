@@ -16,7 +16,7 @@ is tested against mock servers only - see [Going live](#going-live-later-optiona
 
 * `AGENT_MODE` is `dry` unless you set it to `live`. In dry mode no credentials are read and no authenticated request is made.
 * `AGENT_ENABLED=false` is a kill switch: every run becomes a no-op.
-* The scheduled plan workflow pins `AGENT_MODE: dry` inside the workflow file, so a repository variable cannot switch it on by accident.
+* The plan workflow reads `AGENT_MODE` from the repository variable, defaulting to `dry`.
 * No secrets in the repo. Keys come from environment variables / GitHub secrets only, and are never printed.
 * Rails (hit caps, doubtful players, stale data, chip guard, human edits) are described in [architecture.md](docs/architecture.md).
 
@@ -58,7 +58,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `ci.yml` | every PR | ruff, format check, full tests, **85% coverage gate**, CLI smoke |
 | `data.yml` | daily + Tuesday | update the database from all sources and publish it |
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
-| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 2-26h away; notifies once per gameweek; **fixed to dry** |
+| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 2-26h away; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
 | `backtest.yml` | manual button | back-test a past season against simple baselines; results in the run summary (read-only) |
 | `review.yml` | Tuesday | score the finished gameweek and publish the reviews |
 | `canary.yml` | daily | check every live source still matches its contract |
@@ -107,18 +107,23 @@ mock transports.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
 * **Odds coverage:** only the competitions the Odds API free tier serves for the Premier League are used; without a key the model runs on results and xG alone.
 * **Scout** is deliberately small: availability only, no transfer rumours or tactical claims.
-* **Learning loop** reports and flags (bias by position, component errors, captain regret); it does not retrain models by itself. Refits happen on the weekly data run.
+* **Learning loop:** after each finished gameweek the review scores predictions; the next run applies a small, shrunk per-position correction (capped at 10%) from those reviews and logs it. Models are refitted on all history each run.
 * **Price-change prediction** is not modelled; money in the bank has a small flat value.
 * **Triple Captain** is shown as used in your chip history; the agent plans only the chips FPL says you still have.
 
-## Going live later (optional)
+## Going live
 
-Do not do this until the dry reports have matched what you would have done for several gameweeks.
+One switch: the repository variable `AGENT_MODE` (Settings -> Secrets and variables -> Actions -> Variables).
 
-1. Run `plan` / the `plan` workflow for at least two gameweeks and compare with your own moves.
-2. Add the FPL secrets below, set `FPL_TOKEN_URL` / `FPL_CLIENT_ID` from your browser session.
-3. Change `AGENT_MODE` in `plan.yml` from `dry` to `live` in a reviewed PR. The first live run previews, compares the preview with the plan, and only then confirms; it reads the team back and alerts on any difference.
-4. The kill switch (`AGENT_ENABLED=false`) stops it immediately.
+* Unset or `dry`: the agent only reports. Nothing logs in to FPL.
+* `live`: the agent makes the moves on your team itself (previews, compares with the plan, confirms, sets the lineup, reads the team back) and the notification becomes a report of what it did.
+* `AGENT_ENABLED=false` stops everything either way.
+
+The live path has only been tested against mock servers. Check the first live run's read-back and the report.
+The Actions run summary starts with a "settings" check that says whether live mode has everything it needs.
+
+Rank mode: captaincy picks the player most likely to haul (10+ points) among those within 0.5 expected points
+of the best, and the report lists the top captain options. It cannot guarantee a top rank.
 
 ---
 
@@ -142,7 +147,7 @@ Add them in **Settings -> Secrets and variables -> Actions** of the repository.
 - [ ] `FPL_REFRESH_TOKEN` (**secret**) - pasted once from your browser session.
 - [ ] `FPL_TOKEN_URL` and `FPL_CLIENT_ID` (**variables**) - from the same browser session.
 - [ ] `GH_SECRETS_PAT` (**secret**) - fine-grained token with *Secrets: read and write* on this repo, so the rotating refresh token can be stored back.
-- [ ] `AGENT_MODE` - leave unset (dry). Switching to live is a reviewed change to `plan.yml`.
+- [ ] `AGENT_MODE` (**variable**) - leave unset for dry, set to `live` to let the agent make the moves.
 - [ ] `AGENT_ENABLED` (**variable**) - `false` stops everything.
 
 Also in repo settings: turn on branch protection requiring the `test` check, so a red CI blocks merges.
