@@ -22,6 +22,7 @@ from fpl_agent.data.fpl_client import FPLClient
 from fpl_agent.db.database import FootballDB
 from fpl_agent.execution import safety
 from fpl_agent.execution.execute import Outcome, execute
+from fpl_agent.execution.live_state import Signed, read_live
 from fpl_agent.model import calibration, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
@@ -88,6 +89,8 @@ def run_weekly(
     scout: Scout | None = None,
     odds: oddsapi.OddsClient | None = None,
     now: datetime | None = None,
+    exchange=None,
+    http=None,
 ) -> RunResult:
     res = RunResult("ok")
     if not settings.enabled:
@@ -134,6 +137,11 @@ def run_weekly(
         res.report = format_report(res, settings.mode)
         return res
 
+    tokens, live_changed = None, False
+    if settings.is_live:  # plan from the team FPL has now, not the last deadline's
+        state, tokens, live_changed, note = read_live(state, raw, rules, entry, exchange, http)
+        res.notes.append(note)
+
     pool = project.current_pool(db, opts.season, ev.id)
     if pool.empty:
         res.status, res.notes = (
@@ -177,7 +185,7 @@ def run_weekly(
             )
         project.save_projection(db, proj)
         d = decide(state, proj, rules, names=_names(db), cfg=PlannerConfig(),
-                   use_chips=opts.use_chips)  # fmt: skip
+                   use_chips=opts.use_chips and not live_changed)  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -201,7 +209,16 @@ def run_weekly(
     )  # fmt: skip
     fpl_id = dict(zip(pool["player_id"].astype(int), pool["fpl_id"].astype(int), strict=True))
     price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
-    res.outcome = execute(d, ctx, rules, fpl_id, price, entry)
+    res.outcome = execute(
+        d,
+        ctx,
+        rules,
+        fpl_id,
+        price,
+        entry,
+        exchange=(lambda: Signed(tokens)) if tokens else exchange,
+        http=http,
+    )
     res.report = format_report(res, settings.mode)
     if opts.out_dir:
         write_outputs(opts.out_dir, res, settings.mode)
