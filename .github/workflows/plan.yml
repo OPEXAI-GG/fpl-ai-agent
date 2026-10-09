@@ -52,6 +52,7 @@ jobs:
           # lets the agent store FPL's rotating login token back into the repo secret (live only)
           GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}
         run: |
+          set -o pipefail   # a failed plan must fail the run, not hide behind tee
           FORCE=""
           if [ "${{ github.event.inputs.force }}" = "true" ]; then FORCE="--force"; fi
           uv run fpl-agent plan --db data_cache/football.duckdb --export data_cache/out --out plan_out --notify $FORCE \
@@ -63,4 +64,5 @@ jobs:
           path: plan_out
           if-no-files-found: ignore
       - name: Publish database
+        if: always()
         run: scripts/data_publish.sh data_cache/out
