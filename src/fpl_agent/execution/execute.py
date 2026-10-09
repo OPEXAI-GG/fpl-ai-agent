@@ -18,6 +18,7 @@ from fpl_agent.execution.auth import AuthError, TokenExchange
 from fpl_agent.execution.fpl_writer import (
     FPLWriter,
     lineup_payload,
+    paired_transfers,
     preview_matches,
     transfers_payload,
 )
@@ -38,9 +39,9 @@ class Outcome:
         return not self.errors
 
 
-def transfer_steps(d: Decision) -> list[str]:
+def transfer_steps(d: Decision, position: dict[int, str] | None = None) -> list[str]:
     steps = [f"transfer {d.name(o)} -> {d.name(i)}"
-             for i, o in zip(d.transfers_in, d.transfers_out, strict=True)]  # fmt: skip
+             for i, o in paired_transfers(d, position)]  # fmt: skip
     if d.hits:
         steps.append(f"take a -{4 * d.hits} hit")
     if d.chip in ("wildcard", "freehit"):
@@ -79,13 +80,19 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
     if verdict.blocked("global"):
         return out
     owned = {p.player_id for p in ctx.state.squad}
+    pos = dict(zip(ctx.pool["player_id"].astype(int), ctx.pool["position"], strict=True))
+    pos.update({p.player_id: p.position for p in ctx.state.squad})
     needs_transfers = (
         not (set(d.xi) | set(d.bench)) <= owned
     )  # the lineup uses players not owned yet
     no_lineup = "lineup not set: it needs players that the transfers did not bring in"
     if not s.is_live:  # dry: report only, no network, no credentials
         if allow_transfers:
-            out.done += [f"would {x}" for x in transfer_steps(d)]
+            try:
+                out.done += [f"would {x}" for x in transfer_steps(d, pos)]
+            except ValueError as exc:
+                out.blocked.append(f"transfers not sent: {exc}")
+                allow_transfers = False
         if allow_lineup and (allow_transfers or not needs_transfers):
             out.done += [f"would {x}" for x in lineup_steps(d)]
         elif allow_lineup:
@@ -104,14 +111,18 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
     try:
         if allow_transfers:
             try:
-                prev = w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, False))
+                prev = w.transfers(
+                    transfers_payload(d, ctx.state, entry, fpl_id, price, False, pos)
+                )
                 diff = preview_matches(prev, d, fpl_id)
                 if diff:
                     out.blocked.append("preview differs from plan: " + "; ".join(diff))
                 else:
-                    w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, True))
-                    out.done += transfer_steps(d)
+                    w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, True, pos))
+                    out.done += transfer_steps(d, pos)
                     transfers_done = True
+            except ValueError as exc:  # no same-position pairing: send nothing
+                out.blocked.append(f"transfers not sent: {exc}")
             except httpx.HTTPError as exc:
                 out.errors.append(f"transfers failed ({_why(exc)}); trying the lineup")
         if allow_lineup and (transfers_done or not needs_transfers):
