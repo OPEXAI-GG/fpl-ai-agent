@@ -15,8 +15,27 @@ from fpl_agent.data.entry import SquadState
 from fpl_agent.solver.decide import Decision
 
 
+def paired_transfers(d: Decision, position: dict[int, str] | None) -> list[tuple[int, int]]:
+    """(player in, player out) pairs. FPL only accepts a swap of the same position, so each
+    player coming in is matched with a player going out in his position (the plan itself only
+    lists who comes in and who goes out)."""
+    if position is None:
+        return list(zip(d.transfers_in, d.transfers_out, strict=True))
+    leaving: dict[str, list[int]] = {}
+    for o in d.transfers_out:
+        leaving.setdefault(position[o], []).append(o)
+    pairs = []
+    for i in d.transfers_in:
+        group = leaving.get(position[i])
+        if not group:
+            raise ValueError(f"no player leaving in position {position[i]} for {d.name(i)}")
+        pairs.append((i, group.pop(0)))
+    return pairs
+
+
 def transfers_payload(d: Decision, state: SquadState, entry: int, fpl_id: dict[int, int],
-                      price: dict[int, int], confirmed: bool) -> dict[str, Any]:  # fmt: skip
+                      price: dict[int, int], confirmed: bool,
+                      position: dict[int, str] | None = None) -> dict[str, Any]:  # fmt: skip
     sell = {p.player_id: p.sell_price for p in state.squad}
     return {
         "chip": d.chip if d.chip in ("wildcard", "freehit") else None,
@@ -24,7 +43,7 @@ def transfers_payload(d: Decision, state: SquadState, entry: int, fpl_id: dict[i
         "transfers": [
             {"element_in": fpl_id[i], "element_out": fpl_id[o],
              "purchase_price": price[i], "selling_price": sell[o]}
-            for i, o in zip(d.transfers_in, d.transfers_out, strict=True)
+            for i, o in paired_transfers(d, position)
         ],
     }  # fmt: skip
 

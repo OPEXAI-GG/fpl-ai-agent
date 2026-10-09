@@ -319,3 +319,16 @@ def test_a_refused_transfer_reports_what_fpl_said(base):
                   {i: 50 for i in d.transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
     assert any("HTTP 400 POST /api/transfers/" in e and "cannot wildcard" in e for e in out.errors)
     assert "Bearer" not in " ".join(out.errors)
+
+
+def test_transfers_are_paired_by_position_because_fpl_rejects_other_swaps():
+    from types import SimpleNamespace
+
+    from fpl_agent.execution.fpl_writer import paired_transfers
+
+    # the plan lists who comes in and who goes out in unrelated order
+    d = SimpleNamespace(transfers_in=[1, 2, 3], transfers_out=[30, 10, 20], name=lambda p: str(p))
+    pos = {1: "GKP", 2: "DEF", 3: "FWD", 10: "GKP", 20: "DEF", 30: "FWD"}
+    assert paired_transfers(d, pos) == [(1, 10), (2, 20), (3, 30)]
+    with pytest.raises(ValueError, match="no player leaving"):
+        paired_transfers(d, {**pos, 3: "MID"})
