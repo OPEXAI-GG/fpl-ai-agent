@@ -15,12 +15,36 @@ on:
         default: "false"
 permissions:
   contents: write           # publishes the database (decisions and projections are recorded in it)
+  actions: read             # lets the gate below see how long this run waited in the queue
 concurrency:
   group: data
   cancel-in-progress: false
 jobs:
+  # FPL's login token is single-use and a queued run is handed the token that was current when it
+  # was queued. A run that waited behind another one therefore holds a token that has already
+  # been replaced, and using it would revoke the new one. Such a run stops here; the next
+  # scheduled run (or a new button press) starts clean.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      fresh: ${{ steps.wait.outputs.fresh }}
+    steps:
+      - id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at || true)
+          waited=0
+          if [ -n "$started" ]; then waited=$(( $(date +%s) - $(date -d "$started" +%s) )); fi
+          if [ "$waited" -gt 180 ]; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "This run waited ${waited}s behind another run, so its FPL login token may be out of date. Skipped; start it again." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
   plan:
-    if: ${{ vars.FPL_ENTRY_ID != '' }}   # idle until you set your team id
+    needs: gate
+    if: ${{ needs.gate.outputs.fresh == 'true' && vars.FPL_ENTRY_ID != '' }}   # idle until you set your team id
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
