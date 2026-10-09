@@ -30,6 +30,7 @@ jobs:
         run: scripts/data_restore.sh data_cache/export
       - name: Back-test
         run: |
+          set -o pipefail  # a crash must fail the run, not be hidden by tee
           uv run fpl-agent backtest --db data_cache/football.duckdb --import-dir data_cache/export \
             --season "${{ github.event.inputs.season }}" --from-gw "${{ github.event.inputs.from_gw }}" \
             --to-gw "${{ github.event.inputs.to_gw }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"

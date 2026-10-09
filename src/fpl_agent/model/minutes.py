@@ -35,9 +35,10 @@ def availability_factor(status: str | None, chance: float | None, horizon: int) 
     at a weekly hazard; 'n'/'u' (left/unavailable) never do.
     """
     status = status or "a"
-    if status == "a" and (chance is None or chance >= 100 or np.isnan(chance)):
+    no_chance = chance is None or bool(pd.isna(chance))  # None, NaN and pandas NA alike
+    if status == "a" and (no_chance or chance >= 100):
         return 1.0
-    first = 1.0 if chance is None or np.isnan(chance) else float(chance) / 100.0
+    first = 1.0 if no_chance else float(chance) / 100.0
     if status in ("n", "u"):
         return 0.0
     if status == "a":

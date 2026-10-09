@@ -135,3 +135,10 @@ def test_calibration_table_bins():
     y = rng.random(5000) < p
     table = minutes.calibration_table(p, y, bins=5)
     assert (abs(table.pred - table.actual) < 0.05).all() and table.n.sum() == 5000
+
+
+def test_a_missing_chance_of_playing_may_be_pandas_na():
+    availability_factor = minutes.availability_factor
+    assert availability_factor("a", pd.NA, 1) == 1.0
+    assert availability_factor("d", pd.NA, 1) == 1.0
+    assert availability_factor("i", pd.NA, 2) < 1.0
