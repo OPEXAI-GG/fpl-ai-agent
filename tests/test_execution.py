@@ -293,3 +293,15 @@ def test_failed_sign_in_gives_repaste_instructions():
 def test_missing_configuration_is_rejected():
     with pytest.raises(AuthError):
         TokenExchange("", "u", "c", lambda *a: None)
+
+
+def test_failed_sign_in_says_why_without_leaking_the_token():
+    def refuse(request):
+        body = {"error": "invalid_grant", "error_description": "token expired"}
+        return httpx.Response(400, json=body)
+
+    ex = TokenExchange("secret-rt", "https://x/token", "cid", lambda n, v: None,
+                       client=httpx.Client(transport=httpx.MockTransport(refuse)))  # fmt: skip
+    with pytest.raises(AuthError, match="HTTP 400 invalid_grant token expired") as e:
+        ex.exchange()
+    assert "secret-rt" not in str(e.value)
