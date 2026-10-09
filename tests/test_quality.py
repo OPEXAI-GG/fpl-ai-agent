@@ -6,7 +6,7 @@ import pytest
 
 from fpl_agent.db import ingest_football_data, ingest_fpl, ingest_understat
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import errors, format_issues, run_checks
+from fpl_agent.db.quality import errors, format_issues, quarantine, run_checks
 from tests.helpers import FIX, fixture, live_payload
 
 
@@ -82,3 +82,43 @@ def test_issue_formatting(db):
     db.con.execute("UPDATE shots SET xg = 2")
     assert "bad_shots" in format_issues(run_checks(db))
     assert json.dumps(format_issues([])) == '"no issues"'
+
+
+def test_quarantine_drops_bad_rows_and_names_them(db):
+    db.con.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+    db.con.execute(
+        "UPDATE fpl_players_gw SET now_cost = 7 WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_players_gw)"
+    )
+    db.con.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = 1")
+    before = db.counts()
+    out = quarantine(db)
+    assert {i.check for i in out} == {
+        "quarantined_shots",
+        "quarantined_prices",
+        "quarantined_match",
+    }
+    assert all(i.severity == "warn" for i in out)
+    assert any("vs itself" in i.detail for i in out)
+    after = db.counts()
+    assert after["matches"] == before["matches"] - 1 and after["shots"] < before["shots"]
+    assert errors(run_checks(db)) == [], format_issues(run_checks(db))
+
+
+def test_quarantine_does_nothing_on_clean_data(db):
+    before = db.counts()
+    assert quarantine(db) == []
+    assert db.counts() == before
+
+
+def test_a_few_score_disagreements_are_only_a_warning_in_a_big_database(db):
+    db.con.execute(
+        "UPDATE matches SET home_goals = 9 WHERE match_id = (SELECT min(match_id) FROM matches WHERE finished)"
+    )
+    for i in range(2000):  # a large body of agreeing matches
+        db.con.execute(
+            "INSERT INTO matches (match_id, competition_id, season, home_team_id, away_team_id, "
+            "finished) VALUES (?, 'XXX', 2000, 1, 2, true)",
+            [500000 + i],
+        )
+    found = [i for i in run_checks(db) if i.check == "score_disagreement"]
+    assert found and found[0].severity == "warn"
