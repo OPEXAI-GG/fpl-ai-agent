@@ -14,6 +14,12 @@ on:
       to_gw:
         description: "last gameweek"
         default: "30"
+      explain_players:
+        description: "optional: skip the back-test and explain these players in the latest plan (name fragments, comma-separated)"
+        default: ""
+      explain_gw:
+        description: "gameweek for the explanation"
+        default: "6"
 permissions:
   contents: read
 jobs:
@@ -28,7 +34,17 @@ jobs:
       - run: uv sync --frozen
       - name: Restore database
         run: scripts/data_restore.sh data_cache/export
+      - name: Explain players in the latest plan
+        if: ${{ github.event.inputs.explain_players != '' }}
+        env:
+          GW: ${{ github.event.inputs.explain_gw }}
+          PLAYERS: ${{ github.event.inputs.explain_players }}
+        run: |
+          set -o pipefail
+          uv run fpl-agent explain --db data_cache/football.duckdb --import-dir data_cache/export \
+            --season 2026 --gw "$GW" --players "$PLAYERS" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Back-test
+        if: ${{ github.event.inputs.explain_players == '' }}
         run: |
           set -o pipefail  # a crash must fail the run, not be hidden by tee
           uv run fpl-agent backtest --db data_cache/football.duckdb --import-dir data_cache/export \
