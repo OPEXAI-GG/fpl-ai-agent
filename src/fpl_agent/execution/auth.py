@@ -53,6 +53,16 @@ class Tokens:
         return "Tokens(access=***, refresh=***)"
 
 
+def _why(r: httpx.Response) -> str:
+    """The server's reason for refusing, from its standard error fields only (never a token)."""
+    try:
+        body = r.json()
+        parts = [str(body.get(k, ""))[:80] for k in ("error", "error_description")]
+    except ValueError:
+        parts = []
+    return f"HTTP {r.status_code} " + " ".join(p for p in parts if p).strip()
+
+
 class TokenExchange:
     def __init__(self, refresh_token: str, token_url: str, client_id: str,
                  write_back: SecretWriter, secret_name: str = "FPL_REFRESH_TOKEN",
@@ -74,16 +84,21 @@ class TokenExchange:
         )
 
     def exchange(self) -> Tokens:
+        why = ""
         try:
             r = self._http.post(self._url, data={
                 "grant_type": "refresh_token", "refresh_token": self._rt,
                 "client_id": self._cid})  # fmt: skip
+            if r.is_error:
+                why = _why(r)
             r.raise_for_status()
             body = r.json()
             tokens = Tokens(body["access_token"], body.get("refresh_token", self._rt))
         except (httpx.HTTPError, ValueError, KeyError) as exc:
             raise AuthError(
-                "FPL sign-in failed; paste a fresh refresh token into the FPL_REFRESH_TOKEN secret"
+                "FPL sign-in failed"
+                + (f" ({why})" if why else f" ({type(exc).__name__})")
+                + "; paste a fresh refresh token into the FPL_REFRESH_TOKEN secret"
             ) from exc
         if tokens.refresh != self._rt:  # rotated: persist before anything else
             self._write(self._name, tokens.refresh)
