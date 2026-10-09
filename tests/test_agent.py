@@ -157,3 +157,18 @@ def test_a_failed_move_makes_the_run_exit_nonzero():
     assert res.exit_code == 0
     res.outcome = Outcome(mode="live", errors=["FPL sign-in failed"])
     assert res.exit_code == 2
+
+
+def test_a_forced_run_that_failed_its_moves_still_notifies(env, monkeypatch):
+    from fpl_agent.execution.execute import Outcome
+
+    sent = []
+    monkeypatch.setattr("fpl_agent.agent.notify.send", lambda m, *a, **k: sent.append(m) or True)
+    w = env[0]
+    w.db.con.execute("DELETE FROM decisions")
+    run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))  # first: notifies
+    monkeypatch.setattr(
+        "fpl_agent.agent.execute", lambda *a, **k: Outcome(mode="live", errors=["sign-in failed"])
+    )
+    run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
+    assert len(sent) == 2 and "sign-in failed" in sent[1]
