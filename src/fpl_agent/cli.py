@@ -189,6 +189,45 @@ def review_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def explain_cmd(args: argparse.Namespace) -> int:
+    """Why a player projects as he does: fixture, minutes, expected points by source."""
+    db = _open_db(args)
+    season, gw = int(args.season), args.gw
+    run = db.con.execute(
+        "SELECT run_id FROM projections WHERE season = ? AND gw = ? "
+        "ORDER BY created_at DESC LIMIT 1", [season, gw]).fetchone()  # fmt: skip
+    if not run:
+        print(f"no stored projection for GW{gw}: run the plan first")
+        return 1
+    teams = dict(db.con.execute("SELECT team_id, name FROM teams").fetchall())
+    for needle in [n.strip() for n in args.players.split(",") if n.strip()]:
+        rows = db.con.execute(
+            "SELECT p.player_id, p.name, pr.xpts, pr.detail, f.team_id, f.status, f.chance_next "
+            "FROM players p JOIN projections pr ON pr.player_id = p.player_id AND pr.run_id = ? "
+            "AND pr.gw = ? LEFT JOIN fpl_players_gw f ON f.player_id = p.player_id "
+            "AND f.season = ? AND f.gw = ? WHERE lower(p.name) LIKE ? "
+            "QUALIFY row_number() OVER (PARTITION BY p.player_id ORDER BY f.snapshot_at DESC) = 1",
+            [run[0], gw, season, gw, f"%{needle.lower()}%"],
+        ).fetchall()  # fmt: skip
+        for _pid, name, xpts, detail, team_id, status, chance in rows:
+            d = json.loads(detail)
+            fx = db.con.execute(
+                "SELECT home_team_id, away_team_id, kickoff FROM matches WHERE season = ? "
+                "AND matchday = ? AND competition_id = 'ENG1' AND (home_team_id = ? "
+                "OR away_team_id = ?)", [season, gw, team_id, team_id]).fetchall()  # fmt: skip
+            opp = [f"{teams.get(h)} v {teams.get(a)} ({k})" for h, a, k in fx] or ["no fixture"]
+            comps = ", ".join(f"{k} {v:.2f}" for k, v in sorted(d.get("components", {}).items()))
+            print(f"{name} [{teams.get(team_id)}] status={status} chance={chance}")
+            print(f"  fixture: {'; '.join(opp)}")
+            print(
+                f"  expected points {xpts:.2f}  minutes {d.get('exp_minutes', 0):.0f}  "
+                f"P(blank) {d.get('p_zero', 0):.0%}  P(10+) {d.get('p10', 0):.0%}  "
+                f"range {d.get('q10', 0):.0f}-{d.get('q90', 0):.0f}"
+            )
+            print(f"  by source: {comps}")
+    return 0
+
+
 def backtest_cmd(args: argparse.Namespace) -> int:
     from fpl_agent.model import backtest
     from fpl_agent.model.simulate import SimConfig
@@ -259,6 +298,12 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--season", default="2026")
     rv.add_argument("--export", default=None, help="write the database as parquet here")
     rv.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    ex = sub.add_parser("explain", help="why players project as they do (needs a stored plan)")
+    ex.add_argument("--db", default="data_cache/football.duckdb")
+    ex.add_argument("--import-dir", default=None)
+    ex.add_argument("--season", default="2026")
+    ex.add_argument("--gw", type=int, required=True)
+    ex.add_argument("--players", required=True, help="comma-separated name fragments")
     bt = sub.add_parser("backtest", help="point-in-time accuracy of the projection stack")
     bt.add_argument("--db", default="data_cache/football.duckdb")
     bt.add_argument("--import-dir", default=None)
@@ -269,6 +314,8 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
+    if args.cmd == "explain":
+        return explain_cmd(args)
     if args.cmd == "status":
         return status(settings)
     if args.cmd == "snapshot":

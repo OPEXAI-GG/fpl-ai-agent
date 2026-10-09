@@ -133,3 +133,9 @@ def test_status_live_with_credentials_and_the_kill_switch(monkeypatch, capsys):
     monkeypatch.setenv("AGENT_ENABLED", "false")
     assert cli.main(["status"]) == 0
     assert "Kill switch is ON" in capsys.readouterr().out
+
+
+def test_explain_reports_a_missing_plan(tmp_path, capsys):
+    db = tmp_path / "f.duckdb"
+    assert cli.main(["explain", "--db", str(db), "--gw", "6", "--players", "Mbeumo"]) == 1
+    assert "no stored projection" in capsys.readouterr().out

@@ -1,0 +1,35 @@
+name: explain
+# Click "Run workflow" to see why players project as they do in the latest plan: fixture, minutes
+# and expected points by source. Read-only: changes nothing and never logs in to FPL.
+on:
+  workflow_dispatch:
+    inputs:
+      gw:
+        description: "gameweek"
+        default: "6"
+      players:
+        description: "comma-separated name fragments"
+        default: "Mbeumo,Haaland,Salah,Le F"
+permissions:
+  contents: read
+jobs:
+  explain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Explain
+        env:
+          GW: ${{ github.event.inputs.gw }}
+          PLAYERS: ${{ github.event.inputs.players }}
+        run: |
+          set -o pipefail
+          uv run fpl-agent explain --db data_cache/football.duckdb --import-dir data_cache/export \
+            --season 2026 --gw "$GW" \
+            --players "$PLAYERS" | tee -a "$GITHUB_STEP_SUMMARY"
