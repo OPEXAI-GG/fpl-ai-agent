@@ -177,15 +177,18 @@ def test_preview_comparison_catches_a_different_plan(base):
 
 
 class FakeFPL:
-    def __init__(self, base, preview_ok=True, empty_preview=False):
+    def __init__(self, base, preview_ok=True, empty_preview=False, already=False):
         self.log, self.d, self.ids, self.ok = [], base[2], fid(base), preview_ok
         self.empty = empty_preview
+        self.moved = already  # FPL already holds the incoming players
 
     def __call__(self, req: httpx.Request):
         body = json.loads(req.content) if req.content else {}
         self.log.append((req.method, req.url.path, body.get("confirmed")))
         assert req.headers["X-API-Authorization"] == "Bearer access"
         if req.url.path.endswith("/transfers/"):
+            if body.get("confirmed") is True:
+                self.moved = True
             if self.empty and body.get("confirmed") is False:
                 return httpx.Response(200, json={})
             ins = [{"element_in": self.ids[i]} for i in self.d.transfers_in]
@@ -199,7 +202,12 @@ class FakeFPL:
             )
         if req.method == "POST":
             return httpx.Response(200, json={})
-        picks = [{"element": self.ids[p], "is_captain": p == self.d.captain} for p in self.d.xi]
+        new = set(self.d.transfers_in)
+        picks = [
+            {"element": self.ids[p], "is_captain": p == self.d.captain}
+            for p in self.d.xi
+            if self.moved or p not in new
+        ]
         return httpx.Response(200, json={"picks": picks})
 
 
@@ -352,3 +360,13 @@ def test_a_disagreeing_preview_shows_what_fpl_said(base):
     out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
                   {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
     assert any("FPL said:" in b for b in out.blocked)
+
+
+def test_transfers_already_on_fpl_are_not_sent_again(base):
+    fake = FakeFPL(base, already=True)
+    http = httpx.Client(transport=httpx.MockTransport(fake))
+    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
+                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
+    assert out.verified, out
+    assert not any(p.endswith("/transfers/") for _, p, _ in fake.log)
+    assert any("already in place" in x for x in out.done)

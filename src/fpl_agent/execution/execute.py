@@ -111,6 +111,14 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
     transfers_done = False
     try:
         if allow_transfers:
+            # the plan starts from the last finished week's squad; if FPL already holds the
+            # incoming players (an earlier attempt went through) there is nothing left to send
+            held = {p["element"] for p in w.my_team().get("picks", [])}
+            want_in = {fpl_id[i] for i in d.transfers_in}
+            if want_in and want_in <= held:
+                out.done.append("transfers already in place on FPL: nothing to send")
+                allow_transfers, transfers_done = False, True
+        if allow_transfers:
             try:
                 prev = w.transfers(
                     transfers_payload(d, ctx.state, entry, fpl_id, price, False, pos)
