@@ -370,3 +370,15 @@ def test_transfers_already_on_fpl_are_not_sent_again(base):
     assert out.verified, out
     assert not any(p.endswith("/transfers/") for _, p, _ in fake.log)
     assert any("already in place" in x for x in out.done)
+
+
+def test_lineup_puts_the_keepers_in_slots_1_and_12_because_fpl_demands_it():
+    from types import SimpleNamespace
+
+    xi = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]  # 14 is the starting keeper
+    bench = [21, 22, 23, 24]  # 24 is the spare keeper, listed last
+    pos = {p: "MID" for p in xi + bench} | {14: "GKP", 24: "GKP"}
+    d = SimpleNamespace(xi=xi, bench=bench, captain=10, vice=11, chip=None)
+    picks = lineup_payload(d, {p: p + 1000 for p in xi + bench}, pos)["picks"]
+    by_slot = {p["position"]: p["element"] - 1000 for p in picks}
+    assert by_slot[1] == 14 and by_slot[12] == 24 and sorted(by_slot) == list(range(1, 16))

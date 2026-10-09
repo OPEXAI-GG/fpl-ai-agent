@@ -139,7 +139,7 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
             except httpx.HTTPError as exc:
                 out.errors.append(f"transfers failed ({_why(exc)}); trying the lineup")
         if allow_lineup and (transfers_done or not needs_transfers):
-            w.set_lineup(lineup_payload(d, fpl_id))
+            w.set_lineup(lineup_payload(d, fpl_id, pos))
             out.done += lineup_steps(d)
         elif allow_lineup:
             out.blocked.append(no_lineup)

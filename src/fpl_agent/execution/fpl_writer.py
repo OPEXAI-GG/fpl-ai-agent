@@ -48,9 +48,14 @@ def transfers_payload(d: Decision, state: SquadState, entry: int, fpl_id: dict[i
     }  # fmt: skip
 
 
-def lineup_payload(d: Decision, fpl_id: dict[int, int]) -> dict[str, Any]:
-    order = list(d.xi) + list(d.bench)
-    # outfield XI first in the order we hold them, then bench priority; FPL positions are 1..15
+def lineup_payload(d: Decision, fpl_id: dict[int, int],
+                   position: dict[int, str] | None = None) -> dict[str, Any]:  # fmt: skip
+    xi, bench = list(d.xi), list(d.bench)
+    if position:  # FPL wants the starting keeper in slot 1 and the spare keeper in slot 12
+        xi.sort(key=lambda p: position.get(p) != "GKP")
+        bench.sort(key=lambda p: position.get(p) != "GKP")
+    order = xi + bench
+    # slots 1..15: starting XI, then the bench in priority order
     picks = [{"element": fpl_id[p], "position": n + 1, "is_captain": p == d.captain,
               "is_vice_captain": p == d.vice} for n, p in enumerate(order)]  # fmt: skip
     chip = d.chip if d.chip in ("bboost", "3xc") else None
