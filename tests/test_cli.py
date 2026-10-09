@@ -107,3 +107,29 @@ def test_review_can_export_the_database(tmp_path, capsys):
     cli.main(["review", "--db", str(tmp_path / "e.duckdb"), "--export", str(out)])
     capsys.readouterr()
     assert out.exists()
+
+
+def test_status_reports_dry_by_default(monkeypatch, capsys):
+    monkeypatch.delenv("AGENT_MODE", raising=False)
+    assert cli.main(["status"]) == 0
+    assert "Mode: DRY" in capsys.readouterr().out
+
+
+def test_status_live_without_credentials_stops(monkeypatch, capsys):
+    monkeypatch.setenv("AGENT_MODE", "live")
+    for k in ("FPL_REFRESH_TOKEN", "FPL_TOKEN_URL", "FPL_CLIENT_ID", "FPL_ENTRY_ID"):
+        monkeypatch.delenv(k, raising=False)
+    assert cli.main(["status"]) == 2
+    out = capsys.readouterr().out
+    assert "LIVE" in out and "FPL_REFRESH_TOKEN" in out
+
+
+def test_status_live_with_credentials_and_the_kill_switch(monkeypatch, capsys):
+    monkeypatch.setenv("AGENT_MODE", "live")
+    for k in ("FPL_REFRESH_TOKEN", "FPL_TOKEN_URL", "FPL_CLIENT_ID", "FPL_ENTRY_ID"):
+        monkeypatch.setenv(k, "secret-value")
+    assert cli.main(["status"]) == 0
+    assert "secret-value" not in capsys.readouterr().out
+    monkeypatch.setenv("AGENT_ENABLED", "false")
+    assert cli.main(["status"]) == 0
+    assert "Kill switch is ON" in capsys.readouterr().out

@@ -70,6 +70,8 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     by_pos = {}
     for p, g in df.groupby("position"):
         by_pos[p] = {"n": len(g), "bias": round(float(g["err"].mean()), 3),
+                     "mean_pred": round(float(g["xpts"].mean()), 4),
+                     "mean_actual": round(float(g["actual"].mean()), 4),
                      "rmse": round(float(np.sqrt((g["err"] ** 2).mean())), 3),
                      "mae": round(float(g["err"].abs().mean()), 3)}  # fmt: skip
     comp: dict[str, list[float]] = {}

@@ -22,7 +22,7 @@ from fpl_agent.data.fpl_client import FPLClient
 from fpl_agent.db.database import FootballDB
 from fpl_agent.execution import safety
 from fpl_agent.execution.execute import Outcome, execute
-from fpl_agent.model import project
+from fpl_agent.model import calibration, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
@@ -167,6 +167,13 @@ def run_weekly(
     try:
         proj = project.build_projection(db, opts.season, gws, rules=rules, pool=pool,
                                         cfg=SimConfig(n=opts.samples), pool_gw=ev.id)  # fmt: skip
+        fac = calibration.factors(db, opts.season, ev.id)
+        if fac:
+            calibration.apply(proj, fac)
+            res.notes.append(
+                "learning: position calibration "
+                + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
+            )
         project.save_projection(db, proj)
         d = decide(state, proj, rules, names=_names(db), cfg=PlannerConfig(),
                    use_chips=opts.use_chips)  # fmt: skip

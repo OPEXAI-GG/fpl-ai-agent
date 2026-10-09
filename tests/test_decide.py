@@ -176,3 +176,22 @@ def test_expiring_chip_is_played_at_the_best_week_even_for_a_tiny_gain():
         _base3(), ch.Scenario(None, None, None), sc, {"freehit": (6, 12)}, ch.ChipConfig()
     )
     assert d.play_now == "freehit"  # the window closes inside the horizon: use it or lose it
+
+
+def test_rank_mode_captain_prefers_the_higher_haul_chance_within_the_slack():
+    import numpy as np
+    import pandas as pd
+
+    from fpl_agent.model.project import Projection
+    from fpl_agent.solver.decide import captain_choice
+
+    meta = pd.DataFrame({"player_id": [1, 2, 3]})
+    pts = np.zeros((3, 1, 100), dtype="float32")
+    pts[0, 0, :] = 6.0  # steady 6.0 average, never a haul
+    pts[1, 0, :] = np.where(np.arange(100) < 43, 12.0, 1.0)  # 5.7 average, 43% hauls
+    pts[2, 0, :] = 3.0
+    proj = Projection("r", 2026, [6], meta, pts, np.zeros_like(pts, dtype="int16"))
+    cap, vice, opts = captain_choice(proj, [1, 2, 3], slack=0.5)
+    assert (cap, vice) == (2, 1) and opts[0]["player_id"] == 1
+    cap, _, _ = captain_choice(proj, [1, 2, 3], slack=0.0)
+    assert cap == 1
