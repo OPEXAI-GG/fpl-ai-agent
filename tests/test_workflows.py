@@ -79,4 +79,3 @@ def test_backtest_workflow_is_read_only_and_manual():
     wf = load(WF / "backtest.yml")
     assert wf["permissions"] == {"contents": "read"}
     assert "workflow_dispatch" in wf["on"] and "schedule" not in wf["on"]
-
