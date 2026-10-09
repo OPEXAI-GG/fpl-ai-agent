@@ -56,7 +56,8 @@ class RunResult:
 
     @property
     def exit_code(self) -> int:
-        return 2 if self.status == "error" else 0
+        failed_moves = bool(self.outcome and self.outcome.errors)
+        return 2 if self.status == "error" or failed_moves else 0
 
 
 def _names(db: FootballDB) -> dict[int, str]:

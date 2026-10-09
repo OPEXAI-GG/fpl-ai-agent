@@ -147,3 +147,13 @@ def test_a_second_run_in_the_same_window_does_not_notify_again(env, monkeypatch)
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
     assert len(sent) == 1
+
+
+def test_a_failed_move_makes_the_run_exit_nonzero():
+    from fpl_agent.agent import RunResult
+    from fpl_agent.execution.execute import Outcome
+
+    res = RunResult("ok")
+    assert res.exit_code == 0
+    res.outcome = Outcome(mode="live", errors=["FPL sign-in failed"])
+    assert res.exit_code == 2
