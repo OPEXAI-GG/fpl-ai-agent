@@ -205,7 +205,10 @@ def run_weekly(
     res.report = format_report(res, settings.mode)
     if opts.out_dir:
         write_outputs(opts.out_dir, res, settings.mode)
-    if opts.notify and first_time:
+    o = res.outcome
+    moved = bool(o and o.mode == "live" and o.done)
+    failed = bool(o and o.errors and opts.force)  # a hand-started run reports its failure
+    if opts.notify and (first_time or moved or failed):
         notify.send(res.report)
     return res
 
