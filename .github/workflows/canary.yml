@@ -19,6 +19,6 @@ jobs:
       - name: Alert on failure
         if: failure()
         env:
-          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
         run: |
           uv run python -c "from fpl_agent.notify import send; send('FPL agent canary FAILED: a data source changed or is down. See the canary workflow run.')"

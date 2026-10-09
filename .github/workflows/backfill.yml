@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 300
     env:
       GH_TOKEN: ${{ github.token }}
-      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

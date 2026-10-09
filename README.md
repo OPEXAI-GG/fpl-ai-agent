@@ -49,7 +49,7 @@ free transfers from your gameweek history, and chips left from your chip history
 
 * `ODDS_API_KEY` - bookmaker prices are blended into the team goal rates.
 * `ANTHROPIC_API_KEY` - the scout reads injury/news text and nudges availability (bounded, see architecture).
-* `NOTIFY_WEBHOOK` - Discord/Slack-style webhook for the weekly report and failure alerts.
+* `NOTIFY_WEBHOOK` (or a secret named `Discord_webhook`) - Discord/Slack-style webhook for the weekly report and failure alerts.
 
 ## Automation (GitHub Actions)
 

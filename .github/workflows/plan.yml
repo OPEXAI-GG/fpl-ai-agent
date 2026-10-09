@@ -30,7 +30,7 @@ jobs:
       FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
       # only read when AGENT_MODE is live
       FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
       FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
