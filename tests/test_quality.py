@@ -148,8 +148,9 @@ def test_repair_clears_merged_split_season_matches_and_wrong_club_links():
     assert db.query("SELECT match_id FROM matches").match_id.tolist() == [eng]
     assert mid not in db.query("SELECT match_id FROM match_ids").match_id.tolist()
     assert db.query("SELECT key FROM ingest_state WHERE source = 'fotmob'").key.tolist() == ["11"]
-    assert db.con.execute(
-        "SELECT count(*) FROM team_ids WHERE source = 'vaastav-team'"
-    ).fetchone()[0] == 0
+    assert (
+        db.con.execute("SELECT count(*) FROM team_ids WHERE source = 'vaastav-team'").fetchone()[0]
+        == 0
+    )
     assert db.team_id("vaastav-team", "x", "Dundee") != du  # made again, correctly
     assert repair(db) == []  # once per database
