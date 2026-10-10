@@ -108,6 +108,7 @@ def backfill(args: argparse.Namespace) -> int:
         fotmob_matches=args.fotmob_matches,
         sources=tuple(s for s in args.sources.split(",") if s),
         export=Path(args.export) if args.export else None,
+        max_minutes=args.max_minutes,
     )
     db = FootballDB(args.db)
     if args.import_dir:
@@ -323,6 +324,12 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--competitions", default="", help="comma list of competition ids (default all)")
     b.add_argument("--sources", default="football-data,understat,fotmob,vaastav")
     b.add_argument("--fotmob-matches", type=int, default=400)
+    b.add_argument(
+        "--max-minutes",
+        type=float,
+        default=None,
+        help="stop starting new steps after this long, and save the progress",
+    )
     b.add_argument("--export", default=None)
     b.add_argument("--import-dir", default=None)
     pl = sub.add_parser(

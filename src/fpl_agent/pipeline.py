@@ -4,6 +4,7 @@ exported when the quality checks pass."""
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,7 +28,7 @@ from fpl_agent.db import (
 from fpl_agent.db.database import FootballDB
 from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, run_checks
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
-from fpl_agent.health import HealthReport, guard
+from fpl_agent.health import HealthReport, SourceResult, guard
 
 OK, CRITICAL_SOURCE_FAILED, BAD_DATA = 0, 2, 3
 
@@ -271,6 +272,10 @@ class BackfillOptions:
     fotmob_matches: int = 400  # match pages per competition-season per run
     sources: tuple[str, ...] = ("football-data", "understat", "fotmob", "vaastav")
     export: Path | None = None
+    max_minutes: float | None = None  # stop starting new steps after this, and save the progress
+
+
+_clock = time.monotonic  # the backfill's time budget (replaced in tests)
 
 
 def _marked(db: FootballDB, key: str) -> bool:
@@ -296,25 +301,41 @@ def run_backfill(
     http: httpx.Client | None = None,
     alert: bool = True,
 ) -> UpdateResult:
-    """Fill history season by season. Resumable and idempotent: finished season-sources are
-    remembered, FotMob match pages continue where the previous run stopped (`fotmob_matches`
-    per competition-season per run), and a failing source/season is skipped and reported."""
+    """Fill history season by season: first the quick sources (vaastav points and prices,
+    football-data results, Understat xG) for every season, then FotMob match pages.
+
+    Resumable and idempotent: finished season-sources are remembered, FotMob match pages
+    continue where the previous run stopped (`fotmob_matches` per competition-season per run),
+    and a failing source/season is skipped and reported. With `max_minutes` the run stops
+    starting new steps once the time is up and still saves what it has, so a run that would
+    otherwise hit the job's time limit never loses its work."""
     fm, us, http = fm or FotMobClient(), us or UnderstatClient(), http or http_client()
     report = HealthReport()
     ing = ingest_fotmob.FotMobIngestor(db)
     current = opts.end
+    t0 = _clock()
+    stopped: list[str] = []
+
+    def out_of_time(key: str) -> bool:
+        if opts.max_minutes is None or (_clock() - t0) / 60 < opts.max_minutes:
+            return False
+        stopped.append(key)
+        return True
 
     def once(key: str, fn):
         """Run a step once for a finished season; the current season is always refreshed."""
         season = int(key.rsplit(":", 1)[1])
         if season < current and _marked(db, key):
             return None
+        if out_of_time(key):
+            return None
         out = guard(report, key, fn)
         if out is not None and season < current:
             _mark(db, key)
         return out
 
-    for season in range(opts.start, opts.end + 1):
+    seasons = range(opts.start, opts.end + 1)
+    for season in seasons:
         if "vaastav" in opts.sources and season >= 2016 and season < opts.end:
             once(f"vaastav:{season}", lambda s=season: load_vaastav(db, http, s))
         for comp in opts.competitions:
@@ -330,14 +351,18 @@ def run_backfill(
                     f"understat:{code}:{season}",
                     lambda c=code, s=season: understat_league(db, us, c, s),
                 )
-            if "fotmob" in opts.sources:
-                guard(
-                    report,
-                    f"fotmob:{comp}:{season}",
-                    lambda c=comp, s=season: fotmob_competition(
-                        db, ing, fm, c, s, opts.fotmob_matches
-                    ),
-                )
+    if "fotmob" in opts.sources:
+        for season in seasons:
+            for comp in opts.competitions:
+                key = f"fotmob:{comp}:{season}"
+                if out_of_time(key):
+                    continue
+                guard(report, key, lambda c=comp, s=season: fotmob_competition(
+                    db, ing, fm, c, s, opts.fotmob_matches))  # fmt: skip
+    if stopped:
+        report.results.append(SourceResult(
+            "time budget", True, error=f"stopped after {opts.max_minutes:.0f} min with "
+            f"{len(stopped)} steps left (next: {stopped[0]}); the next run continues"))  # fmt: skip
     issues = quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")

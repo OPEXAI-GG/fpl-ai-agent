@@ -35,6 +35,7 @@ jobs:
         run: |
           uv run fpl-agent backfill --db data_cache/football.duckdb --import-dir data_cache/export \
             --export data_cache/out --start "${{ github.event.inputs.start || '2017' }}" \
-            --competitions "${{ github.event.inputs.competitions }}" --fotmob-matches 400
+            --competitions "${{ github.event.inputs.competitions }}" --fotmob-matches 400 \
+            --max-minutes 240  # leaves time to save before the job's 300-minute limit
       - name: Publish database
         run: scripts/data_publish.sh data_cache/out
