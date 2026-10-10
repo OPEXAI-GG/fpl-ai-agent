@@ -8,7 +8,8 @@ on:
     - cron: "40 */3 * * *"
   workflow_dispatch:
 permissions:
-  actions: read
+  contents: read          # checkout (the repository is private)
+  actions: read           # the gate checks for a running plan
 concurrency:
   # its own group, so the nightly backfill (which holds `data` for hours) cannot hold it up;
   # the gate below skips the check while a plan run is using the single-use token
