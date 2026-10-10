@@ -155,7 +155,7 @@ def test_wildcard_below_seventy_percent_of_worlds_is_held():
 
 
 def test_chip_is_played_when_now_is_best_and_gain_clears_threshold():
-    sc = [_scn("bboost", 10, 11.0), _scn("bboost", 11, 9.0), _scn("bboost", 12, 7.0)]
+    sc = [_scn("bboost", 10, 17.0), _scn("bboost", 11, 15.0), _scn("bboost", 12, 13.0)]
     d = ch._decide(
         _base3(), ch.Scenario(None, None, None), sc, {"bboost": (6, 19)}, ch.ChipConfig()
     )

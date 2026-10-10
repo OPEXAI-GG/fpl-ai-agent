@@ -102,7 +102,7 @@ mock transports.
 
 ## Known limitations and skipped items
 
-* **Accuracy on real data.** The 2025/26 backtest (GW10 to 30, 16,522 player-weeks, 10 Oct 2026) beats both baselines in every position: RMSE 1.91 against 2.11 for "last 5 games" and 2.55 for FPL's xP, correlation 0.59 against 0.50 and 0.19. The season replay has no ownership history, so it runs without the ownership rails and the rank-risk term.
+* **Accuracy on real data.** The 2025/26 backtest (GW10 to 30, 16,522 player-weeks, 10 Oct 2026) beats both baselines in every position: RMSE 1.91 against 2.11 for "last 5 games" and 2.55 for FPL's xP, correlation 0.59 against 0.50 and 0.19. Season replays (two runs per setting, both seasons) put Bench Boost and Triple Captain thresholds of 14 and 8 expected points ahead of the old 8 and 4: 2024/25 1,969 against 1,963 on average, 2025/26 2,166 against 2,108, with the chips no longer spent in the first weeks. The season replay has no ownership history, so it runs without the ownership rails and the rank-risk term.
 
 * **Live execution has never been run against a real account.** The FPL sign-in endpoint and client id (`FPL_TOKEN_URL`, `FPL_CLIENT_ID`) must be copied from your own browser session, and the write payloads follow FPL's documented shape but are unverified. That is why the build stops at dry mode.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
