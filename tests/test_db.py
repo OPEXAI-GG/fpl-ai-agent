@@ -187,3 +187,13 @@ def test_dundee_and_dundee_united_stay_two_clubs():
     a = db.team_id("fotmob", "1", "Dundee")
     b = db.team_id("fotmob", "2", "Dundee United")
     assert a != b
+
+
+def test_football_data_short_names_join_the_fotmob_club():
+    db = FootballDB()
+    assert db.team_id("football-data", "Bristol Rvs", "Bristol Rvs") == db.team_id(
+        "fotmob", "1", "Bristol Rovers"
+    )
+    assert db.team_id("football-data", "Peterboro", "Peterboro") == db.team_id(
+        "fotmob", "2", "Peterborough United"
+    )
