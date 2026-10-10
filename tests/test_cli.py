@@ -89,6 +89,11 @@ def test_backtest_without_history_says_so(tmp_path, capsys):
     assert code == 2 and "not enough history" in capsys.readouterr().out
 
 
+def test_replay_without_history_says_so(tmp_path, capsys):
+    code = cli.main(["replay", "--db", str(tmp_path / "e.duckdb"), "--season", "2025"])
+    assert code == 2 and "no gameweeks could be replayed" in capsys.readouterr().out
+
+
 def test_plan_reports_an_fpl_outage_with_exit_code_2(tmp_path, capsys, monkeypatch):
     from fpl_agent import agent
 

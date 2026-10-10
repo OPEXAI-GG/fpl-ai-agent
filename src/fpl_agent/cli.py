@@ -292,6 +292,25 @@ def backtest_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def replay_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent.model import replay
+
+    db = _open_db(args)
+    cfg = replay.ReplayConfig(horizon=args.horizon, samples=args.samples,
+                              use_chips=not args.no_chips)  # fmt: skip
+    gws = list(range(args.from_gw, (args.to_gw or 38) + 1))
+    res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
+        f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
+        + (f", {w.chip}" if w.chip else ""), flush=True))  # fmt: skip
+    if not res.weeks:
+        print("no gameweeks could be replayed (no points for that season in the database)")
+        return 2
+    print(res.summary())
+    if args.out:
+        res.frame().to_csv(args.out, index=False)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -370,6 +389,16 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument("--to-gw", type=int, default=20)
     bt.add_argument("--samples", type=int, default=600)
     bt.add_argument("--out", default=None)
+    rp = sub.add_parser("replay", help="run the agent through a past season, scored on real points")
+    rp.add_argument("--db", default="data_cache/football.duckdb")
+    rp.add_argument("--import-dir", default=None)
+    rp.add_argument("--season", default="2025")
+    rp.add_argument("--from-gw", type=int, default=1)
+    rp.add_argument("--to-gw", type=int, default=None, help="last gameweek (default: the last)")
+    rp.add_argument("--horizon", type=int, default=4)
+    rp.add_argument("--samples", type=int, default=300)
+    rp.add_argument("--no-chips", action="store_true")
+    rp.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "explain":
@@ -392,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
         return gw_summary_cmd(args, settings)
     if args.cmd == "backtest":
         return backtest_cmd(args)
+    if args.cmd == "replay":
+        return replay_cmd(args)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2
