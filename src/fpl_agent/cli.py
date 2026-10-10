@@ -84,7 +84,6 @@ def db_update(args: argparse.Namespace) -> int:
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
-        max_minutes=args.max_minutes,
     )
     db = FootballDB(args.db)
     if args.import_dir:
