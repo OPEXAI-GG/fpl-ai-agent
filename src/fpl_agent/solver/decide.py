@@ -39,6 +39,7 @@ class Decision:
     chip_report: dict[str, Any] = field(default_factory=dict)
     horizon: list[WeekPlan] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    field_view: list[str] = field(default_factory=list)  # template risk and differentials
     captain_options: list[dict[str, Any]] = field(
         default_factory=list
     )  # top candidates, with upside
@@ -69,6 +70,7 @@ class Decision:
         for chip, why in self.chip_report.get("held", {}).items():
             lines.append(f"  holding {chip}: {why}")
         lines += [f"  warning: {w}" for w in self.warnings]
+        lines += [f"  field: {f}" for f in self.field_view]
         if len(self.horizon) > 1:
             lines.append("plan for the next weeks (1 free transfer a week, re-checked every run):")
             lines += [f"  {self.week_line(w)}" for w in self.horizon[1:]]
@@ -112,6 +114,8 @@ RANK_CAPTAIN_SLACK = 0.5
 # Until the rank layer weighs ownership properly: an available player owned by at least this
 # share of managers is not sold (selling him risks a big rank loss if he hauls) ...
 TEMPLATE_KEEP = 40.0
+# The report's view of the field: popular players you lack, and your little-owned starters
+FIELD_LACK, FIELD_DIFFERENTIAL = 30.0, 5.0
 # ... and a player owned by at least this share is captained when within this many expected
 # points of the best captain, since most of the field will captain him
 TEMPLATE_CAPTAIN, TEMPLATE_CAPTAIN_SLACK = 50.0, 1.0
@@ -124,16 +128,31 @@ def rank_risk(gw: int) -> float:
     return 0.15 if gw <= 10 else 0.05
 
 
-def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_SLACK):
-    """(captain, vice, options): options are the top XI players by expected points this week."""
+def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_SLACK,
+                   eo: dict[int, float] | None = None, risk: float = 0.0):  # fmt: skip
+    """(captain, vice, options): options are the top XI players by expected points this week.
+    Among the players within `slack` of the best, the captain is the one most likely to haul;
+    with field data (`eo`, `risk`) it is the one with the best expected points less the rank
+    risk of the armband (how far double points moves you from the field's effective ownership,
+    times his spread and `risk`)."""
     rows = {pid: i for i, pid in enumerate(proj.player_ids)}
     mean = proj.mean()[:, 0]
+    sd = proj.points[:, 0, :].std(axis=-1)
     haul = (proj.points[:, 0, :] >= 10).mean(axis=1)
     info = {p: (float(mean[rows[p]]), float(haul[rows[p]])) for p in xi if p in rows}
     ranked = sorted(info, key=lambda p: -info[p][0])
     best = info[ranked[0]][0]
     pool = [p for p in ranked if info[p][0] >= best - slack]
-    cap = max(pool, key=lambda p: (info[p][1], info[p][0]))
+    e = eo or {}
+
+    def armband(p: int) -> float:  # extra rank risk of doubling him rather than not
+        x = e.get(p, 0.0)
+        return risk * float(sd[rows[p]]) * (abs(2.0 - x) - abs(1.0 - x))
+
+    if risk and e:
+        cap = max(pool, key=lambda p: (info[p][0] - armband(p), info[p][1]))
+    else:  # no field data: the haul chance decides within the slack
+        cap = max(pool, key=lambda p: (info[p][1], info[p][0]))
     vice = next(p for p in ranked if p != cap)
     opts = [{"player_id": p, "xpts": info[p][0], "p_haul": info[p][1]} for p in ranked[:4]]
     return cap, vice, opts
@@ -218,7 +237,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
-        wk.captain, wk.vice, options = captain_choice(proj, wk.xi)
+        wk.captain, wk.vice, options = captain_choice(proj, wk.xi, eo=eo, risk=cfg.risk_lambda)
         top = template_players(proj, wk.xi, own, TEMPLATE_CAPTAIN)
         if top and top[0] != wk.captain:
             mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
@@ -227,6 +246,23 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             else:
                 warnings.append(f"{names.get(top[0], top[0])} ({own[top[0]]:.0f}% owned) is not "
                                 "captain: most of the field will captain him")  # fmt: skip
+    view = []
+    if own and wk.squad:
+        have = set(wk.squad)
+        lack = template_players(proj, [p for p in proj.player_ids if p not in have], own,
+                                FIELD_LACK)[:3]  # fmt: skip
+        diff = sorted((p for p in wk.xi if own.get(p, 0.0) < FIELD_DIFFERENTIAL),
+                      key=lambda p: own.get(p, 0.0))[:5]  # fmt: skip
+        if lack:
+            view.append(
+                "popular players you don't own (risk if they haul): "
+                + ", ".join(f"{names.get(p, p)} {own[p]:.0f}%" for p in lack)
+            )
+        if diff:
+            view.append(
+                f"your differentials (under {FIELD_DIFFERENTIAL:.0f}% owned, upside): "
+                + ", ".join(f"{names.get(p, p)} {own.get(p, 0.0):.0f}%" for p in diff)
+            )
     return Decision(
         gw=wk.gw, week=wk, chip=wk.chip, transfers_in=wk.transfers_in,
         transfers_out=wk.transfers_out, hits=wk.hits, captain=wk.captain, vice=wk.vice,
@@ -237,7 +273,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end
         ),
         names=names, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
-        captain_options=options,
+        captain_options=options, field_view=view,
     )  # fmt: skip
 
 

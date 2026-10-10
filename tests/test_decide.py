@@ -272,3 +272,35 @@ def test_no_further_transfers_once_this_weeks_moves_are_made():
     assert decide(st, proj, RULES, cfg=CFG, use_chips=False).transfers_in
     d = decide(replace(st, already_transferred=2), proj, RULES, cfg=CFG, use_chips=False)
     assert not d.transfers_in and len(d.xi) == 11
+
+
+def test_the_report_shows_popular_players_you_lack_and_your_differentials():
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50)
+    d0 = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    outsider = next(p for p in proj.player_ids if p not in d0.week.squad)
+    own = {p: 20.0 for p in proj.player_ids}
+    own[outsider] = 80.0
+    own[d0.xi[0]] = 1.0
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership=own,
+               names={outsider: "Popular", d0.xi[0]: "Rare"})  # fmt: skip
+    text = d.summary()
+    if outsider not in d.week.squad:
+        assert "Popular 80%" in text
+    if d0.xi[0] in d.xi:
+        assert "Rare 1%" in text
+    assert "field:" in text
+
+
+def test_with_field_data_the_captain_follows_the_fields_armband_when_close():
+    from fpl_agent.solver.decide import captain_choice
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50)
+    xi = decide(st, proj, RULES, cfg=CFG, use_chips=False).xi
+    plain, _, _ = captain_choice(proj, xi, slack=10.0)
+    other = next(p for p in xi if p != plain)
+    cap, _, _ = captain_choice(proj, xi, slack=10.0, eo={other: 1.9}, risk=50.0)
+    assert cap == other
+    same, _, _ = captain_choice(proj, xi, slack=10.0, eo={other: 1.9}, risk=0.0)
+    assert same == plain
