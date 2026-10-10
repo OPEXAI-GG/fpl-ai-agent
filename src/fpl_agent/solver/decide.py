@@ -130,9 +130,19 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     """`state` must already use canonical player ids (see `inputs.to_canonical`)."""
     cfg = cfg or PlannerConfig()
     cands = prune(build_candidates(proj, state.squad), state.squad)
+    locked: frozenset[int] = frozenset()
+    if state.wildcard_active and state.base_squad:
+        # FPL checks a further Wildcard-week change against both the last deadline's squad and
+        # the current one: players sold this week cannot be bought back, nor players bought this
+        # week sold again
+        now = {p.player_id for p in state.squad}
+        was = {p.player_id for p in state.base_squad}
+        cands = [c for c in cands if c.player_id not in was - now]
+        locked = frozenset(now - was)
     value = sum(p.sell_price for p in state.squad) + state.bank
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
-                     free_transfers=state.free_transfers, candidates=cands)  # fmt: skip
+                     free_transfers=state.free_transfers, candidates=cands,
+                     locked=locked)  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
     if state.already_transferred:

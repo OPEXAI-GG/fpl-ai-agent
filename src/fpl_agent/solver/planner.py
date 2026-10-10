@@ -75,6 +75,7 @@ class PlanInput:
     chips: dict[int, str] = field(default_factory=dict)  # gw -> chip played that week
     free_hit_values: dict[int, float] = field(default_factory=dict)
     no_transfer_gws: frozenset[int] = frozenset()  # forced roll (used to price "do nothing")
+    locked: frozenset[int] = frozenset()  # squad players that cannot be sold in the first week
 
 
 @dataclass
@@ -139,7 +140,8 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             m.var(("x", i, t))
             m.var(("c", i, t))
             m.var(("in", i, t), ub=0.0 if frozen else 1.0)
-            m.var(("out", i, t), ub=0.0 if frozen else 1.0)
+            locked = t == 0 and i in pi.locked
+            m.var(("out", i, t), ub=0.0 if frozen or locked else 1.0)
         for i in outfield:
             for k in range(3):
                 m.var(("b", i, t, k))

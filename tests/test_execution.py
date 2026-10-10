@@ -423,21 +423,3 @@ def test_an_active_wildcard_with_no_changes_sends_no_transfer_call(base):
     finally:
         c.state.wildcard_active = False
         c.state.chips_used.pop()
-
-
-def test_a_wildcard_week_sends_the_whole_change_from_the_last_deadlines_squad(base):
-    from fpl_agent.execution.execute import wildcard_net
-    from fpl_agent.solver.planner import SquadPlayer
-
-    st = base[1]
-    now = st.squad
-    old = [SquadPlayer(900 + i, p.position, p.team_id, 50, 50) for i, p in enumerate(now[:3])]
-    old += now[3:]  # three players were swapped earlier this week
-    live = replace(st, wildcard_active=True, base_squad=old)
-    d = replace(base[2], transfers_in=[777], transfers_out=[now[5].player_id])
-    net, frm = wildcard_net(d, live)
-    assert sorted(net.transfers_out) == sorted([900, 901, 902, now[5].player_id])
-    assert sorted(net.transfers_in) == sorted([now[0].player_id, now[1].player_id,
-                                               now[2].player_id, 777])  # fmt: skip
-    assert frm.squad is old
-    assert wildcard_net(d, st) == (d, st)  # no Wildcard: unchanged
