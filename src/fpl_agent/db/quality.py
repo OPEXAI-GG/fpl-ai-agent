@@ -284,4 +284,33 @@ def quarantine(db: FootballDB) -> list[Issue]:
                 "matches",
             ):
                 db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+        out += _quarantine_scores(db)
     return out
+
+
+SCORE_QUARANTINE_LIMIT = 0.05  # beyond this share something systematic is broken: fail instead
+
+
+def _quarantine_scores(db: FootballDB) -> list[Issue]:
+    """Matches whose sources disagree on the score are dropped (and their FotMob pages marked
+    unread, so a fixed loader stores them again), as long as they are a small share. One wrong
+    result must not stop a whole backfill from saving; a broken source or mapping still does."""
+    bad = db.query(
+        "SELECT DISTINCT m.match_id FROM matches m JOIN team_match t ON t.match_id = m.match_id "
+        "AND t.team_id = m.home_team_id WHERE m.finished AND t.goals_for <> m.home_goals"
+    )
+    finished = max(_count(db, "SELECT count(*) FROM matches WHERE finished"), 1)
+    if bad.empty or len(bad) / finished > SCORE_QUARANTINE_LIMIT:
+        return []
+    where = _where(db)
+    ids = [int(i) for i in bad["match_id"]]
+    marks = ", ".join("?" for _ in ids)
+    db.con.execute(
+        "DELETE FROM ingest_state WHERE source = 'fotmob' AND key IN (SELECT source_id FROM "
+        f"match_ids WHERE source = 'fotmob' AND match_id IN ({marks}))",
+        ids,
+    )
+    for table in MATCH_TABLES:
+        db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+    return [Issue("warn", "quarantined_scores",
+                  f"dropped {len(ids)} matches where sources disagree on the score ({where})")]  # fmt: skip
