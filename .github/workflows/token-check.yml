@@ -1,0 +1,49 @@
+name: token-check
+# Signs in to FPL once every 3 hours in live mode. FPL's login token rotates on every use and
+# lapses when left unused for hours, so this keeps it alive, and if FPL refuses it (for example
+# after the account was opened in a browser) it posts a Discord alert while there is still time
+# to paste a fresh one before the deadline.
+on:
+  schedule:
+    - cron: "40 */3 * * *"
+  workflow_dispatch:
+permissions:
+  actions: read
+concurrency:
+  group: data            # never alongside a plan run: both use the single-use token
+  cancel-in-progress: false
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      fresh: ${{ steps.wait.outputs.fresh }}
+    steps:
+      - id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at || true)
+          waited=0
+          if [ -n "$started" ]; then waited=$(( $(date +%s) - $(date -d "$started" +%s) )); fi
+          if [ "$waited" -gt 180 ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; else echo "fresh=true" >> "$GITHUB_OUTPUT"; fi
+  check:
+    needs: gate
+    if: ${{ needs.gate.outputs.fresh == 'true' && vars.AGENT_MODE == 'live' && vars.FPL_ENTRY_ID != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}   # stores the rotated token
+      AGENT_MODE: ${{ vars.AGENT_MODE }}
+      AGENT_ENABLED: ${{ vars.AGENT_ENABLED || 'true' }}
+      FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+      FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
+      FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
+      FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: |
+          set -o pipefail
+          uv run fpl-agent token-check | tee -a "$GITHUB_STEP_SUMMARY"

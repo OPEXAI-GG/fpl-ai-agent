@@ -146,6 +146,35 @@ def status(settings: Settings) -> int:
     return 0
 
 
+def token_check(settings: Settings, notify_on_fail: bool = True) -> int:
+    """Sign in to FPL once and read the team: keeps the rotating token in use (it lapses when
+    unused for hours) and warns on Discord while there is still time to paste a fresh one."""
+    from fpl_agent import notify
+    from fpl_agent.execution.auth import AuthError, TokenExchange
+    from fpl_agent.execution.fpl_writer import FPLWriter
+
+    if not settings.is_live or settings.entry_id is None:
+        print("token check skipped: not in live mode or no FPL_ENTRY_ID")
+        return 0
+    try:
+        tokens = TokenExchange.from_env().exchange()
+        FPLWriter(tokens.access, settings.entry_id).my_team()
+    except AuthError as exc:
+        why = str(exc)
+    except Exception as exc:  # noqa: BLE001  (a failed read is a failed check)
+        why = f"FPL sign-in worked but your team could not be read ({type(exc).__name__})"
+    else:
+        print("FPL sign-in OK: token rotated and saved")
+        return 0
+    msg = ("FPL token check failed: " + why + ". Paste a fresh refresh token into the "
+           "FPL_REFRESH_TOKEN secret before the next deadline, then keep FPL closed in the "
+           "browser until the next run.")  # fmt: skip
+    print(msg)
+    if notify_on_fail:
+        notify.send(msg)
+    return 2
+
+
 def _export(db, args: argparse.Namespace) -> None:
     if getattr(args, "export", None):
         db.export_parquet(args.export)
@@ -250,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status", help="show dry/live mode and which settings are missing")
+    tc = sub.add_parser("token-check", help="sign in to FPL once; alert if the token is dead")
+    tc.add_argument("--no-notify", action="store_true")
     sub.add_parser("snapshot", help="pull public FPL data and store a point-in-time snapshot")
     u = sub.add_parser("understat", help="pull Understat xG data and map players to FPL ids")
     u.add_argument("--season", default="2026", help="start year, e.g. 2026 for 2026/27")
@@ -318,6 +349,8 @@ def main(argv: list[str] | None = None) -> int:
         return explain_cmd(args)
     if args.cmd == "status":
         return status(settings)
+    if args.cmd == "token-check":
+        return token_check(settings, not args.no_notify)
     if args.cmd == "snapshot":
         return snapshot(settings)
     if args.cmd == "db-update":

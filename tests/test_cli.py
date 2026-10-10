@@ -139,3 +139,44 @@ def test_explain_reports_a_missing_plan(tmp_path, capsys):
     db = tmp_path / "f.duckdb"
     assert cli.main(["explain", "--db", str(db), "--gw", "6", "--players", "Mbeumo"]) == 1
     assert "no stored projection" in capsys.readouterr().out
+
+
+def test_token_check_alerts_when_fpl_refuses_the_token(monkeypatch, capsys):
+    from fpl_agent.execution import auth
+
+    monkeypatch.setenv("AGENT_MODE", "live")
+    monkeypatch.setenv("FPL_ENTRY_ID", "123")
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda m, *a, **k: sent.append(m) or True)
+
+    class Dead:
+        def exchange(self):
+            raise auth.AuthError("FPL sign-in failed (HTTP 400 invalid_grant)")
+
+    monkeypatch.setattr(auth.TokenExchange, "from_env", classmethod(lambda cls: Dead()))
+    assert cli.main(["token-check"]) == 2
+    assert sent and "FPL_REFRESH_TOKEN" in sent[0] and "invalid_grant" in sent[0]
+
+
+def test_token_check_passes_quietly_when_the_team_is_read(monkeypatch, capsys):
+    from fpl_agent.execution import auth, fpl_writer
+
+    monkeypatch.setenv("AGENT_MODE", "live")
+    monkeypatch.setenv("FPL_ENTRY_ID", "123")
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda m, *a, **k: sent.append(m) or True)
+
+    class Ok:
+        def exchange(self):
+            return auth.Tokens("a", "r")
+
+    monkeypatch.setattr(auth.TokenExchange, "from_env", classmethod(lambda cls: Ok()))
+    monkeypatch.setattr(fpl_writer.FPLWriter, "my_team", lambda self: {"picks": []})
+    assert cli.main(["token-check"]) == 0
+    assert not sent and "sign-in OK" in capsys.readouterr().out
+
+
+def test_token_check_does_nothing_in_dry_mode(monkeypatch, capsys):
+    monkeypatch.delenv("AGENT_MODE", raising=False)
+    assert cli.main(["token-check"]) == 0
+    assert "skipped" in capsys.readouterr().out
