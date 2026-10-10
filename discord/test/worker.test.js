@@ -79,7 +79,7 @@ test("only the owner can use it, and with no owner set nobody can", async () => 
 
 test("/plan starts a dry run by default, with the reply token", async () => {
   const n = net({ "POST dispatches": () => new Response(null, { status: 204 }) });
-  const res = await run(command("plan", [{ name: "force", value: true }]), n);
+  const res = await run(command("plan"), n);
   assert.deepEqual(await res.json(), { type: 5 });
   const start = n.calls.find((c) => c.url.endsWith("/actions/workflows/plan.yml/dispatches"));
   assert.deepEqual(start.body, {
@@ -92,6 +92,13 @@ test("/plan starts a dry run by default, with the reply token", async () => {
   assert.equal(edit.url, "https://discord.com/api/v10/webhooks/app1/itok/messages/@original");
   assert.equal(edit.method, "PATCH");
   assert.match(edit.body.content, /Started a dry run .*, forced/);
+});
+
+test("/plan force:false keeps the deadline window on a dry run", async () => {
+  const n = net({ "POST dispatches": () => new Response(null, { status: 204 }) });
+  await run(command("plan", [{ name: "force", value: false }]), n);
+  const start = n.calls.find((c) => c.url.includes("plan.yml/dispatches"));
+  assert.equal(start.body.inputs.force, "false");
 });
 
 test("/plan real:true starts a real run", async () => {

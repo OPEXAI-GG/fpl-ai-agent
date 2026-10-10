@@ -24,13 +24,13 @@ export const COMMANDS = [
       {
         type: BOOLEAN,
         name: "force",
-        description: "Plan even if the deadline is more than 26 hours away",
+        description: "Plan even if the deadline is more than 26 hours away (default: yes for a dry run)",
         required: false,
       },
       {
         type: BOOLEAN,
         name: "real",
-        description: "A real run instead: in live mode it makes the moves on your team",
+        description: "A real run: makes the moves on your team only if the agent is in live mode",
         required: false,
       },
     ],

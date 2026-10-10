@@ -93,12 +93,13 @@ const COMMANDS = {
     if (busy) {
       return `The ${busy} job is running right now. A real run queued behind it would be skipped (it could hold an out-of-date FPL login), so try again in a few minutes.`;
     }
-    const inputs = { force: args.force ? "true" : "false", dry: String(dry), discord_reply: token };
+    const force = args.force ?? dry; // a dry run plans whenever asked; a real one keeps the window
+    const inputs = { force: String(force), dry: String(dry), discord_reply: token };
     await dispatch(env, deps.fetch, "plan.yml", inputs);
     const kind = dry
       ? "a dry run (report only, your team is not touched)"
       : "a real run (in live mode it makes the moves on your team)";
-    return `Started ${kind}${args.force ? ", forced" : ""}. I will post the report here when it finishes. Runs: <${runsUrl(env, "plan.yml")}>`;
+    return `Started ${kind}${force ? ", forced" : ""}. I will post the report here when it finishes. Runs: <${runsUrl(env, "plan.yml")}>`;
   },
 
   async explain({ env, args, token, deps }) {

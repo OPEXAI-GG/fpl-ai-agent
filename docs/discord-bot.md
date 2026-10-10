@@ -7,7 +7,7 @@ Once set up, you type slash commands to the bot in your server or in a DM with i
 | `/ask question:` | Answers in plain words from the latest plan ("who's captain and why?", "should I use the Bench Boost?") | a few seconds |
 | `/latest` | Shows the latest plan report | instant |
 | `/status` | Dry or live, and how the last plan, data and review runs went | instant |
-| `/plan` (`force:`, `real:` optional) | Runs the weekly plan now as a **dry run** and posts the report back to you: nothing signs in to FPL and your team is not touched. Add `force:True` to plan even when the deadline is more than 26 hours away. `real:True` makes it a real run instead, which **in live mode makes the moves on your team**, exactly like pressing Run workflow. | a few minutes |
+| `/plan` (`force:`, `real:` optional) | Runs the weekly plan now as a **dry run** and posts the report back to you: nothing signs in to FPL and your team is not touched. It plans whenever you ask, even days before the deadline (`force:False` keeps the usual 26-hour window). `real:True` makes it a real run instead, which keeps the deadline window and **makes the moves on your team only when the agent is in live mode**, exactly like pressing Run workflow. | a few minutes |
 | `/explain players:` | Why players project as they do this gameweek (fixture, minutes, points by source) | a few minutes |
 
 Only the Discord accounts you list as owners can use it; anyone else gets a polite refusal and nothing runs.
