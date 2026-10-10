@@ -80,6 +80,40 @@ def current_pool(
     return df.drop_duplicates("player_id").reset_index(drop=True)
 
 
+# Set-piece duty from FPL's own `penalties_order` / `corners_and_indirect_freekicks_order`.
+# A team wins about 0.13 penalties a match, ~78% scored: ~0.10 goals, about 7% of its goals.
+# The fitted xG share already holds the penalties a player took before, so the first-choice
+# taker gets half of that share on top (a first estimate until the backtest tunes it), and the
+# first-choice corner taker a small assist share.
+PENALTY_SHARE = 0.07
+PENALTY_CREDIT = 0.5
+CORNER_ASSIST_SHARE = 0.01
+
+
+def _order(raw: object, key: str) -> int | None:
+    try:
+        v = json.loads(raw).get(key) if isinstance(raw, str) else None
+    except ValueError:
+        return None
+    return int(v) if isinstance(v, int | float) else None
+
+
+def apply_set_piece_duty(rates: pd.DataFrame, pool: pd.DataFrame) -> pd.DataFrame:
+    """`rates` (indexed by player_id) with the first-choice penalty and corner takers' shares
+    raised. Players without FPL's duty fields are left as they are."""
+    if "raw" not in pool:
+        return rates
+    out = rates.copy()
+    for r in pool.itertuples():
+        if r.player_id not in out.index:
+            continue
+        if _order(r.raw, "penalties_order") == 1:
+            out.loc[r.player_id, "xg_share"] += PENALTY_SHARE * PENALTY_CREDIT
+        if _order(r.raw, "corners_and_indirect_freekicks_order") == 1:
+            out.loc[r.player_id, "xa_share"] += CORNER_ASSIST_SHARE
+    return out
+
+
 def fixtures_for(
     db: FootballDB, season: int, gws: list[int], comp: str = COMPETITION
 ) -> pd.DataFrame:
@@ -179,6 +213,7 @@ def build_projection(
     rates = players.fit_player_rates(
         pm, history, positions, season, translation.Translations.load(db)
     ).set_index("player_id")
+    rates = apply_set_piece_duty(rates, pool)
     cfg = SimConfig(**{**cfg.__dict__, "noise": fit_bps_noise(history, rules, cfg.bps_save)})
 
     # minutes probabilities per (player, gw)

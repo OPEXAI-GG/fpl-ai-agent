@@ -131,3 +131,30 @@ def test_current_pool_respects_as_of(world):
     all_rows = project.current_pool(world.db, 2024, 5)
     early = project.current_pool(world.db, 2024, 5, as_of=pd.Timestamp("2000-01-01"))
     assert len(all_rows) == len(world.players) and early.empty
+
+
+def test_first_choice_penalty_and_corner_takers_get_a_larger_share():
+    import json
+
+    import pandas as pd
+
+    from fpl_agent.model.project import (
+        CORNER_ASSIST_SHARE,
+        PENALTY_CREDIT,
+        PENALTY_SHARE,
+        apply_set_piece_duty,
+    )
+
+    rates = pd.DataFrame({"player_id": [1, 2, 3], "xg_share": [0.2, 0.2, 0.1],
+                          "xa_share": [0.1, 0.1, 0.1]}).set_index("player_id")  # fmt: skip
+    pool = pd.DataFrame({"player_id": [1, 2, 3], "raw": [
+        json.dumps({"penalties_order": 1, "corners_and_indirect_freekicks_order": 2}),
+        json.dumps({"penalties_order": 2, "corners_and_indirect_freekicks_order": 1}),
+        None,
+    ]})  # fmt: skip
+    out = apply_set_piece_duty(rates, pool)
+    assert out.loc[1, "xg_share"] == pytest.approx(0.2 + PENALTY_SHARE * PENALTY_CREDIT)
+    assert out.loc[2, "xg_share"] == pytest.approx(0.2)
+    assert out.loc[2, "xa_share"] == pytest.approx(0.1 + CORNER_ASSIST_SHARE)
+    assert out.loc[3].tolist() == rates.loc[3].tolist()
+    assert rates.loc[1, "xg_share"] == 0.2  # the input is not changed
