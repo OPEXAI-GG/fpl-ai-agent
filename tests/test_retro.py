@@ -10,13 +10,20 @@ GW, SEASON, ENTRY = 10, 2024, 7
 
 
 class FakeFPL:
-    def __init__(self, pool, squad, deadline="2100-01-01T10:00:00Z"):
-        self.pool, self.squad, self.deadline = pool, squad, deadline
+    def __init__(self, pool, squad, deadline="2100-01-01T10:00:00Z", finished=True):
+        self.pool, self.squad, self.deadline, self.finished = pool, squad, deadline, finished
+        goalkeepers = pool[pool["position"] == "GKP"]["fpl_id"].astype(int)
+        spare = next(i for i in goalkeepers if i not in squad)
+        self.before = [
+            *squad[:11],
+            spare,
+            *squad[12:],
+        ]  # last week's squad: one bench keeper differs
 
     def bootstrap_raw(self):
         codes = {"GKP": 1, "DEF": 2, "MID": 3, "FWD": 4}
         return {
-            "events": [{"id": GW, "deadline_time": self.deadline}],
+            "events": [{"id": GW, "deadline_time": self.deadline, "finished": self.finished}],
             "elements": [
                 {"id": int(r.fpl_id), "element_type": codes[r.position], "team": int(r.team_id),
                  "now_cost": int(r.price), "cost_change_start": 0}
@@ -25,10 +32,11 @@ class FakeFPL:
         }  # fmt: skip
 
     def entry_picks_raw(self, entry, gw):
+        squad = self.squad if gw == GW else self.before
         return {
             "picks": [
                 {"element": i, "position": n + 1, "is_captain": n == 8, "is_vice_captain": n == 9}
-                for n, i in enumerate(self.squad)
+                for n, i in enumerate(squad)
             ],
             "entry_history": {"bank": 30, "value": 1000, "points": 50, "event_transfers_cost": 0},
             "active_chip": None,
@@ -74,7 +82,14 @@ def test_retro_sets_the_agent_against_the_submitted_team(env):
     for part in ("points after hits: you", "(FPL says 50)", "captain: you", "your moves:",
                  "agent moves:", "players only in your XI", "your XI:", "agent XI:"):  # fmt: skip
         assert part in text, text
-    assert "out " in text  # the submitted transfer is listed with its points
+    assert "out " in text  # the one changed player is listed with his points
+    assert "PROVISIONAL" not in text
+
+
+def test_retro_warns_when_the_gameweek_is_still_being_played(env):
+    w, pool, squad = env
+    text = retro.run(w.db, SEASON, GW, ENTRY, cfg(), fpl=FakeFPL(pool, squad, finished=False))
+    assert "PROVISIONAL" in text
 
 
 def test_retro_says_so_when_no_snapshot_precedes_the_deadline(env):

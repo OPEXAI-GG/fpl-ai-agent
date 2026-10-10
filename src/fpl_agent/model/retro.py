@@ -94,7 +94,6 @@ def run(db: FootballDB, season: int, gw: int, entry: int, cfg: replay.ReplayConf
     pts, mins = live_points(fpl.live_raw(gw), fpl_to_pid)
     mine_picks = fpl.entry_picks_raw(entry, gw)
     mine = my_week(mine_picks, fpl_to_pid)
-    moves = [t for t in fpl.entry_transfers_raw(entry) if t["event"] == gw]
     hist = mine_picks.get("entry_history", {})
     my_hits = int(hist.get("event_transfers_cost", 0)) // 4
 
@@ -111,15 +110,21 @@ def run(db: FootballDB, season: int, gw: int, entry: int, cfg: replay.ReplayConf
                 f"in {', '.join(f'{_name(names, p)} {pts.get(p, 0)}' for p in ins)} "
                 f"({gain:+d} points from the moves)")  # fmt: skip
 
-    my_in = [fpl_to_pid[t["element_in"]] for t in moves if t["element_in"] in fpl_to_pid]
-    my_out = [fpl_to_pid[t["element_out"]] for t in moves if t["element_out"] in fpl_to_pid]
+    # the net change of squad, so a Wildcard week's repeated edits show as the moves that stood
+    before = {fpl_to_pid[r["element"]] for r in prev["picks"] if r["element"] in fpl_to_pid}
+    after = set(mine.squad)
+    my_in = [p for p in mine.squad if p not in before] if before else []
+    my_out = [p for p in before if p not in after]
     both = set(plan.xi) & set(mine.xi)
     only_mine = [p for p in mine.xi if p not in both]
     only_agent = [p for p in plan.xi if p not in both]
     diff = sum(pts.get(p, 0) for p in only_agent) - sum(pts.get(p, 0) for p in only_mine)
 
+    done = next(e for e in raw["events"] if e["id"] == gw).get("finished", False)
     out = [
         f"GW{gw} retro: the current agent against the team you submitted",
+        *([] if done else [f"PROVISIONAL: GW{gw} is not finished. Players yet to play count 0, so "
+                           "captains, substitutes and totals can still change."]),
         f"(squad after GW{gw - 1}, data as of the deadline {cutoff:%a %d %b %H:%M} UTC; no "
         "ownership, odds or scout)", "",
         f"points after hits: you {mine_net}"
