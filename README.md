@@ -58,7 +58,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `ci.yml` | every PR | ruff, format check, full tests, **85% coverage gate**, CLI smoke |
 | `data.yml` | daily + Tuesday | update the database from all sources and publish it |
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
-| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 2-26h away; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
+| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 45 min to 26h away (each run re-plans; the last one lands 45 min to 3h before it); notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
 | `backtest.yml` | manual button | back-test a past season against simple baselines; results in the run summary (read-only) |
 | `review.yml` | Tuesday | score the finished gameweek and publish the reviews |
 | `canary.yml` | daily | check every live source still matches its contract |

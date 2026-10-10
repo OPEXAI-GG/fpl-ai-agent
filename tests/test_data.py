@@ -37,7 +37,8 @@ def test_calendar(bootstrap_raw):
     ev = bs.events[3]
     now = ev.deadline_time - timedelta(hours=10)
     assert in_action_window(ev, now)
-    assert not in_action_window(ev, ev.deadline_time - timedelta(hours=1))
+    assert in_action_window(ev, ev.deadline_time - timedelta(hours=1))  # the final re-plan
+    assert not in_action_window(ev, ev.deadline_time - timedelta(minutes=30))
     assert not in_action_window(ev, ev.deadline_time - timedelta(hours=40))
     assert hours_to_deadline(ev, now) == pytest.approx(10)
     ups = upcoming_deadlines(bs, now=datetime(2026, 8, 1, tzinfo=UTC))
