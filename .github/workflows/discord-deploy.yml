@@ -1,0 +1,53 @@
+name: discord-deploy
+# Puts the Discord bot online (a free Cloudflare Worker) and registers its slash commands.
+# Run it by hand once the settings in docs/discord-bot.md are in place, and again after any
+# change under discord/. It never touches your FPL team.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and test
+        working-directory: discord
+        run: |
+          npm ci
+          npm test
+      - name: Deploy the Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          wranglerVersion: "4.149.0"
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: discord
+          secrets: |
+            DISCORD_PUBLIC_KEY
+            DISCORD_APP_ID
+            ALLOWED_USER_IDS
+            GITHUB_TOKEN
+            ANTHROPIC_API_KEY
+        env:
+          DISCORD_PUBLIC_KEY: ${{ vars.DISCORD_PUBLIC_KEY }}
+          DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
+          ALLOWED_USER_IDS: ${{ vars.DISCORD_OWNER_IDS }}
+          GITHUB_TOKEN: ${{ secrets.DISCORD_BOT_GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Register the slash commands
+        working-directory: discord
+        env:
+          DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: node register.mjs
+      - name: Show the address to paste into Discord
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          echo "Interactions Endpoint URL for the Discord Developer Portal: $URL" | tee -a "$GITHUB_STEP_SUMMARY"

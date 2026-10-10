@@ -10,6 +10,7 @@ agent tells you what it would do each week; you make the moves. Live execution e
 is tested against mock servers only - see [Going live](#going-live-later-optional).
 
 * How it works: [docs/architecture.md](docs/architecture.md)
+* Talk to it on Discord with slash commands (`/ask`, `/plan`, `/latest`, `/explain`, `/status`): [docs/discord-bot.md](docs/discord-bot.md)
 * Rules for the 2026/27 season (versioned YAML): [rules/2026_27.yaml](rules/2026_27.yaml)
 
 ## Safety defaults
@@ -63,6 +64,8 @@ free transfers from your gameweek history, and chips left from your chip history
 | `backtest.yml` | manual button | back-test a past season against simple baselines, or (mode `replay`) replay the whole season with the real planner; results in the run summary (read-only) |
 | `review.yml` | Tuesday | score the finished gameweek, publish the reviews and send a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
 | `canary.yml` | daily | check every live source still matches its contract |
+| `discord.yml` | started by the Discord bot | `/explain` against the database (read-only), answered in Discord |
+| `discord-deploy.yml` | manual button | put the Discord bot online and register its commands ([docs/discord-bot.md](docs/discord-bot.md)) |
 
 ## Repository layout
 

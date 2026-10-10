@@ -1,0 +1,42 @@
+name: discord
+# Work the Discord bot starts that needs the football database: /explain. Read-only. The bot
+# passes its reply token, and the answer is posted back into the same Discord conversation.
+on:
+  workflow_dispatch:
+    inputs:
+      players:
+        description: "player names, comma separated"
+        required: true
+      discord_reply:
+        description: "set by the Discord bot; leave empty to post to NOTIFY_WEBHOOK instead"
+        default: ""
+permissions:
+  contents: read
+jobs:
+  explain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+      REPLY: ${{ inputs.discord_reply }}   # lasts 15 minutes
+      PLAYERS: ${{ inputs.players }}
+    steps:
+      - name: Hide the Discord reply token
+        if: ${{ inputs.discord_reply != '' }}
+        run: echo "::add-mask::$REPLY"
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Explain
+        run: |
+          uv run fpl-agent explain --db data_cache/football.duckdb --import-dir data_cache/export \
+            --players "$PLAYERS" > answer.txt 2>&1 || true
+          cat answer.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Reply in Discord
+        run: |
+          uv run fpl-agent send --file answer.txt --discord-token "$REPLY" --fallback \
+            --empty "No player matching \"$PLAYERS\" is in the latest plan."

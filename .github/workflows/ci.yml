@@ -20,3 +20,15 @@ jobs:
         run: |
           uv run fpl-agent --help
           uv run python -c "from fpl_agent.rules import Rules; Rules.load(2026)"
+  discord-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Discord bot tests
+        working-directory: discord
+        run: |
+          npm ci
+          npm test

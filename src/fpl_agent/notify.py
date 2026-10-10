@@ -11,6 +11,14 @@ import httpx
 LIMIT = 1900  # Discord refuses messages over 2000 characters
 
 
+DISCORD_API = "https://discord.com/api/v10"
+
+
+def interaction_url(app_id: str, token: str) -> str:
+    """Follow-up address for a slash command: posts in the same conversation, no bot token."""
+    return f"{DISCORD_API}/webhooks/{app_id}/{token}"
+
+
 def chunks(message: str, limit: int = LIMIT) -> list[str]:
     """Split on line breaks into pieces under `limit`, so a long plan arrives whole."""
     out, cur = [], ""

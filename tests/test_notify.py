@@ -32,3 +32,7 @@ def test_a_long_report_is_split_on_lines_and_nothing_is_lost():
     parts = chunks(msg, 500)
     assert all(len(p) <= 500 for p in parts) and "\n".join(parts) == msg
     assert chunks("y" * 1200, 500) == ["y" * 500, "y" * 500, "y" * 200]
+
+
+def test_interaction_url_is_the_follow_up_webhook():
+    assert notify.interaction_url("1", "t") == "https://discord.com/api/v10/webhooks/1/t"

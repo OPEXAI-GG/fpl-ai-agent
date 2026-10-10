@@ -1,0 +1,10 @@
+# Cloudflare Worker that answers the Discord bot's slash commands. Deployed by
+# .github/workflows/discord-deploy.yml; secrets are set there from the repository's secrets.
+name = "fpl-agent-discord"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+GITHUB_REPO = "OPEXAI-GG/fpl-ai-agent"
+GITHUB_REF = "master"
+CLAUDE_MODEL = "claude-opus-5-5"

@@ -51,7 +51,7 @@ def test_ci_has_the_coverage_gate():
 
 
 def test_helper_scripts_are_executable_and_strict():
-    for name in ("data_restore.sh", "data_publish.sh"):
+    for name in ("data_restore.sh", "data_publish.sh", "plan_publish.sh"):
         path = WF.parent.parent / "scripts" / name
         assert path.stat().st_mode & 0o111
         assert "set -" in path.read_text()
@@ -115,3 +115,16 @@ def test_review_workflow_sends_the_gameweek_summary_without_blocking_publish():
     summary = steps[names.index("Gameweek summary to Discord")]
     assert summary["continue-on-error"] is True and "gw-summary --notify" in summary["run"]
     assert names.index("Gameweek summary to Discord") < names.index("Publish database")
+
+
+def test_discord_bot_workflows_reply_with_a_masked_token_and_never_write():
+    wf = load(WF / "discord.yml")
+    assert wf["permissions"] == {"contents": "read"}
+    steps = wf["jobs"]["explain"]["steps"]
+    assert "add-mask" in steps[0]["run"]  # hidden before anything else logs it
+    assert load(WF / "discord-deploy.yml")["on"] == {"workflow_dispatch": None}  # by hand only
+    plan = load(WF / "plan.yml")
+    names = [s.get("name") for s in plan["jobs"]["plan"]["steps"]]
+    assert names[0] == "Hide the Discord reply token"
+    assert names.index("Plan") < names.index("Publish the plan for the Discord bot")
+    assert names[-1] == "Reply in Discord"
