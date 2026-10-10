@@ -236,3 +236,29 @@ def test_an_active_wildcard_never_rebuys_this_weeks_sales_or_resells_this_weeks_
     d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
     assert not set(d.transfers_in) & {c.player_id for c in sold[:3]}
     assert not set(d.transfers_out) & {p.player_id for p in st.squad[:3]}
+
+
+def test_popular_players_are_kept_and_captained():
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50, ft=5)
+    plain = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert plain.transfers_out, "the fixture must want to sell someone"
+    sold = plain.transfers_out[0]
+    own = {sold: 74.0}
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership=own)
+    assert sold not in d.transfers_out
+    assert any("kept for ownership" in w and "74%" in w for w in d.warnings)
+    if sold in d.xi:  # a popular starter close to the best captain gets the armband
+        mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+        best = max(mean[p] for p in d.xi)
+        if mean[sold] >= best - 1.0:
+            assert d.captain == sold
+
+
+def test_an_unavailable_popular_player_can_still_be_sold():
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50, ft=5)
+    sold = decide(st, proj, RULES, cfg=CFG, use_chips=False).transfers_out[0]
+    proj.meta.loc[proj.meta["player_id"] == sold, "status"] = "i"
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership={sold: 74.0})
+    assert not any("kept for ownership" in w for w in d.warnings)

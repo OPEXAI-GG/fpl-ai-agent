@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+import pandas as pd
+
 from fpl_agent.data.entry import SquadState
 from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
@@ -107,6 +109,12 @@ def _best_xi_points(proj: Projection, squad_ids: list[int], g: int) -> float:
 # Rank mode: among XI players whose expected points are within this many points of the best,
 # captain the one most likely to haul (10+ points). Costs at most this much expected, buys upside.
 RANK_CAPTAIN_SLACK = 0.5
+# Until the rank layer weighs ownership properly: an available player owned by at least this
+# share of managers is not sold (selling him risks a big rank loss if he hauls) ...
+TEMPLATE_KEEP = 40.0
+# ... and a player owned by at least this share is captained when within this many expected
+# points of the best captain, since most of the field will captain him
+TEMPLATE_CAPTAIN, TEMPLATE_CAPTAIN_SLACK = 50.0, 1.0
 
 
 def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_SLACK):
@@ -124,10 +132,28 @@ def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_
     return cap, vice, opts
 
 
+def template_players(proj: Projection, ids, ownership: dict[int, float], floor: float) -> list[int]:
+    """Available players among `ids` owned by at least `floor` percent, most owned first."""
+    meta = proj.meta.set_index("player_id")
+    ok = []
+    for p in ids:
+        if ownership.get(p, 0.0) < floor or p not in meta.index:
+            continue
+        r = meta.loc[p]
+        chance = 100.0 if pd.isna(r["chance"]) else float(r["chance"])
+        if r["status"] == "a" and chance >= 75:
+            ok.append(p)
+    return sorted(ok, key=lambda p: -ownership[p])
+
+
 def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, str] | None = None,
            cfg: PlannerConfig | None = None, chip_cfg: chips_mod.ChipConfig | None = None,
-           use_chips: bool = True) -> Decision:  # fmt: skip
-    """`state` must already use canonical player ids (see `inputs.to_canonical`)."""
+           use_chips: bool = True,
+           ownership: dict[int, float] | None = None) -> Decision:  # fmt: skip
+    """`state` must already use canonical player ids (see `inputs.to_canonical`). `ownership`
+    (percent of managers by player) keeps popular players and favours them as captain."""
+    own = ownership or {}
+    names = names or {}
     cfg = cfg or PlannerConfig()
     cands = prune(build_candidates(proj, state.squad), state.squad)
     locked: frozenset[int] = frozenset()
@@ -139,12 +165,19 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         was = {p.player_id for p in state.base_squad}
         cands = [c for c in cands if c.player_id not in was - now]
         locked = frozenset(now - was)
+    keep = template_players(proj, [p.player_id for p in state.squad], own, TEMPLATE_KEEP)
+    locked |= frozenset(keep)
     value = sum(p.sell_price for p in state.squad) + state.bank
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
                      free_transfers=state.free_transfers, candidates=cands,
                      locked=locked)  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
+    if keep:
+        warnings.append(
+            "kept for ownership (popular players are not sold without your OK): "
+            + ", ".join(f"{names.get(p, p)} {own[p]:.0f}%" for p in keep)
+        )
     if state.already_transferred:
         warnings.append(
             f"{state.already_transferred} transfer(s) already made for GW{state.next_gw}"
@@ -175,6 +208,14 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
         wk.captain, wk.vice, options = captain_choice(proj, wk.xi)
+        top = template_players(proj, wk.xi, own, TEMPLATE_CAPTAIN)
+        if top and top[0] != wk.captain:
+            mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+            if mean[top[0]] >= mean[wk.captain] - TEMPLATE_CAPTAIN_SLACK:
+                wk.captain, wk.vice = top[0], wk.captain
+            else:
+                warnings.append(f"{names.get(top[0], top[0])} ({own[top[0]]:.0f}% owned) is not "
+                                "captain: most of the field will captain him")  # fmt: skip
     return Decision(
         gw=wk.gw, week=wk, chip=wk.chip, transfers_in=wk.transfers_in,
         transfers_out=wk.transfers_out, hits=wk.hits, captain=wk.captain, vice=wk.vice,
@@ -184,7 +225,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         ft_after=(
             chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end
         ),
-        names=names or {}, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
+        names=names, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
         captain_options=options,
     )  # fmt: skip
 

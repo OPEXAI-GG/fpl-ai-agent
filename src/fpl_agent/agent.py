@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -187,7 +188,8 @@ def run_weekly(
             )
         project.save_projection(db, proj)
         d = decide(state, proj, rules, names=_names(db), cfg=PlannerConfig(),
-                   use_chips=opts.use_chips and not live_changed)  # fmt: skip
+                   use_chips=opts.use_chips and not live_changed,
+                   ownership=_ownership(pool))  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -234,6 +236,17 @@ def run_weekly(
     if opts.notify and (first_time or moved or failed):
         notify.send(res.report)
     return res
+
+
+def _ownership(pool) -> dict[int, float]:
+    """Percent of managers owning each player, unless AGENT_ALLOW_TEMPLATE_SELL=true lets the
+    plan sell popular players."""
+    if os.environ.get("AGENT_ALLOW_TEMPLATE_SELL", "").strip().lower() == "true":
+        return {}
+    if "owned" not in pool:
+        return {}
+    own = pool[["player_id", "owned"]].dropna()
+    return dict(zip(own["player_id"].astype(int), own["owned"].astype(float), strict=True))
 
 
 def write_outputs(out: Path, res: RunResult, mode: str) -> None:
