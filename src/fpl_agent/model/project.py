@@ -68,7 +68,8 @@ def current_pool(
     """Latest FPL snapshot at or before `as_of` for the gameweek (or the newest one)."""
     sql = (
         "SELECT player_id, team_id, position, now_cost AS price, status, chance_next AS chance, "
-        "news, fpl_id, raw FROM fpl_players_gw WHERE season = ? AND gw = ?"
+        "news, fpl_id, selected_by_percent AS owned, raw "
+        "FROM fpl_players_gw WHERE season = ? AND gw = ?"
     )
     params: list = [season, gw]
     if as_of is not None:
