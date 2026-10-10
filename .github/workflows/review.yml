@@ -17,6 +17,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+      FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -29,5 +30,8 @@ jobs:
             --football-data E0 --points
           uv run fpl-agent review --db data_cache/football.duckdb --gw 0 \
             --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Gameweek summary to Discord
+        continue-on-error: true  # a failed summary never blocks publishing the reviews
+        run: uv run fpl-agent gw-summary --notify | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish database
         run: scripts/data_publish.sh data_cache/out

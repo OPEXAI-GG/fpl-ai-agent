@@ -60,7 +60,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
 | `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 45 min to 26h away (each run re-plans; the last one lands 45 min to 3h before it); transfers wait for team news until 5h before the deadline unless a planned player is about to change price that night; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
 | `backtest.yml` | manual button | back-test a past season against simple baselines; results in the run summary (read-only) |
-| `review.yml` | Tuesday | score the finished gameweek and publish the reviews |
+| `review.yml` | Tuesday | score the finished gameweek, publish the reviews and send a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
 | `canary.yml` | daily | check every live source still matches its contract |
 
 ## Repository layout
