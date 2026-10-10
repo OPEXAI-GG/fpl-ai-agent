@@ -147,9 +147,10 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
     # chips
     if d.chip:
         avail = ctx.state.chips_available(rules)
-        if d.chip not in avail or not avail[d.chip][0] <= d.gw <= avail[d.chip][1]:
+        active = d.chip == "wildcard" and ctx.state.wildcard_active  # already played by the entry
+        if not active and (d.chip not in avail or not avail[d.chip][0] <= d.gw <= avail[d.chip][1]):
             add("global", "chip_unavailable", f"{d.chip} is not available in GW{d.gw}")
-        if d.chip == "wildcard":
+        if d.chip == "wildcard" and not active:
             wins = [s["win_share"] for s in d.chip_report.get("scenarios", [])
                     if s["chip"] == "wildcard" and s["gw"] == d.gw]  # fmt: skip
             if not wins or wins[0] < WILDCARD_MIN_WIN:

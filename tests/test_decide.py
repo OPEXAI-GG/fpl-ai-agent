@@ -56,7 +56,7 @@ def test_decision_is_legal_and_beats_doing_nothing():
     assert d.xp >= d.xp_no_transfers - 1e-6
     assert d.captain in d.xi and d.vice in d.xi and d.captain != d.vice
     assert d.bank_after >= 0
-    assert "GW10" in d.summary()
+    assert "GW10" in d.summary() and "GW11:" in d.summary()
 
 
 def test_used_chips_are_not_offered():
@@ -210,3 +210,13 @@ def test_unavailable_or_doubtful_players_are_never_offered_as_buys():
     assert outsider not in {c.player_id for c in build_candidates(proj, st.squad)}
     meta.loc[meta.player_id == outsider, ["status", "chance"]] = ["a", float("nan")]
     assert outsider in {c.player_id for c in build_candidates(proj, st.squad)}
+
+
+def test_an_active_wildcard_replans_the_whole_squad_for_free():
+    from dataclasses import replace
+
+    proj, cands = projection(3)
+    st = replace(state_for(cands, bank=50, chips_used=[("wildcard", 10)]), wildcard_active=True)
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    assert d.chip == "wildcard" and d.hits == 0
+    assert d.chip_report["play_now"] == "wildcard"

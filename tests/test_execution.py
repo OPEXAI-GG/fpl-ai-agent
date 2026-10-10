@@ -396,3 +396,30 @@ def test_lineup_orders_the_xi_by_position_line():
     order = [{"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}[pos[p["element"] - 1000]] for p in picks[:11]]
     assert order == sorted(order)
     assert picks[11]["element"] - 1000 == 24
+
+
+def test_an_active_wildcard_passes_the_chip_rails_and_allows_more_changes(base):
+    d = replace(base[2], chip="wildcard", hits=0, chip_report={"scenarios": []})
+    c = ctx_for(base)
+    c.state.chips_used.append(("wildcard", d.gw))
+    c.state.wildcard_active = True
+    try:
+        v = safety.check(d, c, RULES)
+        assert not rules_hit(v, "chip_unavailable") and not rules_hit(v, "wildcard_sensitivity")
+        assert not rules_hit(v, "already_transferred")
+    finally:
+        c.state.chips_used.pop()
+        c.state.wildcard_active = False
+
+
+def test_an_active_wildcard_with_no_changes_sends_no_transfer_call(base):
+    d = replace(base[2], chip="wildcard", transfers_in=[], transfers_out=[], hits=0)
+    c = ctx_for(base, mode="live")
+    c.state.wildcard_active = True
+    c.state.chips_used.append(("wildcard", d.gw))
+    try:
+        out = execute(d, c, RULES, {}, {}, None)  # no entry: stops after the rails, no network
+        assert not any("transfer" in x for x in out.done)
+    finally:
+        c.state.wildcard_active = False
+        c.state.chips_used.pop()
