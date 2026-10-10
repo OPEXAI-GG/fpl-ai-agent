@@ -17,6 +17,9 @@ class League:
     country: str
     tier: int  # 1 = top flight; European cups are tier 0 (they link the leagues together)
     cup: bool = False  # cups can repeat a pairing in one season (two legs, knockout rounds)
+    # split-season leagues play the same home pairing twice (Scotland 38 games among 12 clubs,
+    # Belgium's regular season then play-offs), so a pairing is not one match there either
+    repeats: bool = False
     calendar_year: bool = False
 
     def fotmob_season(self, season: int) -> str:
@@ -35,14 +38,17 @@ LEAGUES: dict[str, League] = {
         League("FRA1", 53, "Ligue 1", "France", 1),
         League("NED1", 57, "Eredivisie", "Netherlands", 1),
         League("POR1", 61, "Liga Portugal", "Portugal", 1),
-        League("BEL1", 40, "Belgian Pro League", "Belgium", 1),
-        League("SCO1", 64, "Scottish Premiership", "Scotland", 1),
+        League("BEL1", 40, "Belgian Pro League", "Belgium", 1, repeats=True),
+        League("SCO1", 64, "Scottish Premiership", "Scotland", 1, repeats=True),
         League("BRA1", 268, "Serie A (Brazil)", "Brazil", 1, calendar_year=True),
         League("UCL", 42, "Champions League", "Europe", 0, cup=True),
         League("UEL", 73, "Europa League", "Europe", 0, cup=True),
         League("UECL", 10216, "Conference League", "Europe", 0, cup=True),
     )
 }
+
+# Competitions where a home pairing can happen more than once a season (the date is in the key).
+REPEATING = frozenset(lg.comp_id for lg in LEAGUES.values() if lg.cup or lg.repeats)
 
 # What the weekly run pulls by default: England's top three tiers, the feeder leagues and Europe.
 DEFAULT_COMPETITIONS = tuple(LEAGUES)

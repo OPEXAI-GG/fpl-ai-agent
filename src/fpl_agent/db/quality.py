@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from fpl_agent.db.database import FootballDB
+from fpl_agent.data.leagues import REPEATING
+from fpl_agent.db.database import DISTINCT_CLUBS, FootballDB, team_key
 from fpl_agent.rules import Rules, score
 
 VALID_STATUS = {"a", "d", "i", "n", "s", "u"}
@@ -40,7 +41,8 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
     # --- duplicates ---------------------------------------------------------------------
     check("error", "duplicate_matches",
           "SELECT count(*) FROM (SELECT 1 FROM matches WHERE competition_id NOT IN "
-          "(SELECT competition_id FROM competitions WHERE tier = 0) GROUP BY competition_id, "
+          "(SELECT competition_id FROM competitions WHERE tier = 0) AND competition_id NOT IN "
+          f"({', '.join(repr(c) for c in sorted(REPEATING))}) GROUP BY competition_id, "
           "season, home_team_id, away_team_id HAVING count(*) > 1)",
           "league pairings stored more than once")  # fmt: skip
     check("error", "duplicate_team_keys",
@@ -178,6 +180,59 @@ def _where(db: FootballDB) -> str:
 
 def format_issues(issues: list[Issue]) -> str:
     return "\n".join(f"[{i.severity}] {i.check}: {i.detail}" for i in issues) or "no issues"
+
+
+MATCH_TABLES = ("team_match", "appearances", "player_match_stats", "shots", "match_odds",
+                "match_ids", "matches")  # fmt: skip
+REPAIR_KEY = "repeat-pairings-v1"
+
+
+def repair(db: FootballDB) -> list[Issue]:
+    """One-off fixes for data stored by older code, run before a load (once per database).
+
+    * Split-season leagues (Scotland, Belgium) were keyed by pairing alone, so their two
+      meetings of the same home pairing were merged into one match. Their matches are removed
+      and the FotMob pages marked unread, so the next loads store each meeting on its own.
+    * Before Dundee and Dundee United were kept apart, one source's Dundee was linked to Dundee
+      United; that link is removed and made again on the next load.
+    """
+    done = db.con.execute(
+        "SELECT 1 FROM ingest_state WHERE source = 'repair' AND key = ?", [REPAIR_KEY]
+    ).fetchone()
+    if done:
+        return []
+    comps = sorted(lg for lg in REPEATING if not lg.startswith("U"))  # leagues, not the cups
+    marks = ", ".join("?" for _ in comps)
+    with db.transaction():
+        ids = [r[0] for r in db.con.execute(
+            f"SELECT match_id FROM matches WHERE competition_id IN ({marks})", comps
+        ).fetchall()]  # fmt: skip
+        if ids:
+            id_marks = ", ".join("?" for _ in ids)
+            for table in MATCH_TABLES:
+                db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({id_marks})", ids)
+        for comp in comps:
+            db.con.execute(
+                "DELETE FROM ingest_state WHERE source = 'fotmob' AND detail LIKE ?", [f"{comp} %"]
+            )
+        stale = 0
+        for source, sid, name, key in db.con.execute(
+            "SELECT i.source, i.source_id, i.source_name, t.key FROM team_ids i "
+            "JOIN teams t USING (team_id)"
+        ).fetchall():
+            if frozenset({team_key(name), key}) in DISTINCT_CLUBS:
+                db.con.execute(
+                    "DELETE FROM team_ids WHERE source = ? AND source_id = ?", [source, sid]
+                )
+                stale += 1
+        db.con.execute(
+            "INSERT OR REPLACE INTO ingest_state VALUES ('repair', ?, 'done', ?, now())",
+            [REPAIR_KEY, f"{len(ids)} matches, {stale} team links"],
+        )
+    if not ids and not stale:
+        return []
+    return [Issue("warn", "repaired", f"removed {len(ids)} {'/'.join(comps)} matches merged by "
+                  f"pairing and {stale} wrong club links; they reload over the next runs")]  # fmt: skip
 
 
 def quarantine(db: FootballDB) -> list[Issue]:

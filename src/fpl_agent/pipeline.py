@@ -26,7 +26,7 @@ from fpl_agent.db import (
     ingest_vaastav,
 )
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, run_checks
+from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, repair, run_checks
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from fpl_agent.health import HealthReport, SourceResult, guard
 
@@ -75,6 +75,7 @@ def run_update(
     fm = fm or FotMobClient()
     report = HealthReport()
     season = opts.season
+    fixed = repair(db)
 
     # 1. FPL bootstrap is critical: without it there is nothing to decide on.
     def pull_bootstrap():
@@ -178,7 +179,7 @@ def run_update(
             )
 
     # 5. Quality gate. Errors mean the data must not be used or exported.
-    issues = quarantine(db) + run_checks(db)
+    issues = fixed + quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, opts, alert)
 
@@ -311,6 +312,7 @@ def run_backfill(
     otherwise hit the job's time limit never loses its work."""
     fm, us, http = fm or FotMobClient(), us or UnderstatClient(), http or http_client()
     report = HealthReport()
+    fixed = repair(db)
     ing = ingest_fotmob.FotMobIngestor(db)
     current = opts.end
     t0 = _clock()
@@ -363,7 +365,7 @@ def run_backfill(
         report.results.append(SourceResult(
             "time budget", True, error=f"stopped after {opts.max_minutes:.0f} min with "
             f"{len(stopped)} steps left (next: {stopped[0]}); the next run continues"))  # fmt: skip
-    issues = quarantine(db) + run_checks(db)
+    issues = fixed + quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
 
