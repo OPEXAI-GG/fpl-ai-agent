@@ -17,6 +17,9 @@ on:
       dry:
         description: "report only, whatever AGENT_MODE says: no FPL sign-in, no Discord (true/false)"
         default: "false"
+      discord_reply:
+        description: "set by the Discord bot so the report comes back to the /plan command; leave empty"
+        default: ""
 permissions:
   contents: write           # publishes the database (decisions and projections are recorded in it)
   actions: read             # lets the gate below see how long this run waited in the queue
@@ -37,13 +40,21 @@ jobs:
       - id: wait
         env:
           GH_TOKEN: ${{ github.token }}
+          DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
+          REPLY: ${{ inputs.discord_reply }}
         run: |
+          if [ -n "$REPLY" ]; then echo "::add-mask::$REPLY"; fi
           started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at || true)
           waited=0
           if [ -n "$started" ]; then waited=$(( $(date +%s) - $(date -d "$started" +%s) )); fi
           if [ "$waited" -gt 180 ]; then
             echo "fresh=false" >> "$GITHUB_OUTPUT"
-            echo "This run waited ${waited}s behind another run, so its FPL login token may be out of date. Skipped; start it again." | tee -a "$GITHUB_STEP_SUMMARY"
+            msg="This run waited ${waited}s behind another run, so its FPL login token may be out of date. Skipped; start it again."
+            echo "$msg" | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ -n "$REPLY" ] && [ -n "$DISCORD_APP_ID" ]; then   # tell the /plan command why
+              curl -sS -o /dev/null -X POST -H "Content-Type: application/json" \
+                -d "{\"content\": \"$msg\"}" "https://discord.com/api/v10/webhooks/$DISCORD_APP_ID/$REPLY" || true
+            fi
           else
             echo "fresh=true" >> "$GITHUB_OUTPUT"
           fi
@@ -64,7 +75,12 @@ jobs:
       FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
       FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
       FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
+      DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
+      REPLY: ${{ inputs.discord_reply }}   # Discord /plan reply token, lasts 15 minutes
     steps:
+      - name: Hide the Discord reply token
+        if: ${{ inputs.discord_reply != '' }}
+        run: echo "::add-mask::$REPLY"
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
@@ -87,7 +103,7 @@ jobs:
           NOTIFY="--notify"
           if [ "${{ github.event.inputs.dry }}" = "true" ]; then NOTIFY=""; fi
           uv run fpl-agent plan --db data_cache/football.duckdb --export data_cache/out --out plan_out $NOTIFY $FORCE \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            | tee -a "$GITHUB_STEP_SUMMARY" plan_log.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -99,3 +115,17 @@ jobs:
         # count as this gameweek's first plan and stop the real one from notifying)
         if: always() && github.event.inputs.dry != 'true'
         run: scripts/data_publish.sh data_cache/out
+      - name: Publish the plan for the Discord bot
+        if: always()
+        continue-on-error: true   # the bot's copy never fails the weekly run
+        run: scripts/plan_publish.sh plan_out
+      - name: Reply in Discord
+        if: ${{ always() && inputs.discord_reply != '' }}
+        continue-on-error: true
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          KIND: ${{ github.event.inputs.dry == 'true' && 'Dry run' || 'Plan run' }}
+        run: |
+          f=$(ls -t plan_out/gw*.md 2>/dev/null | head -1 || true)
+          uv run fpl-agent send --file "${f:-plan_log.txt}" --discord-token "$REPLY" \
+            --header "$KIND ${{ job.status }} (<$RUN_URL>)" --empty "The run stopped before it printed anything."

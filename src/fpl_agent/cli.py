@@ -238,6 +238,13 @@ def explain_cmd(args: argparse.Namespace) -> int:
     """Why a player projects as he does: fixture, minutes, expected points by source."""
     db = _open_db(args)
     season, gw = int(args.season), args.gw
+    if not gw:  # 0 = the latest gameweek with a stored plan
+        gw = (
+            db.con.execute("SELECT max(gw) FROM projections WHERE season = ?", [season]).fetchone()[
+                0
+            ]
+            or 0
+        )
     run = db.con.execute(
         "SELECT run_id FROM projections WHERE season = ? AND gw = ? "
         "ORDER BY created_at DESC LIMIT 1", [season, gw]).fetchone()  # fmt: skip
@@ -271,6 +278,26 @@ def explain_cmd(args: argparse.Namespace) -> int:
             )
             print(f"  by source: {comps}")
     return 0
+
+
+def send_cmd(args: argparse.Namespace) -> int:
+    """Post a file to Discord: as the reply to a slash command when a token is given (it lasts
+    15 minutes), else, or when that fails and --fallback is set, to NOTIFY_WEBHOOK."""
+    import os
+    from pathlib import Path
+
+    from fpl_agent import notify
+
+    path = Path(args.file)
+    body = path.read_text().strip() if path.is_file() else ""
+    message = "\n\n".join(p for p in (args.header, body or args.empty) if p)
+    app = os.environ.get("DISCORD_APP_ID", "")
+    if args.discord_token and app:
+        if notify.send(message, webhook=notify.interaction_url(app, args.discord_token)):
+            return 0
+        if not args.fallback:
+            return 1
+    return 0 if notify.send(message) else 1
 
 
 def backtest_cmd(args: argparse.Namespace) -> int:
@@ -353,8 +380,14 @@ def main(argv: list[str] | None = None) -> int:
     ex.add_argument("--db", default="data_cache/football.duckdb")
     ex.add_argument("--import-dir", default=None)
     ex.add_argument("--season", default="2026")
-    ex.add_argument("--gw", type=int, required=True)
+    ex.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with a stored plan")
     ex.add_argument("--players", required=True, help="comma-separated name fragments")
+    se = sub.add_parser("send", help="post a file to Discord (slash-command reply or webhook)")
+    se.add_argument("--file", required=True)
+    se.add_argument("--header", default="", help="line put above the file's text")
+    se.add_argument("--empty", default="(nothing to report)", help="text when the file is empty")
+    se.add_argument("--discord-token", default="", help="interaction token from the Discord bot")
+    se.add_argument("--fallback", action="store_true", help="use NOTIFY_WEBHOOK if the reply fails")
     bt = sub.add_parser("backtest", help="point-in-time accuracy of the projection stack")
     bt.add_argument("--db", default="data_cache/football.duckdb")
     bt.add_argument("--import-dir", default=None)
@@ -385,6 +418,8 @@ def main(argv: list[str] | None = None) -> int:
         return gw_summary_cmd(args, settings)
     if args.cmd == "backtest":
         return backtest_cmd(args)
+    if args.cmd == "send":
+        return send_cmd(args)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2

@@ -192,3 +192,48 @@ def test_gw_summary_prints_and_notifies(monkeypatch, capsys):
     assert cli.main(["gw-summary"]) == 0 and "skipped" in capsys.readouterr().out
     assert cli.main(["gw-summary", "--entry", "1", "--notify"]) == 0
     assert "GW6: 70 points" in capsys.readouterr().out and sent and "GW6" in sent[0]
+
+
+def test_explain_without_a_gameweek_uses_the_latest_plan(tmp_path, capsys):
+    db = tmp_path / "f.duckdb"
+    assert cli.main(["explain", "--db", str(db), "--players", "Mbeumo"]) == 1
+    assert "no stored projection for GW0" in capsys.readouterr().out
+
+
+@pytest.fixture
+def posts(monkeypatch):
+    sent = []
+
+    def fake(message, client=None, webhook=None):
+        sent.append((webhook, message))
+        return fake.ok.pop(0) if fake.ok else True
+
+    fake.ok = []
+    monkeypatch.setattr(notify, "send", fake)
+    monkeypatch.setenv("DISCORD_APP_ID", "123")
+    return sent, fake
+
+
+def test_send_replies_to_the_slash_command(tmp_path, posts):
+    sent, _ = posts
+    (tmp_path / "r.md").write_text("plan text\n")
+    argv = ["send", "--file", str(tmp_path / "r.md"), "--discord-token", "tok", "--header", "Done"]
+    assert cli.main(argv) == 0
+    assert sent == [("https://discord.com/api/v10/webhooks/123/tok", "Done\n\nplan text")]
+
+
+def test_send_falls_back_to_the_webhook_only_when_asked(tmp_path, posts):
+    sent, fake = posts
+    argv = ["send", "--file", str(tmp_path / "missing.md"), "--discord-token", "tok"]
+    fake.ok = [False]
+    assert cli.main(argv) == 1 and len(sent) == 1  # expired reply, no fallback
+    fake.ok = [False, True]
+    assert cli.main([*argv, "--fallback"]) == 0
+    assert sent[-1] == (None, "(nothing to report)")
+
+
+def test_send_without_a_token_uses_the_webhook(tmp_path, posts):
+    sent, _ = posts
+    (tmp_path / "r.md").write_text("x")
+    assert cli.main(["send", "--file", str(tmp_path / "r.md")]) == 0
+    assert sent == [(None, "x")]
