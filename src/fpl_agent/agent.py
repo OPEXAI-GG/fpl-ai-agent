@@ -28,6 +28,7 @@ from fpl_agent.model import calibration, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
+from fpl_agent.solver import timing
 from fpl_agent.solver.decide import Decision, decide, rank_risk
 from fpl_agent.solver.inputs import to_canonical
 from fpl_agent.solver.planner import PlannerConfig
@@ -187,6 +188,7 @@ def run_weekly(
     else:
         res.notes.append("scout skipped: no ANTHROPIC_API_KEY")
 
+    pressure = timing.price_pressure(raw)
     own, eo, own_note = _ownership(db, fpl, opts.season, ev.id, pool)
     res.notes.append(own_note)
 
@@ -229,9 +231,21 @@ def run_weekly(
     )  # fmt: skip
     fpl_id = dict(zip(pool["player_id"].astype(int), pool["fpl_id"].astype(int), strict=True))
     price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
+    hold = False
+    if not opts.force:  # a scheduled run waits for team news unless prices are about to move
+        moving = {pid: p for pid, f in fpl_id.items() if (p := pressure.get(f))}
+        at = now or datetime.now(UTC)
+        hold, why = timing.hold_moves(
+            d.transfers_in, d.transfers_out, moving, hours_to_deadline(ev, at),
+            timing.update_before(ev.deadline_time, at), d.name,
+        )  # fmt: skip
+        if why:
+            res.notes.append(why)
     if not live_ok:  # never send moves built on the last deadline's squad
         res.outcome = Outcome("live", errors=["your current FPL team could not be read: "
                                               "nothing was sent"])  # fmt: skip
+    elif hold:
+        res.outcome = Outcome("live" if settings.is_live else "dry")
     else:
         res.outcome = execute(
             d,
