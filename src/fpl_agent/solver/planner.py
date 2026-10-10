@@ -29,6 +29,9 @@ FORMATION_MAX = {"GKP": 1, "DEF": 5, "MID": 5, "FWD": 3}
 CHIPS = ("wildcard", "freehit", "bboost", "3xc")
 
 
+POSITION_ORDER = {"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}
+
+
 @dataclass(frozen=True)
 class PlannerConfig:
     decay: float = 0.88
@@ -249,9 +252,10 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
                 if sd <= 0:
                     continue
                 e = pi.eo.get(i, 0.0)
+                play = ("s", i, t) if t in bb else ("x", i, t)  # a Bench Boost plays all 15
                 m.var(("dev", i, t), ub=3.0, integer=False, obj=-d * cfg.risk_lambda * sd)
-                m.ge({("dev", i, t): 1.0, ("x", i, t): -1.0, ("c", i, t): -extra}, -e)
-                m.ge({("dev", i, t): 1.0, ("x", i, t): 1.0, ("c", i, t): extra}, e)
+                m.ge({("dev", i, t): 1.0, play: -1.0, ("c", i, t): -extra}, -e)
+                m.ge({("dev", i, t): 1.0, play: 1.0, ("c", i, t): extra}, e)
     constant = sum(cfg.decay**t * pi.free_hit_values.get(pi.gws[t], 0.0) for t in fh)
 
     sol, obj = m.solve(cfg.time_limit, cfg.gap)
@@ -266,12 +270,16 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         xp_t = lambda i, t=t: cands[i].xp[t]  # noqa: E731
         cap = next(i for i in ids if on(("c", i, t)))
         others = sorted((i for i in xi if i != cap), key=lambda i: -xp_t(i))
+        line = lambda i: (POSITION_ORDER.get(cands[i].position, 4), i)  # noqa: E731
         weeks.append(WeekPlan(
             gw=pi.gws[t], squad=sq, xi=xi, bench=bench_out + bench_gk, captain=cap,
-            vice=others[0], transfers_in=[i for i in ids if on(("in", i, t))],
-            transfers_out=[i for i in ids if on(("out", i, t))], hits=round(sol[("hit", t)]),
-            chip=chip_at[t], ft_before=ft_prev,
-            xp=sum(xp_t(i) for i in xi) + xp_t(cap) * (2.0 if t in tc else 1.0),
+            vice=others[0],
+            # by position, so the n-th player in and out are a legal same-position swap
+            transfers_in=sorted((i for i in ids if on(("in", i, t))), key=line),
+            transfers_out=sorted((i for i in ids if on(("out", i, t))), key=line),
+            hits=round(sol[("hit", t)]), chip=chip_at[t], ft_before=ft_prev,
+            xp=sum(xp_t(i) for i in (sq if t in bb else xi))
+            + xp_t(cap) * (2.0 if t in tc else 1.0),
         ))  # fmt: skip
         ft_prev = round(sol[("ft", t + 1)])
     return Plan(weeks, obj + constant, round(sol[("bank", H - 1)]), ft_prev)

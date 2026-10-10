@@ -277,3 +277,14 @@ def test_rank_risk_pulls_the_plan_towards_what_the_field_owns():
     assert set(field) - {third} <= set(hug.xi) | set(hug.transfers_out)
     same = solve_plan(replace(pi, eo=field), CFG).first  # risk_lambda 0: the field is ignored
     assert same.xi == plain.xi and same.captain == plain.captain
+
+
+def test_transfers_are_listed_as_same_position_swaps_and_a_bench_boost_counts_the_bench():
+    pi = pinput(seed=1, ft=5, bank=60, chips={11: "bboost"})
+    plan = solve_plan(pi, CFG)
+    pos = {c.player_id: c.position for c in pi.candidates}
+    for w in plan.weeks:
+        assert [pos[i] for i in w.transfers_in] == [pos[o] for o in w.transfers_out]
+    bb = next(w for w in plan.weeks if w.chip == "bboost")
+    xp = {c.player_id: c.xp[pi.gws.index(bb.gw)] for c in pi.candidates}
+    assert bb.xp == pytest.approx(sum(xp[i] for i in bb.squad) + xp[bb.captain])
