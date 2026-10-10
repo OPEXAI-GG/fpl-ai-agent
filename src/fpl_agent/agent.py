@@ -28,7 +28,7 @@ from fpl_agent.model import calibration, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
-from fpl_agent.solver.decide import Decision, decide
+from fpl_agent.solver.decide import Decision, decide, rank_risk
 from fpl_agent.solver.inputs import to_canonical
 from fpl_agent.solver.planner import PlannerConfig
 
@@ -187,7 +187,7 @@ def run_weekly(
     else:
         res.notes.append("scout skipped: no ANTHROPIC_API_KEY")
 
-    own, own_note = _ownership(db, fpl, opts.season, ev.id, pool)
+    own, eo, own_note = _ownership(db, fpl, opts.season, ev.id, pool)
     res.notes.append(own_note)
 
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
@@ -202,9 +202,10 @@ def run_weekly(
                 + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
             )
         project.save_projection(db, proj)
-        d = decide(state, proj, rules, names=_names(db), cfg=PlannerConfig(),
+        cfg = PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0)
+        d = decide(state, proj, rules, names=_names(db), cfg=cfg,
                    use_chips=opts.use_chips and not live_changed,
-                   ownership=own)  # fmt: skip
+                   ownership=own, eo=eo)  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -277,23 +278,24 @@ def manual_changes(db, season: int, gw: int, state) -> list[int]:
     return sorted(q.player_id for q in state.squad if q.player_id not in planned)
 
 
-def _ownership(db, fpl, season: int, gw: int, pool) -> tuple[dict[int, float], str]:
-    """Percent of rival managers owning each player (canonical ids) and a note on the source:
-    a sample of the top 10k when it can be read, else FPL's overall ownership. Empty when
-    AGENT_ALLOW_TEMPLATE_SELL=true lets the plan sell popular players."""
+def _ownership(db, fpl, season: int, gw: int, pool):
+    """(ownership %, effective ownership as a fraction, note), both keyed by canonical id:
+    from a sample of the top 10k when it can be read, else FPL's overall ownership (and no
+    effective ownership). Empty when AGENT_ALLOW_TEMPLATE_SELL=true lets the plan ignore it."""
     if os.environ.get("AGENT_ALLOW_TEMPLATE_SELL", "").strip().lower() == "true":
-        return {}, "ownership ignored: AGENT_ALLOW_TEMPLATE_SELL=true"
+        return {}, {}, "ownership ignored: AGENT_ALLOW_TEMPLATE_SELL=true"
     pid = dict(zip(pool["fpl_id"].astype(int), pool["player_id"].astype(int), strict=True))
     field = ownership.field_ownership(db, fpl, season, gw)
     if not field.empty:
         n = int(field["sample"].iloc[0])
-        own = {pid[int(f)]: float(o) for f, o in zip(field["fpl_id"], field["owned"],
-                                                      strict=True) if int(f) in pid}  # fmt: skip
-        return own, f"ownership: top-10k sample of {n} managers"
+        rows = [(pid[int(r.fpl_id)], float(r.owned), float(r.eo))
+                for r in field.itertuples() if int(r.fpl_id) in pid]  # fmt: skip
+        return ({p: o for p, o, _ in rows}, {p: e / 100 for p, _, e in rows},
+                f"ownership: top-10k sample of {n} managers")  # fmt: skip
     if "owned" not in pool:
-        return {}, "ownership unavailable"
+        return {}, {}, "ownership unavailable"
     o = pool[["player_id", "owned"]].dropna()
-    return (dict(zip(o["player_id"].astype(int), o["owned"].astype(float), strict=True)),
+    return (dict(zip(o["player_id"].astype(int), o["owned"].astype(float), strict=True)), {},
             "ownership: FPL overall (top-10k sample unavailable)")  # fmt: skip
 
 

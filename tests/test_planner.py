@@ -257,3 +257,23 @@ def test_matches_brute_force_on_a_tiny_one_week_problem():
                 best = max(best, value((chosen - {out}) | {inn}))
     got = sum(xp[i] for i in plan.first.xi) + xp[plan.first.captain]
     assert got == pytest.approx(best, abs=1e-6)
+
+
+def test_rank_risk_pulls_the_plan_towards_what_the_field_owns():
+    from dataclasses import replace
+
+    pi = pinput(seed=3)
+    for c in pi.candidates:
+        c.sd = [3.0] * len(c.xp)
+    plain = solve_plan(pi, CFG).first
+    squad = {p.player_id for p in pi.squad}
+    # the field starts every one of our benched outfield players and captains our 3rd best
+    field = {i: 1.0 for i in plain.bench[:3] if i in squad}
+    third = sorted(plain.xi, key=lambda i: -next(c.xp[0] for c in pi.candidates
+                                                 if c.player_id == i))[2]  # fmt: skip
+    field[third] = 2.0
+    hug = solve_plan(replace(pi, eo=field), replace(CFG, risk_lambda=1.0)).first
+    assert hug.captain == third
+    assert set(field) - {third} <= set(hug.xi) | set(hug.transfers_out)
+    same = solve_plan(replace(pi, eo=field), CFG).first  # risk_lambda 0: the field is ignored
+    assert same.xi == plain.xi and same.captain == plain.captain
