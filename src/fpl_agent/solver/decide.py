@@ -40,6 +40,7 @@ class Decision:
     horizon: list[WeekPlan] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     field_view: list[str] = field(default_factory=list)  # template risk and differentials
+    checks: list[str] = field(default_factory=list)  # robustness checks that passed
     captain_options: list[dict[str, Any]] = field(
         default_factory=list
     )  # top candidates, with upside
@@ -71,6 +72,7 @@ class Decision:
             lines.append(f"  holding {chip}: {why}")
         lines += [f"  warning: {w}" for w in self.warnings]
         lines += [f"  field: {f}" for f in self.field_view]
+        lines += [f"  check: {c}" for c in self.checks]
         if len(self.horizon) > 1:
             lines.append("plan for the next weeks (1 free transfer a week, re-checked every run):")
             lines += [f"  {self.week_line(w)}" for w in self.horizon[1:]]
@@ -119,6 +121,46 @@ FIELD_LACK, FIELD_DIFFERENTIAL = 30.0, 5.0
 # ... and a player owned by at least this share is captained when within this many expected
 # points of the best captain, since most of the field will captain him
 TEMPLATE_CAPTAIN, TEMPLATE_CAPTAIN_SLACK = 50.0, 1.0
+
+
+# A week's transfers are made only if, across simulated worlds, they beat rolling the transfer
+# in at least ROBUST_MIN_WIN of them, or gain ROBUST_MIN_GAIN points on average over the horizon
+ROBUST_MIN_WIN, ROBUST_MIN_GAIN, ROBUST_WORLDS = 0.55, 1.0, 300
+
+
+def _robust_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
+                      cfg: PlannerConfig, names: dict[int, str], warnings: list[str],
+                      checks: list[str]):  # fmt: skip
+    """The chosen plan, or the same plan rolling this week's transfer when the transfers only
+    win on the mean: re-score both across simulated worlds (auto-subs, captain cover, hits)."""
+    import numpy as np
+
+    from fpl_agent.solver.planner import solve_plan
+
+    if any(w.chip for w in chosen.plan.weeks):
+        return chosen  # a chip week scores differently; the chip search already weighed worlds
+    try:
+        roll = solve_plan(replace(base, chips={}, no_transfer_gws=frozenset({base.gws[0]})), cfg)
+    except Exception:  # noqa: BLE001  (no roll plan: keep the transfers)
+        return chosen
+    rng = np.random.default_rng(0)
+    worlds = rng.choice(proj.points.shape[2], size=min(ROBUST_WORLDS, proj.points.shape[2]),
+                        replace=False)  # fmt: skip
+    diff = (chips_mod.score_plan(chosen.plan, proj, rules, worlds)
+            - chips_mod.score_plan(roll, proj, rules, worlds))  # fmt: skip
+    win, gain = float((diff > 0).mean()), float(diff.mean())
+    first = chosen.plan.first
+    moves = ", ".join(
+        f"{names.get(o, o)} -> {names.get(i, i)}"
+        for i, o in zip(first.transfers_in, first.transfers_out, strict=False)
+    )
+    if win < ROBUST_MIN_WIN and gain < ROBUST_MIN_GAIN:
+        warnings.append(f"held {moves}: it beat rolling the transfer in only {win:.0%} of "
+                        f"simulated worlds ({gain:+.1f} pts over the horizon)")  # fmt: skip
+        return chips_mod.Scenario(chosen.chip, chosen.gw, roll)
+    checks.append(f"{moves} beat rolling the transfer in {win:.0%} of simulated worlds "
+                  f"({gain:+.1f} pts over the horizon)")  # fmt: skip
+    return chosen
 
 
 def rank_risk(gw: int) -> float:
@@ -234,6 +276,10 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             chips_mod.Scenario(None, None, solve_plan(base, cfg)),
             {"held": {}, "play_now": None, "scenarios": []},
         )
+    checks: list[str] = []
+    first = chosen.plan.first
+    if first.transfers_in and not first.chip and not state.wildcard_active:
+        chosen = _robust_transfers(chosen, base, proj, rules, cfg, names, warnings, checks)
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
@@ -273,7 +319,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             chosen.plan.weeks[1].ft_before if len(chosen.plan.weeks) > 1 else chosen.plan.ft_end
         ),
         names=names, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
-        captain_options=options, field_view=view,
+        captain_options=options, field_view=view, checks=checks,
     )  # fmt: skip
 
 

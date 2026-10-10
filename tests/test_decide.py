@@ -304,3 +304,16 @@ def test_with_field_data_the_captain_follows_the_fields_armband_when_close():
     assert cap == other
     same, _, _ = captain_choice(proj, xi, slack=10.0, eo={other: 1.9}, risk=0.0)
     assert same == plain
+
+
+def test_transfers_that_only_win_on_the_mean_are_held(monkeypatch):
+    from fpl_agent.solver import decide as dmod
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50, ft=2)
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert d.transfers_in and any("simulated worlds" in c for c in d.checks)
+    monkeypatch.setattr(dmod, "ROBUST_MIN_WIN", 1.01)
+    monkeypatch.setattr(dmod, "ROBUST_MIN_GAIN", 1e9)
+    held = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert not held.transfers_in and any(w.startswith("held ") for w in held.warnings)
