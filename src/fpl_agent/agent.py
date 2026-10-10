@@ -137,9 +137,11 @@ def run_weekly(
         res.report = format_report(res, settings.mode)
         return res
 
-    tokens, live_changed = None, False
+    tokens, live_changed, live_ok = None, False, True
     if settings.is_live:  # plan from the team FPL has now, not the last deadline's
+        before = state
         state, tokens, live_changed, note = read_live(state, raw, rules, entry, exchange, http)
+        live_ok = state is not before
         res.notes.append(note)
 
     pool = project.current_pool(db, opts.season, ev.id)
@@ -209,16 +211,20 @@ def run_weekly(
     )  # fmt: skip
     fpl_id = dict(zip(pool["player_id"].astype(int), pool["fpl_id"].astype(int), strict=True))
     price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
-    res.outcome = execute(
-        d,
-        ctx,
-        rules,
-        fpl_id,
-        price,
-        entry,
-        exchange=(lambda: Signed(tokens)) if tokens else exchange,
-        http=http,
-    )
+    if not live_ok:  # never send moves built on the last deadline's squad
+        res.outcome = Outcome("live", errors=["your current FPL team could not be read: "
+                                              "nothing was sent"])  # fmt: skip
+    else:
+        res.outcome = execute(
+            d,
+            ctx,
+            rules,
+            fpl_id,
+            price,
+            entry,
+            exchange=(lambda: Signed(tokens)) if tokens else exchange,
+            http=http,
+        )
     res.report = format_report(res, settings.mode)
     if opts.out_dir:
         write_outputs(opts.out_dir, res, settings.mode)

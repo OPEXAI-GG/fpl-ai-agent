@@ -172,3 +172,20 @@ def test_a_forced_run_that_failed_its_moves_still_notifies(env, monkeypatch):
     )
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
     assert len(sent) == 2 and "sign-in failed" in sent[1]
+
+
+def test_live_moves_are_never_sent_when_the_current_team_cannot_be_read(env, monkeypatch):
+    from fpl_agent.execution.auth import AuthError
+
+    called = []
+    monkeypatch.setattr("fpl_agent.agent.execute", lambda *a, **k: called.append(1))
+
+    class Dead:
+        def exchange(self):
+            raise AuthError("FPL sign-in failed (HTTP 400 invalid_grant)")
+
+    w = env[0]
+    res = run_weekly(w.db, Settings(mode="live"), opts(force=True), fpl=fake(env),
+                     exchange=Dead)  # fmt: skip
+    assert not called and res.outcome.errors and res.exit_code == 2
+    assert any("sign-in failed" in n for n in res.notes)
