@@ -316,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--import-dir", default=None)
     pl.add_argument("--season", default="2026")
     pl.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
-    pl.add_argument("--horizon", type=int, default=6)
+    pl.add_argument("--horizon", type=int, default=8)
     pl.add_argument("--samples", type=int, default=1000)
     pl.add_argument("--force", action="store_true", help="ignore the deadline-window gate")
     pl.add_argument("--no-chips", action="store_true")

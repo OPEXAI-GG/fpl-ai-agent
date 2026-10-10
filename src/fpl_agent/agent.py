@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class RunOptions:
     season: int = 2026
-    horizon: int = 6
+    horizon: int = 8  # long enough to plan the Wildcard squad for a later Bench Boost
     entry_id: int | None = None
     force: bool = False  # skip the deadline-window gate
     use_chips: bool = True
