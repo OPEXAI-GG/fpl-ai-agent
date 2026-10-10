@@ -31,6 +31,7 @@ class SquadState:
     chips_used: list[tuple[str, int]] = field(default_factory=list)
     value: int = 0
     already_transferred: int = 0
+    wildcard_active: bool = False  # a Wildcard is in force this week: changes are free
     picks: list[dict[str, Any]] = field(default_factory=list)
 
     def chips_available(self, rules: Rules) -> dict[str, tuple[int, int]]:

@@ -23,3 +23,12 @@ def test_no_webhook_says_so(capsys, monkeypatch):
     monkeypatch.delenv("NOTIFY_WEBHOOK", raising=False)
     assert not notify.send("hi")
     assert "no webhook" in capsys.readouterr().err
+
+
+def test_a_long_report_is_split_on_lines_and_nothing_is_lost():
+    from fpl_agent.notify import chunks
+
+    msg = "\n".join(f"line {i} " + "x" * 50 for i in range(100))
+    parts = chunks(msg, 500)
+    assert all(len(p) <= 500 for p in parts) and "\n".join(parts) == msg
+    assert chunks("y" * 1200, 500) == ["y" * 500, "y" * 500, "y" * 200]

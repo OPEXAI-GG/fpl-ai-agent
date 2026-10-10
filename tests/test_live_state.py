@@ -42,6 +42,20 @@ def test_chips_already_played_or_active_are_counted():
              {"name": "bboost", "status_for_entry": "available"}]  # fmt: skip
     s, _, _ = overlay(base(), my(range(1, 16), chips=chips), raw(), RULES)
     assert ("wildcard", 6) in s.chips_used and not any(n == "bboost" for n, _ in s.chips_used)
+    assert s.wildcard_active
+
+
+def test_an_active_wildcard_keeps_transfers_open_for_the_week():
+    chips = [{"name": "wildcard", "status_for_entry": "played", "played_by_entry": [6]}]
+    s, changed, note = overlay(base(), my(range(16, 31), chips=chips), raw(), RULES)
+    assert s.wildcard_active and s.already_transferred == 0 and not changed
+    assert "Wildcard is active" in note
+
+
+def test_an_old_wildcard_does_not_count_as_active():
+    chips = [{"name": "wildcard", "status_for_entry": "played", "played_by_entry": [2]}]
+    s, _, _ = overlay(base(), my(range(1, 16), chips=chips), raw(), RULES)
+    assert not s.wildcard_active
 
 
 def test_an_unreadable_reply_keeps_the_old_squad():

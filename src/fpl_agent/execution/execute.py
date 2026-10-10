@@ -75,7 +75,9 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
     out = Outcome("live" if s.is_live else "dry")
     for v in verdict.violations:
         out.blocked.append(str(v))
-    do_transfers = bool(d.transfers_in) or d.chip in ("wildcard", "freehit")
+    # an already active Wildcard needs no transfer call when nothing changes
+    chip_week = d.chip in ("wildcard", "freehit") and not ctx.state.wildcard_active
+    do_transfers = bool(d.transfers_in) or chip_week
     allow_transfers = do_transfers and not verdict.blocked("transfers")
     allow_lineup = not verdict.blocked("lineup")
     if verdict.blocked("global"):

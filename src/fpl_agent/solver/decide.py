@@ -6,7 +6,7 @@ This module only *recommends*. Whether anything is executed is decided elsewhere
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from fpl_agent.data.entry import SquadState
@@ -67,7 +67,19 @@ class Decision:
         for chip, why in self.chip_report.get("held", {}).items():
             lines.append(f"  holding {chip}: {why}")
         lines += [f"  warning: {w}" for w in self.warnings]
+        if len(self.horizon) > 1:
+            lines.append("plan for the next weeks (1 free transfer a week, re-checked every run):")
+            lines += [f"  {self.week_line(w)}" for w in self.horizon[1:]]
         return "\n".join(lines)
+
+    def week_line(self, w: WeekPlan) -> str:
+        n = self.name
+        moves = ", ".join(f"{n(o)} -> {n(i)}" for i, o in zip(w.transfers_in, w.transfers_out,
+                                                              strict=False))  # fmt: skip
+        what = f"{len(w.transfers_in)} transfer(s): {moves}" if moves else "roll the transfer"
+        extra = (f", hit -{4 * w.hits}" if w.hits else "") + (f", play {w.chip}" if w.chip else "")
+        return (f"GW{w.gw}: {what}{extra}; captain {n(w.captain)}; "
+                f"expected {w.xp:.1f} pts ({w.ft_before} free)")  # fmt: skip
 
 
 def _best_xi_points(proj: Projection, squad_ids: list[int], g: int) -> float:
@@ -127,7 +139,15 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         warnings.append(
             f"{state.already_transferred} transfer(s) already made for GW{state.next_gw}"
         )
-    if avail:
+    if state.wildcard_active:  # the Wildcard is already in force: re-plan the whole squad, free
+        cfg_wc = replace(cfg, time_limit=chips_mod.ChipConfig().scenario_time_limit)
+        chosen = chips_mod.Scenario(
+            "wildcard", state.next_gw,
+            chips_mod.scenario(base, "wildcard", state.next_gw, cfg_wc, cands, value),
+        )  # fmt: skip
+        report = {"held": {}, "play_now": "wildcard", "scenarios": [],
+                  "note": "wildcard already active: free changes until the deadline"}  # fmt: skip
+    elif avail:
         cd = chips_mod.search(base, proj, rules, avail, value, cfg, chip_cfg)
         chosen, report = cd.chosen, {
             "held": cd.held, "play_now": cd.play_now,
