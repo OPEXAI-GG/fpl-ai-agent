@@ -69,7 +69,7 @@ def overlay(state: SquadState, my: dict, raw: dict, rules: Rules) -> tuple[Squad
         next_gw=state.next_gw, squad=squad, bank=bank,
         free_transfers=state.free_transfers if ft is None else ft, chips_used=chips,
         value=value, already_transferred=0 if wc else max(state.already_transferred, moved),
-        wildcard_active=wc, picks=picks,
+        wildcard_active=wc, base_squad=list(state.squad), picks=picks,
     )  # fmt: skip
     note = (
         f"your Wildcard is active (team differs from the last deadline's by {moved} player(s)): "

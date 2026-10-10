@@ -32,6 +32,8 @@ class SquadState:
     value: int = 0
     already_transferred: int = 0
     wildcard_active: bool = False  # a Wildcard is in force this week: changes are free
+    # the squad at the last deadline; FPL checks a Wildcard week's transfers against it
+    base_squad: list[SquadPlayer] = field(default_factory=list)
     picks: list[dict[str, Any]] = field(default_factory=list)
 
     def chips_available(self, rules: Rules) -> dict[str, tuple[int, int]]:
