@@ -76,6 +76,8 @@ def test_sources_disagreeing_on_a_score_is_detected(db):
         "(SELECT m.match_id FROM matches m JOIN team_match t USING (match_id) WHERE m.finished LIMIT 1)"
     )
     assert "score_disagreement" in names(db)
+    found = next(i for i in run_checks(db) if i.check == "score_disagreement")
+    assert " says " in found.detail and "9-" in found.detail  # names where, with an example
 
 
 def test_issue_formatting(db):

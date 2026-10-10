@@ -131,9 +131,8 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
         # a few disagreements are expected across sources (late corrections, awarded results);
         # a lot means a source or a team mapping is broken
         severity = "error" if mismatched / finished > MAX_DISAGREEMENT else "warn"
-        issues.append(
-            Issue(severity, "score_disagreement", f"{mismatched} matches where sources disagree")
-        )
+        issues.append(Issue(severity, "score_disagreement",
+                            f"{mismatched} matches where sources disagree ({_where(db)})"))  # fmt: skip
 
     # --- FPL points vs the rules engine ---------------------------------------------------
     issues += _points_consistency(db, rules or Rules.load(2026))
@@ -161,6 +160,20 @@ def _points_consistency(db: FootballDB, rules: Rules) -> list[Issue]:
 
 def errors(issues: list[Issue]) -> list[Issue]:
     return [i for i in issues if i.severity == "error"]
+
+
+def _where(db: FootballDB) -> str:
+    """Where the score disagreements are, so the cause can be found from the alert alone."""
+    df = db.query(
+        "SELECT m.competition_id AS comp, m.season, t.source, count(*) AS n, "
+        "any_value(ht.name || ' ' || m.home_goals || '-' || m.away_goals || ' ' || aw.name || "
+        "', ' || t.source || ' says ' || t.goals_for || '-' || t.goals_against) AS eg "
+        "FROM matches m JOIN team_match t ON t.match_id = m.match_id "
+        "AND t.team_id = m.home_team_id JOIN teams ht ON ht.team_id = m.home_team_id "
+        "JOIN teams aw ON aw.team_id = m.away_team_id "
+        "WHERE m.finished AND t.goals_for <> m.home_goals GROUP BY ALL ORDER BY n DESC LIMIT 5"
+    )
+    return "; ".join(f"{r.comp} {r.season} {r.source}: {r.n}, e.g. {r.eg}" for r in df.itertuples())
 
 
 def format_issues(issues: list[Issue]) -> str:
