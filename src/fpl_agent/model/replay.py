@@ -88,6 +88,7 @@ class ReplayWeek:
     captain_points: int
     bench_points: int
     xp: float  # what the plan expected (before hits)
+    detail: dict | None = field(default=None, repr=False)  # the plan, moves and projections
 
 
 @dataclass
@@ -100,7 +101,9 @@ class ReplayResult:
         return sum(w.points for w in self.weeks)
 
     def frame(self) -> pd.DataFrame:
-        return pd.DataFrame([w.__dict__ for w in self.weeks])
+        return pd.DataFrame(
+            [{k: v for k, v in w.__dict__.items() if k != "detail"} for w in self.weeks]
+        )
 
     def summary(self) -> str:
         if not self.weeks:
@@ -164,7 +167,10 @@ def _first_squad(proj: project.Projection, cfg: PlannerConfig) -> WeekPlan:
 
 def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                   cfg: ReplayConfig | None = None, rules: Rules | None = None,
-                  progress=None) -> ReplayResult:  # fmt: skip
+                  progress=None, start: SquadState | None = None,
+                  pool_fn=None) -> ReplayResult:  # fmt: skip
+    """`start` begins from a real squad (canonical player ids) instead of a free first pick, and
+    `pool_fn(db, season, gw)` replaces the default pool (every player available)."""
     cfg = cfg or ReplayConfig()
     rules = rules or Rules.nearest(season)
     last = int(db.con.execute(
@@ -176,13 +182,13 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
     matches = strength.load_matches(db)
     sim = SimConfig(n=cfg.samples)
 
-    squad: list[SquadPlayer] = []
-    bank, ft = BUDGET, 1
-    chips_used: list[tuple[str, int]] = []
+    squad: list[SquadPlayer] = list(start.squad) if start else []
+    bank, ft = (start.bank, start.free_transfers) if start else (BUDGET, 1)
+    chips_used: list[tuple[str, int]] = list(start.chips_used) if start else []
     model, fitted_at = None, None
     out: list[ReplayWeek] = []
     for gw in gws:
-        hz = [g for g in range(gw, min(gw + cfg.horizon, last + 1))
+        hz = [g for g in range(gw, min(gw + cfg.horizon, 39))
               if not project.fixtures_for(db, season, [g]).empty]  # fmt: skip
         if not hz or hz[0] != gw:
             continue
@@ -193,7 +199,8 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         ]
         if model is None or fitted_at is None or gw - fitted_at >= cfg.refit_every:
             model, fitted_at = minutes.MinutesModel.fit(history), gw
-        pool = pool_as_of(db, season, gw).assign(status="a", chance=None)
+        pool = (pool_fn(db, season, gw) if pool_fn
+                else pool_as_of(db, season, gw).assign(status="a", chance=None))  # fmt: skip
         proj = project.build_projection(
             db, season, hz, as_of=as_of, cfg=sim, rules=rules, minutes_model=model,
             ratings=strength.fit_ratings(matches, as_of), pool=pool, frame=frame, pm=pm,
@@ -201,6 +208,8 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
         team = dict(zip(pool["player_id"].astype(int), pool["team_id"].astype(int), strict=True))
         pos = dict(zip(pool["player_id"].astype(int), pool["position"], strict=True))
+        ins: list[int] = []
+        outs: list[int] = []
         if not squad:  # the first week: a free pick with the full budget
             wk = _first_squad(proj, cfg.planner)
             squad = [SquadPlayer(p, pos[p], team[p], price[p], price[p]) for p in wk.squad]
@@ -216,6 +225,7 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
             d = decide(state, proj, rules, cfg=cfg.planner, chip_cfg=cfg.chips,
                        use_chips=cfg.use_chips)  # fmt: skip
             wk, n_in = d.week, len(d.transfers_in)
+            ins, outs = list(d.transfers_in), list(d.transfers_out)
             if wk.chip:
                 chips_used.append((wk.chip, gw))
             if wk.chip != "freehit":  # a Free Hit squad is gone the week after
@@ -231,7 +241,10 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         week_pos = {**{p.player_id: p.position for p in squad}, **pos}
         got, cap_pts, bench = score_week(wk, pts, mins, week_pos, rules)
         res = ReplayWeek(gw, got - HIT * wk.hits, wk.hits, wk.chip, n_in, wk.captain, cap_pts,
-                         bench, round(wk.xp, 1))  # fmt: skip
+                         bench, round(wk.xp, 1),
+                         {"plan": wk, "ins": ins, "outs": outs,
+                          "xp": dict(zip(proj.meta["player_id"].astype(int),
+                                         proj.mean()[:, 0], strict=True))})  # fmt: skip
         out.append(res)
         if progress:
             progress(res)

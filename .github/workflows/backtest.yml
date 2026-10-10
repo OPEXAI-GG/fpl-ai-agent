@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "projections: score the projections (GW range below); replay: run the agent through the whole season with the real planner and chips, scored on real points"
+        description: "projections: score the projections (GW range below); replay: run the agent through the whole season with the real planner and chips, scored on real points; retro: what the agent would decide for one gameweek (from_gw) against the team you submitted"
         type: choice
-        options: [projections, replay]
+        options: [projections, replay, retro]
         default: projections
       season:
         description: "season start year to test (2025 = 2025/26)"
@@ -52,7 +52,7 @@ jobs:
           uv run fpl-agent explain --db data_cache/football.duckdb --import-dir data_cache/export \
             --season 2026 --gw "$GW" --players "$PLAYERS" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Back-test
-        if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode != 'replay' }}
+        if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode == 'projections' }}
         run: |
           set -o pipefail  # a crash must fail the run, not be hidden by tee
           uv run fpl-agent backtest --db data_cache/football.duckdb --import-dir data_cache/export \
@@ -69,9 +69,23 @@ jobs:
           uv run fpl-agent replay --db data_cache/football.duckdb --import-dir data_cache/export \
             --season "${{ github.event.inputs.season }}" "${sets[@]}" --out backtest.csv \
             | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Gameweek retro
+        if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode == 'retro' }}
+        env:
+          FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
+          SETTINGS: ${{ github.event.inputs.settings }}
+        run: |
+          set -o pipefail
+          sets=()
+          for s in $SETTINGS; do sets+=(--set "$s"); done
+          uv run fpl-agent retro --db data_cache/football.duckdb --import-dir data_cache/export \
+            --season "${{ github.event.inputs.season }}" --gw "${{ github.event.inputs.from_gw }}" \
+            "${sets[@]}" --out retro.md | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: backtest
-          path: backtest.csv
+          path: |
+            backtest.csv
+            retro.md
           if-no-files-found: ignore

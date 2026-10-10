@@ -314,6 +314,29 @@ def replay_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    from fpl_agent.model import replay, retro
+    from fpl_agent.solver.chips import ChipConfig
+    from fpl_agent.solver.planner import PlannerConfig
+
+    entry = args.entry or settings.entry_id
+    if entry is None:
+        print("FPL_ENTRY_ID is not set: cannot read your team")
+        return 2
+    db = _open_db(args)
+    cfg = replay.ReplayConfig(horizon=args.horizon, samples=args.samples,
+                              use_chips=not args.no_chips, planner=PlannerConfig(),
+                              chips=ChipConfig())  # fmt: skip
+    cfg = replay.tuned(cfg, args.set or [])
+    report = retro.run(db, int(args.season), args.gw, int(entry), cfg)
+    print(report)
+    if args.out:
+        from pathlib import Path
+
+        Path(args.out).write_text(report + "\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -403,6 +426,19 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--no-chips", action="store_true")
     rp.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rp.add_argument("--out", default=None)
+    rt = sub.add_parser(
+        "retro", help="what the agent would decide for a gameweek, against your team"
+    )
+    rt.add_argument("--db", default="data_cache/football.duckdb")
+    rt.add_argument("--import-dir", default=None)
+    rt.add_argument("--season", default="2026")
+    rt.add_argument("--gw", type=int, required=True)
+    rt.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    rt.add_argument("--horizon", type=int, default=8)
+    rt.add_argument("--samples", type=int, default=1000)
+    rt.add_argument("--no-chips", action="store_true")
+    rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
+    rt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "explain":
@@ -427,6 +463,8 @@ def main(argv: list[str] | None = None) -> int:
         return backtest_cmd(args)
     if args.cmd == "replay":
         return replay_cmd(args)
+    if args.cmd == "retro":
+        return retro_cmd(args, settings)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2
