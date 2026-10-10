@@ -5,6 +5,11 @@ name: backtest
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "projections: score the projections (GW range below); replay: run the agent through the whole season with the real planner and chips, scored on real points"
+        type: choice
+        options: [projections, replay]
+        default: projections
       season:
         description: "season start year to test (2025 = 2025/26)"
         default: "2025"
@@ -44,12 +49,18 @@ jobs:
           uv run fpl-agent explain --db data_cache/football.duckdb --import-dir data_cache/export \
             --season 2026 --gw "$GW" --players "$PLAYERS" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Back-test
-        if: ${{ github.event.inputs.explain_players == '' }}
+        if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode != 'replay' }}
         run: |
           set -o pipefail  # a crash must fail the run, not be hidden by tee
           uv run fpl-agent backtest --db data_cache/football.duckdb --import-dir data_cache/export \
             --season "${{ github.event.inputs.season }}" --from-gw "${{ github.event.inputs.from_gw }}" \
             --to-gw "${{ github.event.inputs.to_gw }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Season replay
+        if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode == 'replay' }}
+        run: |
+          set -o pipefail
+          uv run fpl-agent replay --db data_cache/football.duckdb --import-dir data_cache/export \
+            --season "${{ github.event.inputs.season }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

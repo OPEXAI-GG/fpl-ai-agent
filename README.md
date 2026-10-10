@@ -38,6 +38,7 @@ All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (de
 | Build / update the database | `db-update --points --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | FPL, FotMob (15 competitions), Understat, football-data.co.uk. Quality checks run before anything is exported; exit code 2 = FPL failed (nothing written), 3 = data failed checks. |
 | Backfill history to 2017/18 | `backfill --start 2017` | Resumable; includes the vaastav FPL archive (official points since 2016/17). Re-run until it reports nothing left. |
 | Back-test the projections | `backtest --season 2025 --from-gw 10 --to-gw 30` | Point-in-time: models see only data before each deadline. Compares with "last 5 games" and FPL's own xP, per position. |
+| Replay a past season | `replay --season 2025` | Runs the real planner, chips and rails through every gameweek and scores the decisions on the official points (auto-subs, vice cover, hits, Free Hit revert). The scoreboard for tuning the planner. |
 | **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
 | Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
 
@@ -59,7 +60,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `data.yml` | daily + Tuesday | update the database from all sources and publish it |
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
 | `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 45 min to 26h away (each run re-plans; the last one lands 45 min to 3h before it); transfers wait for team news until 5h before the deadline unless a planned player is about to change price that night; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
-| `backtest.yml` | manual button | back-test a past season against simple baselines; results in the run summary (read-only) |
+| `backtest.yml` | manual button | back-test a past season against simple baselines, or (mode `replay`) replay the whole season with the real planner; results in the run summary (read-only) |
 | `review.yml` | Tuesday | score the finished gameweek, publish the reviews and send a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
 | `canary.yml` | daily | check every live source still matches its contract |
 
@@ -101,7 +102,7 @@ mock transports.
 
 ## Known limitations and skipped items
 
-* **No real-data accuracy numbers yet.** The projection stack is tested on a synthetic league with known truth (361 tests, 94% coverage), but the point-in-time backtest on real seasons needs the full history, which the `backfill` workflow builds over several runs. Once it has finished, click **Actions -> backtest -> Run workflow** (or run `fpl-agent backtest --season 2025`) and check that the simulator beats the "last 5 games" and FPL-xP baselines in each position before trusting the plans.
+* **Accuracy on real data.** The 2025/26 backtest (GW10 to 30, 16,522 player-weeks, 10 Oct 2026) beats both baselines in every position: RMSE 1.91 against 2.11 for "last 5 games" and 2.55 for FPL's xP, correlation 0.59 against 0.50 and 0.19. The season replay has no ownership history, so it runs without the ownership rails and the rank-risk term.
 
 * **Live execution has never been run against a real account.** The FPL sign-in endpoint and client id (`FPL_TOKEN_URL`, `FPL_CLIENT_ID`) must be copied from your own browser session, and the write payloads follow FPL's documented shape but are unverified. That is why the build stops at dry mode.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
