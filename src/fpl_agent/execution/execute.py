@@ -10,11 +10,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 import httpx
 
-from fpl_agent.data.entry import SquadState
 from fpl_agent.execution import safety
 from fpl_agent.execution.auth import AuthError, TokenExchange
 from fpl_agent.execution.fpl_writer import (
@@ -63,17 +62,6 @@ def _why(exc: httpx.HTTPError) -> str:
         body = " ".join(r.text.split())[:300]
         return f"HTTP {r.status_code} {r.request.method} {r.request.url.path}: {body}"
     return type(exc).__name__
-
-
-def wildcard_net(d: Decision, state: SquadState) -> tuple[Decision, SquadState]:
-    """In a Wildcard week FPL checks every transfer against the squad at the last deadline, not
-    the current one: send the whole change from that squad to the planned one."""
-    if not (state.wildcard_active and state.base_squad):
-        return d, state
-    target = ({p.player_id for p in state.squad} - set(d.transfers_out)) | set(d.transfers_in)
-    base = {p.player_id for p in state.base_squad}
-    net = replace(d, transfers_in=sorted(target - base), transfers_out=sorted(base - target))
-    return net, replace(state, squad=state.base_squad)
 
 
 def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, int],
@@ -133,22 +121,19 @@ def execute(d: Decision, ctx: safety.Context, rules: Rules, fpl_id: dict[int, in
                 out.done.append("transfers already in place on FPL: nothing to send")
                 allow_transfers, transfers_done = False, True
         if allow_transfers:
-            sent, from_state = wildcard_net(d, ctx.state)
             try:
                 prev = w.transfers(
-                    transfers_payload(sent, from_state, entry, fpl_id, price, False, pos)
+                    transfers_payload(d, ctx.state, entry, fpl_id, price, False, pos)
                 )
                 # an empty reply means FPL accepted the swaps without echoing them back
-                diff = preview_matches(prev, sent, fpl_id) if prev else []
+                diff = preview_matches(prev, d, fpl_id) if prev else []
                 if diff:
                     seen = json.dumps(prev, default=str)[:300]
                     out.blocked.append(
                         "preview differs from plan: " + "; ".join(diff) + f" (FPL said: {seen})"
                     )
                 else:
-                    w.transfers(
-                        transfers_payload(sent, from_state, entry, fpl_id, price, True, pos)
-                    )
+                    w.transfers(transfers_payload(d, ctx.state, entry, fpl_id, price, True, pos))
                     out.done += transfer_steps(d, pos)
                     transfers_done = True
             except ValueError as exc:  # no same-position pairing: send nothing

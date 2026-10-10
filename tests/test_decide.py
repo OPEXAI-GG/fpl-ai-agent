@@ -220,3 +220,19 @@ def test_an_active_wildcard_replans_the_whole_squad_for_free():
     d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
     assert d.chip == "wildcard" and d.hits == 0
     assert d.chip_report["play_now"] == "wildcard"
+
+
+def test_an_active_wildcard_never_rebuys_this_weeks_sales_or_resells_this_weeks_buys():
+    from dataclasses import replace
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50, chips_used=[("wildcard", 10)])
+    owned = {p.player_id for p in st.squad}
+    # the best outsiders were sold earlier this week; the squad's first three were bought
+    sold = sorted((c for c in cands if c.player_id not in owned),
+                  key=lambda c: -sum(c.xp))[:5]  # fmt: skip
+    old = [replace(p, player_id=c.player_id) for p, c in zip(st.squad[:3], sold[:3], strict=True)]
+    st = replace(st, wildcard_active=True, base_squad=old + st.squad[3:])
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    assert not set(d.transfers_in) & {c.player_id for c in sold[:3]}
+    assert not set(d.transfers_out) & {p.player_id for p in st.squad[:3]}
