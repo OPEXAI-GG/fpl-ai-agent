@@ -63,3 +63,14 @@ def test_score_week_bench_boost_and_triple_captain():
     mins = {i: 90 for i in range(1, 16)}
     assert replay.score_week(_week(chip="bboost"), pts, mins, POS, rules) == (16, 1, 0)
     assert replay.score_week(_week(chip="3xc"), pts, mins, POS, rules) == (13, 1, 4)
+
+
+def test_settings_override_the_planner_and_chip_thresholds():
+    cfg = replay.tuned(replay.ReplayConfig(), ["hit_buffer=1.5", "ft_values=2.2,1.5",
+                       "min_gain.bboost=12", "hold_margin=2", "max_hits_per_gw=2", "horizon=6"])  # fmt: skip
+    assert cfg.planner.hit_buffer == 1.5 and cfg.planner.ft_values == (2.2, 1.5)
+    assert cfg.planner.max_hits_per_gw == 2 and cfg.horizon == 6
+    assert cfg.chips.min_gain["bboost"] == 12 and cfg.chips.min_gain["wildcard"] == 6.0
+    assert cfg.chips.hold_margin == 2.0
+    with pytest.raises(ValueError, match="unknown setting"):
+        replay.tuned(replay.ReplayConfig(), ["nonsense=1"])

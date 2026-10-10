@@ -14,7 +14,7 @@ with £100m.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 
 import pandas as pd
 
@@ -43,6 +43,38 @@ class ReplayConfig:
     chips: chips_mod.ChipConfig = field(
         default_factory=lambda: chips_mod.ChipConfig(n_worlds=150, scenario_time_limit=5.0)
     )
+
+
+def tuned(cfg: ReplayConfig, settings: list[str]) -> ReplayConfig:
+    """Override planner and chip settings with `key=value` strings, e.g. `hit_buffer=1.5`,
+    `ft_values=2.2,1.6,1.2,1.0`, `min_gain.bboost=12` or `hold_margin=2` (for tuning runs)."""
+    planner, chips = cfg.planner, cfg.chips
+    known_p = {f.name: f for f in fields(PlannerConfig)}
+    known_c = {f.name for f in fields(chips_mod.ChipConfig)}
+    for item in settings:
+        key, _, raw = item.partition("=")
+        key = key.strip()
+        if key in known_p:
+            planner = replace(planner, **{key: _parse(getattr(planner, key), raw)})
+        elif key.split(".")[0] in ("min_gain", "min_win") and "." in key:
+            table, chip = key.split(".", 1)
+            values = {**getattr(chips, table), chip: float(raw)}
+            chips = replace(chips, **{table: values})
+        elif key in known_c:
+            chips = replace(chips, **{key: _parse(getattr(chips, key), raw)})
+        elif key in ("horizon", "samples"):
+            cfg = replace(cfg, **{key: int(raw)})
+        else:
+            raise ValueError(f"unknown setting {key!r}")
+    return replace(cfg, planner=planner, chips=chips)
+
+
+def _parse(current, raw: str):
+    if isinstance(current, tuple):
+        return tuple(float(x) for x in raw.split(","))
+    if isinstance(current, bool):
+        return raw.lower() in ("1", "true", "yes")
+    return type(current)(float(raw)) if isinstance(current, int) else float(raw)
 
 
 @dataclass

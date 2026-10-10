@@ -298,6 +298,9 @@ def replay_cmd(args: argparse.Namespace) -> int:
     db = _open_db(args)
     cfg = replay.ReplayConfig(horizon=args.horizon, samples=args.samples,
                               use_chips=not args.no_chips)  # fmt: skip
+    cfg = replay.tuned(cfg, args.set or [])
+    if args.set:
+        print("settings: " + ", ".join(args.set))
     gws = list(range(args.from_gw, (args.to_gw or 38) + 1))
     res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
         f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
@@ -398,6 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--horizon", type=int, default=4)
     rp.add_argument("--samples", type=int, default=300)
     rp.add_argument("--no-chips", action="store_true")
+    rp.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rp.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
