@@ -10,7 +10,9 @@ on:
 permissions:
   actions: read
 concurrency:
-  group: data            # never alongside a plan run: both use the single-use token
+  # its own group, so the nightly backfill (which holds `data` for hours) cannot hold it up;
+  # the gate below skips the check while a plan run is using the single-use token
+  group: fpl-token
   cancel-in-progress: false
 jobs:
   gate:
@@ -25,7 +27,8 @@ jobs:
           started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at || true)
           waited=0
           if [ -n "$started" ]; then waited=$(( $(date +%s) - $(date -d "$started" +%s) )); fi
-          if [ "$waited" -gt 180 ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; else echo "fresh=true" >> "$GITHUB_OUTPUT"; fi
+          busy=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/plan.yml/runs?status=in_progress" --jq .total_count || echo 1)
+          if [ "$waited" -gt 180 ] || [ "$busy" != "0" ]; then echo "fresh=false" >> "$GITHUB_OUTPUT"; else echo "fresh=true" >> "$GITHUB_OUTPUT"; fi
   check:
     needs: gate
     if: ${{ needs.gate.outputs.fresh == 'true' && vars.AGENT_MODE == 'live' && vars.FPL_ENTRY_ID != '' }}

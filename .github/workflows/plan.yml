@@ -4,7 +4,8 @@ name: plan
 #   unset or "dry"  -> report only. Nothing logs in to FPL; your team is never touched (default).
 #   "live"          -> the agent makes the moves on your FPL team itself, then reports what it did.
 # AGENT_ENABLED=false stops everything either way. Runs every 2 hours; the agent acts only when a
-# deadline is 2-26 hours away and notifies once per gameweek.
+# deadline is 45 minutes to 26 hours away (re-planning on every run, so the last run uses the
+# latest team news) and notifies once per gameweek, or again when it changes the team.
 on:
   schedule:
     - cron: "10 */2 * * *"

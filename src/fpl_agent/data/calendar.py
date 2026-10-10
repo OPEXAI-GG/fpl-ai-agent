@@ -20,9 +20,11 @@ def hours_to_deadline(ev: Event, now: datetime | None = None) -> float:
 
 
 def in_action_window(
-    ev: Event, now: datetime | None = None, lo_hours: float = 2, hi_hours: float = 26
+    ev: Event, now: datetime | None = None, lo_hours: float = 0.75, hi_hours: float = 26
 ) -> bool:
-    """True when the deadline is between lo_hours and hi_hours away."""
+    """True when the deadline is between lo_hours and hi_hours away. The scheduled runs every
+    two hours re-plan in that window, so the last one lands 45 minutes to under 3 hours before
+    the deadline, after the pre-match press conferences and with the latest team news."""
     return lo_hours <= hours_to_deadline(ev, now) <= hi_hours
 
 
