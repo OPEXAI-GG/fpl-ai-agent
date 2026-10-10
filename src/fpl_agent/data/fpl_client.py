@@ -72,3 +72,6 @@ class FPLClient:
 
     def entry_transfers_raw(self, entry_id: int) -> list[dict[str, Any]]:
         return self._get(f"entry/{entry_id}/transfers/")
+
+    def league_standings_raw(self, league_id: int, page: int = 1) -> dict[str, Any]:
+        return self._get(f"leagues-classic/{league_id}/standings/?page_standings={page}")
