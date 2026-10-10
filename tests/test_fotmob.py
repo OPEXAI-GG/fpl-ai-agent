@@ -9,6 +9,7 @@ from fpl_agent.data import leagues
 from fpl_agent.data.fotmob import FotMobClient
 from fpl_agent.db.database import FootballDB
 from fpl_agent.db.ingest_fotmob import FotMobIngestor
+from fpl_agent.db.quality import run_checks
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from tests.helpers import fixture, fotmob_client
 
@@ -253,6 +254,32 @@ def test_cup_ties_with_the_same_pairing_are_kept_apart():
             cup, 2026,
         )  # fmt: skip
     assert db.query("SELECT count(*) n FROM matches").n[0] == 2
+
+
+def _two_meetings(ing, comp):
+    for i, (day, score) in enumerate((("2026-09-16T15:00:00Z", "1 - 0"),
+                                      ("2027-02-20T15:00:00Z", "0 - 3"))):  # fmt: skip
+        ing.load_league(
+            {"fixtures": {"allMatches": [{
+                "id": str(800 + i), "round": str(5 + 20 * i),
+                "home": {"id": "1", "name": "Alpha"}, "away": {"id": "2", "name": "Beta"},
+                "status": {"utcTime": day, "finished": True, "scoreStr": score}}]}},
+            comp, 2026,
+        )  # fmt: skip
+
+
+def test_split_season_leagues_keep_both_meetings_of_a_pairing():
+    db = FootballDB()
+    _two_meetings(FotMobIngestor(db), leagues.get("SCO1"))
+    got = db.query("SELECT home_goals, away_goals FROM matches ORDER BY match_date")
+    assert got.values.tolist() == [[1, 0], [0, 3]]
+    assert "duplicate_matches" not in {i.check for i in run_checks(db)}
+
+
+def test_other_leagues_still_hold_a_pairing_once():
+    db = FootballDB()
+    _two_meetings(FotMobIngestor(db), CH)
+    assert db.query("SELECT count(*) n FROM matches").n[0] == 1
 
 
 def test_cancelled_fixtures_are_ignored():

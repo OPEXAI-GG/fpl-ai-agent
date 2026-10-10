@@ -1,6 +1,7 @@
 """Each data-quality check really fires on corrupted data, and the clean fixture DB is clean."""
 
 import json
+from datetime import date
 
 import pytest
 
@@ -124,3 +125,32 @@ def test_a_few_score_disagreements_are_only_a_warning_in_a_big_database(db):
         )
     found = [i for i in run_checks(db) if i.check == "score_disagreement"]
     assert found and found[0].severity == "warn"
+
+
+def test_repair_clears_merged_split_season_matches_and_wrong_club_links():
+    from fpl_agent.db.quality import repair
+
+    db = FootballDB()
+    du = db.team_id("fotmob", "1", "Dundee United")
+    db.con.execute(  # what older code stored: a second source's Dundee linked to Dundee United
+        "INSERT INTO team_ids VALUES ('vaastav-team', 'x', ?, 'Dundee')", [du]
+    )
+    other = db.team_id("fotmob", "2", "Celtic")
+    keep = db.team_id("fotmob", "3", "Arsenal")
+    mid = db.match_id("fotmob", 10, "SCO1", 2024, date(2024, 9, 1), du, other, home_goals=1,
+                      away_goals=0, finished=True)  # fmt: skip
+    eng = db.match_id("fotmob", 11, "ENG1", 2024, date(2024, 9, 1), keep, other)
+    db.con.execute("INSERT INTO ingest_state VALUES ('fotmob', '10', 'done', 'SCO1 2024', now())")
+    db.con.execute("INSERT INTO ingest_state VALUES ('fotmob', '11', 'done', 'ENG1 2024', now())")
+    found = repair(db)
+    assert found[0].severity == "warn" and "1 BEL1/SCO1 matches" in found[0].detail
+    assert "1 wrong club links" in found[0].detail
+    assert db.query("SELECT match_id FROM matches").match_id.tolist() == [eng]
+    assert mid not in db.query("SELECT match_id FROM match_ids").match_id.tolist()
+    assert db.query("SELECT key FROM ingest_state WHERE source = 'fotmob'").key.tolist() == ["11"]
+    assert (
+        db.con.execute("SELECT count(*) FROM team_ids WHERE source = 'vaastav-team'").fetchone()[0]
+        == 0
+    )
+    assert db.team_id("vaastav-team", "x", "Dundee") != du  # made again, correctly
+    assert repair(db) == []  # once per database
