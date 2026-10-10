@@ -75,7 +75,7 @@ def no_keys(monkeypatch):
         monkeypatch.delenv(k, raising=False)
 
 
-def fake(env, hours=10.0):
+def fake(env, hours=3.0):
     return FakeFPL(env[1], env[2], datetime.now(UTC) + timedelta(hours=hours))
 
 
@@ -207,3 +207,21 @@ def test_hand_changes_after_the_bots_last_moves_are_found(env):
         "payload": json.dumps({"xi": planned[:11], "bench": planned[11:]}),
     }]))  # fmt: skip
     assert manual_changes(w.db, SEASON, 37, state) == [1014]
+
+
+def test_scheduled_run_holds_moves_for_team_news(env, monkeypatch):
+    from fpl_agent import agent
+
+    seen = []
+
+    def hold(ins, outs, moving, hours, update, name):
+        seen.append(hours)
+        return True, "moves held for team news"
+
+    monkeypatch.setattr(agent.timing, "hold_moves", hold)
+    res = run_weekly(env[0].db, Settings(), opts(), fpl=fake(env, hours=20))
+    assert res.status == "ok" and res.outcome.done == [] and 19 < seen[0] < 21
+    assert "moves held for team news" in res.report
+    seen.clear()
+    res = run_weekly(env[0].db, Settings(), opts(force=True), fpl=fake(env, hours=20))
+    assert seen == [] and res.outcome.done  # a hand-started run acts now
