@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -160,6 +160,18 @@ def run_weekly(
         res.report = format_report(res, settings.mode)
         return res
 
+    hand: list[int] = []
+    if settings.is_live and live_ok:
+        hand = manual_changes(db, opts.season, ev.id, state)
+        if hand:  # you changed the team after the bot's last moves: keep it, set the lineup only
+            state = replace(state, already_transferred=max(state.already_transferred, len(hand)),
+                            wildcard_active=False)  # fmt: skip
+            live_changed = True
+            res.notes.append(
+                f"you changed {len(hand)} player(s) by hand after the bot's last moves: kept, "
+                "only the lineup and captain are set"
+            )
+
     odds = odds or oddsapi.OddsClient()
     if odds.enabled:
         try:
@@ -227,6 +239,10 @@ def run_weekly(
             exchange=(lambda: Signed(tokens)) if tokens else exchange,
             http=http,
         )
+    o = res.outcome
+    # the squad FPL now holds is the bot's (after hand changes it stays yours all gameweek)
+    if o and o.mode == "live" and o.ok and not o.blocked and not hand:
+        review.save_decision(db, opts.season, d, DONE)
     res.report = format_report(res, settings.mode)
     if opts.out_dir:
         write_outputs(opts.out_dir, res, settings.mode)
@@ -236,6 +252,26 @@ def run_weekly(
     if opts.notify and (first_time or moved or failed):
         notify.send(res.report)
     return res
+
+
+DONE = "live-done"  # decisions row mode once FPL accepted every move of a live run
+
+
+def manual_changes(db, season: int, gw: int, state) -> list[int]:
+    """Players in the current squad that the bot's last completed live run did not pick: you
+    changed them by hand since. Empty when the bot has not completed a run this gameweek."""
+    row = db.con.execute(
+        "SELECT payload FROM decisions WHERE season = ? AND gw = ? AND mode = ? "
+        "ORDER BY created_at DESC LIMIT 1",
+        [season, gw, DONE],
+    ).fetchone()
+    if not row:
+        return []
+    p = json.loads(row[0])
+    planned = set(p.get("xi", [])) | set(p.get("bench", []))
+    if len(planned) != 15:
+        return []
+    return sorted(q.player_id for q in state.squad if q.player_id not in planned)
 
 
 def _ownership(pool) -> dict[int, float]:

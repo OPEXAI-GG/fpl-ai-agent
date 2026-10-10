@@ -262,3 +262,13 @@ def test_an_unavailable_popular_player_can_still_be_sold():
     proj.meta.loc[proj.meta["player_id"] == sold, "status"] = "i"
     d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership={sold: 74.0})
     assert not any("kept for ownership" in w for w in d.warnings)
+
+
+def test_no_further_transfers_once_this_weeks_moves_are_made():
+    from dataclasses import replace
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50, ft=5)
+    assert decide(st, proj, RULES, cfg=CFG, use_chips=False).transfers_in
+    d = decide(replace(st, already_transferred=2), proj, RULES, cfg=CFG, use_chips=False)
+    assert not d.transfers_in and len(d.xi) == 11

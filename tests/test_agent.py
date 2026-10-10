@@ -189,3 +189,21 @@ def test_live_moves_are_never_sent_when_the_current_team_cannot_be_read(env, mon
                      exchange=Dead)  # fmt: skip
     assert not called and res.outcome.errors and res.exit_code == 2
     assert any("sign-in failed" in n for n in res.notes)
+
+
+def test_hand_changes_after_the_bots_last_moves_are_found(env):
+    import pandas as pd
+
+    from fpl_agent.agent import DONE, manual_changes
+    from fpl_agent.solver.planner import SquadPlayer
+
+    w = env[0]
+    squad = [SquadPlayer(1000 + i, "MID", 1, 50, 50) for i in range(15)]
+    state = SimpleNamespace(squad=squad)
+    assert manual_changes(w.db, SEASON, 37, state) == []  # no completed run: nothing to compare
+    planned = [p.player_id for p in squad[:14]] + [999]
+    w.db.append("decisions", pd.DataFrame([{
+        "season": SEASON, "gw": 37, "created_at": datetime.now(UTC), "mode": DONE,
+        "payload": json.dumps({"xi": planned[:11], "bench": planned[11:]}),
+    }]))  # fmt: skip
+    assert manual_changes(w.db, SEASON, 37, state) == [1014]

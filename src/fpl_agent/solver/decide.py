@@ -165,6 +165,8 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         was = {p.player_id for p in state.base_squad}
         cands = [c for c in cands if c.player_id not in was - now]
         locked = frozenset(now - was)
+    if state.already_transferred and not state.wildcard_active:
+        locked = frozenset(p.player_id for p in state.squad)  # this week's moves are done
     keep = template_players(proj, [p.player_id for p in state.squad], own, TEMPLATE_KEEP)
     locked |= frozenset(keep)
     value = sum(p.sell_price for p in state.squad) + state.bank
