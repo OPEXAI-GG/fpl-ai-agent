@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fpl_agent import notify, review
 from fpl_agent.config import Settings
-from fpl_agent.data import oddsapi
+from fpl_agent.data import oddsapi, ownership
 from fpl_agent.data.calendar import hours_to_deadline, in_action_window, next_event
 from fpl_agent.data.entry import parse_squad
 from fpl_agent.data.fpl_client import FPLClient
@@ -187,6 +187,9 @@ def run_weekly(
     else:
         res.notes.append("scout skipped: no ANTHROPIC_API_KEY")
 
+    own, own_note = _ownership(db, fpl, opts.season, ev.id, pool)
+    res.notes.append(own_note)
+
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
     try:
         proj = project.build_projection(db, opts.season, gws, rules=rules, pool=pool,
@@ -201,7 +204,7 @@ def run_weekly(
         project.save_projection(db, proj)
         d = decide(state, proj, rules, names=_names(db), cfg=PlannerConfig(),
                    use_chips=opts.use_chips and not live_changed,
-                   ownership=_ownership(pool))  # fmt: skip
+                   ownership=own)  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -274,15 +277,24 @@ def manual_changes(db, season: int, gw: int, state) -> list[int]:
     return sorted(q.player_id for q in state.squad if q.player_id not in planned)
 
 
-def _ownership(pool) -> dict[int, float]:
-    """Percent of managers owning each player, unless AGENT_ALLOW_TEMPLATE_SELL=true lets the
-    plan sell popular players."""
+def _ownership(db, fpl, season: int, gw: int, pool) -> tuple[dict[int, float], str]:
+    """Percent of rival managers owning each player (canonical ids) and a note on the source:
+    a sample of the top 10k when it can be read, else FPL's overall ownership. Empty when
+    AGENT_ALLOW_TEMPLATE_SELL=true lets the plan sell popular players."""
     if os.environ.get("AGENT_ALLOW_TEMPLATE_SELL", "").strip().lower() == "true":
-        return {}
+        return {}, "ownership ignored: AGENT_ALLOW_TEMPLATE_SELL=true"
+    pid = dict(zip(pool["fpl_id"].astype(int), pool["player_id"].astype(int), strict=True))
+    field = ownership.field_ownership(db, fpl, season, gw)
+    if not field.empty:
+        n = int(field["sample"].iloc[0])
+        own = {pid[int(f)]: float(o) for f, o in zip(field["fpl_id"], field["owned"],
+                                                      strict=True) if int(f) in pid}  # fmt: skip
+        return own, f"ownership: top-10k sample of {n} managers"
     if "owned" not in pool:
-        return {}
-    own = pool[["player_id", "owned"]].dropna()
-    return dict(zip(own["player_id"].astype(int), own["owned"].astype(float), strict=True))
+        return {}, "ownership unavailable"
+    o = pool[["player_id", "owned"]].dropna()
+    return (dict(zip(o["player_id"].astype(int), o["owned"].astype(float), strict=True)),
+            "ownership: FPL overall (top-10k sample unavailable)")  # fmt: skip
 
 
 def write_outputs(out: Path, res: RunResult, mode: str) -> None:

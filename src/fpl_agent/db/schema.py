@@ -63,6 +63,9 @@ TABLES: dict[str, str] = {
     "projections": """
         run_id VARCHAR, model VARCHAR, created_at TIMESTAMP, season INTEGER, gw INTEGER,
         player_id INTEGER, xpts DOUBLE, detail JSON""",
+    "field_ownership": """
+        season INTEGER, gw INTEGER, fpl_id INTEGER, owned DOUBLE, eo DOUBLE, sample INTEGER,
+        fetched_at TIMESTAMP, PRIMARY KEY (season, gw, fpl_id)""",
     "decisions": """
         season INTEGER, gw INTEGER, created_at TIMESTAMP, mode VARCHAR, payload JSON""",
     "reviews": """
