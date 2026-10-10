@@ -175,6 +175,22 @@ def token_check(settings: Settings, notify_on_fail: bool = True) -> int:
     return 2
 
 
+def gw_summary_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    """How your team did in the latest finished gameweek; sent to Discord with --notify."""
+    from fpl_agent import notify
+    from fpl_agent.gw_summary import gw_summary
+
+    entry = args.entry or settings.entry_id
+    if entry is None:
+        print("gw-summary skipped: no FPL_ENTRY_ID")
+        return 0
+    text = gw_summary(FPLClient(), entry, args.gw or None)
+    print(text)
+    if args.notify:
+        notify.send(text)
+    return 0
+
+
 def _export(db, args: argparse.Namespace) -> None:
     if getattr(args, "export", None):
         db.export_parquet(args.export)
@@ -329,6 +345,10 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--season", default="2026")
     rv.add_argument("--export", default=None, help="write the database as parquet here")
     rv.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    gs = sub.add_parser("gw-summary", help="how your team did in the last finished gameweek")
+    gs.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    gs.add_argument("--gw", type=int, default=0, help="0 = latest finished gameweek")
+    gs.add_argument("--notify", action="store_true", help="send it to NOTIFY_WEBHOOK")
     ex = sub.add_parser("explain", help="why players project as they do (needs a stored plan)")
     ex.add_argument("--db", default="data_cache/football.duckdb")
     ex.add_argument("--import-dir", default=None)
@@ -361,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
         return plan(args, settings)
     if args.cmd == "review":
         return review_cmd(args)
+    if args.cmd == "gw-summary":
+        return gw_summary_cmd(args, settings)
     if args.cmd == "backtest":
         return backtest_cmd(args)
     if args.cmd == "understat":

@@ -89,3 +89,12 @@ def test_backtest_workflow_is_read_only_and_manual():
     wf = load(WF / "backtest.yml")
     assert wf["permissions"] == {"contents": "read"}
     assert "workflow_dispatch" in wf["on"] and "schedule" not in wf["on"]
+
+
+def test_review_workflow_sends_the_gameweek_summary_without_blocking_publish():
+    wf = load(WF / "review.yml")
+    steps = wf["jobs"]["review"]["steps"]
+    names = [s.get("name") for s in steps]
+    summary = steps[names.index("Gameweek summary to Discord")]
+    assert summary["continue-on-error"] is True and "gw-summary --notify" in summary["run"]
+    assert names.index("Gameweek summary to Discord") < names.index("Publish database")

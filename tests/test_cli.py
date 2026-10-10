@@ -180,3 +180,15 @@ def test_token_check_does_nothing_in_dry_mode(monkeypatch, capsys):
     monkeypatch.delenv("AGENT_MODE", raising=False)
     assert cli.main(["token-check"]) == 0
     assert "skipped" in capsys.readouterr().out
+
+
+def test_gw_summary_prints_and_notifies(monkeypatch, capsys):
+    from tests.test_gw_summary import FakeFPL
+
+    monkeypatch.setattr(cli, "FPLClient", FakeFPL)
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda text: sent.append(text))
+    monkeypatch.delenv("FPL_ENTRY_ID", raising=False)
+    assert cli.main(["gw-summary"]) == 0 and "skipped" in capsys.readouterr().out
+    assert cli.main(["gw-summary", "--entry", "1", "--notify"]) == 0
+    assert "GW6: 70 points" in capsys.readouterr().out and sent and "GW6" in sent[0]
