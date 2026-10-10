@@ -160,3 +160,21 @@ def test_weekly_update_skips_a_dead_fotmob_but_keeps_everything_else(alerts):
     assert not names(res)["fotmob:ENG2"] and names(res)["fpl:players"]
     assert res.exit_code == OK
     assert alerts
+
+
+def test_backfill_stops_on_its_time_budget_and_still_saves(tmp_path, monkeypatch):
+    import itertools
+
+    from fpl_agent import pipeline
+
+    clock = itertools.count(0, 600)  # every check is 10 minutes later
+    monkeypatch.setattr(pipeline, "_clock", lambda: next(clock))
+    out = tmp_path / "out"
+    db, res = backfill(max_minutes=25, export=out)
+    stop = next(r for r in res.report.results if r.name == "time budget")
+    assert stop.ok and "the next run continues" in stop.error
+    ran = [r.name for r in res.report.results if r.name != "time budget"]
+    assert ran and not any(n.startswith("fotmob") for n in ran)  # quick sources come first
+    assert res.exit_code == OK and any(out.iterdir())  # what it has is saved
+    _, again = backfill(db=db)  # the next run carries on without redoing finished steps
+    assert not any(r.name == "time budget" for r in again.report.results)

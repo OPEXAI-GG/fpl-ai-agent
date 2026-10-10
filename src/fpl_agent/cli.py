@@ -108,6 +108,7 @@ def backfill(args: argparse.Namespace) -> int:
         fotmob_matches=args.fotmob_matches,
         sources=tuple(s for s in args.sources.split(",") if s),
         export=Path(args.export) if args.export else None,
+        max_minutes=args.max_minutes,
     )
     db = FootballDB(args.db)
     if args.import_dir:
@@ -318,6 +319,51 @@ def backtest_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def replay_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent.model import replay
+
+    db = _open_db(args)
+    cfg = replay.ReplayConfig(horizon=args.horizon, samples=args.samples,
+                              use_chips=not args.no_chips)  # fmt: skip
+    cfg = replay.tuned(cfg, args.set or [])
+    if args.set:
+        print("settings: " + ", ".join(args.set))
+    gws = list(range(args.from_gw, (args.to_gw or 38) + 1))
+    res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
+        f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
+        + (f", {w.chip}" if w.chip else ""), flush=True))  # fmt: skip
+    if not res.weeks:
+        print("no gameweeks could be replayed (no points for that season in the database)")
+        return 2
+    print(res.summary())
+    if args.out:
+        res.frame().to_csv(args.out, index=False)
+    return 0
+
+
+def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    from fpl_agent.model import replay, retro
+    from fpl_agent.solver.chips import ChipConfig
+    from fpl_agent.solver.planner import PlannerConfig
+
+    entry = args.entry or settings.entry_id
+    if entry is None:
+        print("FPL_ENTRY_ID is not set: cannot read your team")
+        return 2
+    db = _open_db(args)
+    cfg = replay.ReplayConfig(horizon=args.horizon, samples=args.samples,
+                              use_chips=not args.no_chips, planner=PlannerConfig(),
+                              chips=ChipConfig())  # fmt: skip
+    cfg = replay.tuned(cfg, args.set or [])
+    report = retro.run(db, int(args.season), args.gw, int(entry), cfg)
+    print(report)
+    if args.out:
+        from pathlib import Path
+
+        Path(args.out).write_text(report + "\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -350,6 +396,12 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--competitions", default="", help="comma list of competition ids (default all)")
     b.add_argument("--sources", default="football-data,understat,fotmob,vaastav")
     b.add_argument("--fotmob-matches", type=int, default=400)
+    b.add_argument(
+        "--max-minutes",
+        type=float,
+        default=None,
+        help="stop starting new steps after this long, and save the progress",
+    )
     b.add_argument("--export", default=None)
     b.add_argument("--import-dir", default=None)
     pl = sub.add_parser(
@@ -396,6 +448,30 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument("--to-gw", type=int, default=20)
     bt.add_argument("--samples", type=int, default=600)
     bt.add_argument("--out", default=None)
+    rp = sub.add_parser("replay", help="run the agent through a past season, scored on real points")
+    rp.add_argument("--db", default="data_cache/football.duckdb")
+    rp.add_argument("--import-dir", default=None)
+    rp.add_argument("--season", default="2025")
+    rp.add_argument("--from-gw", type=int, default=1)
+    rp.add_argument("--to-gw", type=int, default=None, help="last gameweek (default: the last)")
+    rp.add_argument("--horizon", type=int, default=4)
+    rp.add_argument("--samples", type=int, default=300)
+    rp.add_argument("--no-chips", action="store_true")
+    rp.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
+    rp.add_argument("--out", default=None)
+    rt = sub.add_parser(
+        "retro", help="what the agent would decide for a gameweek, against your team"
+    )
+    rt.add_argument("--db", default="data_cache/football.duckdb")
+    rt.add_argument("--import-dir", default=None)
+    rt.add_argument("--season", default="2026")
+    rt.add_argument("--gw", type=int, required=True)
+    rt.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    rt.add_argument("--horizon", type=int, default=8)
+    rt.add_argument("--samples", type=int, default=1000)
+    rt.add_argument("--no-chips", action="store_true")
+    rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
+    rt.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     if args.cmd == "explain":
@@ -420,6 +496,10 @@ def main(argv: list[str] | None = None) -> int:
         return backtest_cmd(args)
     if args.cmd == "send":
         return send_cmd(args)
+    if args.cmd == "replay":
+        return replay_cmd(args)
+    if args.cmd == "retro":
+        return retro_cmd(args, settings)
     if args.cmd == "understat":
         return understat(settings, args.season, args.players, args.limit)
     return 2

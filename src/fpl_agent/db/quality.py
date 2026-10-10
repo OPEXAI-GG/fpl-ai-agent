@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from fpl_agent.db.database import FootballDB
+from fpl_agent.data.leagues import REPEATING
+from fpl_agent.db.database import DISTINCT_CLUBS, FootballDB, team_key
 from fpl_agent.rules import Rules, score
 
 VALID_STATUS = {"a", "d", "i", "n", "s", "u"}
@@ -40,7 +41,8 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
     # --- duplicates ---------------------------------------------------------------------
     check("error", "duplicate_matches",
           "SELECT count(*) FROM (SELECT 1 FROM matches WHERE competition_id NOT IN "
-          "(SELECT competition_id FROM competitions WHERE tier = 0) GROUP BY competition_id, "
+          "(SELECT competition_id FROM competitions WHERE tier = 0) AND competition_id NOT IN "
+          f"({', '.join(repr(c) for c in sorted(REPEATING))}) GROUP BY competition_id, "
           "season, home_team_id, away_team_id HAVING count(*) > 1)",
           "league pairings stored more than once")  # fmt: skip
     check("error", "duplicate_team_keys",
@@ -131,9 +133,8 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
         # a few disagreements are expected across sources (late corrections, awarded results);
         # a lot means a source or a team mapping is broken
         severity = "error" if mismatched / finished > MAX_DISAGREEMENT else "warn"
-        issues.append(
-            Issue(severity, "score_disagreement", f"{mismatched} matches where sources disagree")
-        )
+        issues.append(Issue(severity, "score_disagreement",
+                            f"{mismatched} matches where sources disagree ({_where(db)})"))  # fmt: skip
 
     # --- FPL points vs the rules engine ---------------------------------------------------
     issues += _points_consistency(db, rules or Rules.load(2026))
@@ -163,8 +164,75 @@ def errors(issues: list[Issue]) -> list[Issue]:
     return [i for i in issues if i.severity == "error"]
 
 
+def _where(db: FootballDB) -> str:
+    """Where the score disagreements are, so the cause can be found from the alert alone."""
+    df = db.query(
+        "SELECT m.competition_id AS comp, m.season, t.source, count(*) AS n, "
+        "any_value(ht.name || ' ' || m.home_goals || '-' || m.away_goals || ' ' || aw.name || "
+        "', ' || t.source || ' says ' || t.goals_for || '-' || t.goals_against) AS eg "
+        "FROM matches m JOIN team_match t ON t.match_id = m.match_id "
+        "AND t.team_id = m.home_team_id JOIN teams ht ON ht.team_id = m.home_team_id "
+        "JOIN teams aw ON aw.team_id = m.away_team_id "
+        "WHERE m.finished AND t.goals_for <> m.home_goals GROUP BY ALL ORDER BY n DESC LIMIT 5"
+    )
+    return "; ".join(f"{r.comp} {r.season} {r.source}: {r.n}, e.g. {r.eg}" for r in df.itertuples())
+
+
 def format_issues(issues: list[Issue]) -> str:
     return "\n".join(f"[{i.severity}] {i.check}: {i.detail}" for i in issues) or "no issues"
+
+
+MATCH_TABLES = ("team_match", "appearances", "player_match_stats", "shots", "match_odds",
+                "match_ids", "matches")  # fmt: skip
+REPAIR_KEY = "repeat-pairings-v1"
+
+
+def repair(db: FootballDB) -> list[Issue]:
+    """One-off fixes for data stored by older code, run before a load (once per database).
+
+    * Split-season leagues (Scotland, Belgium) were keyed by pairing alone, so their two
+      meetings of the same home pairing were merged into one match. Their matches are removed
+      and the FotMob pages marked unread, so the next loads store each meeting on its own.
+    * Before Dundee and Dundee United were kept apart, one source's Dundee was linked to Dundee
+      United; that link is removed and made again on the next load.
+    """
+    done = db.con.execute(
+        "SELECT 1 FROM ingest_state WHERE source = 'repair' AND key = ?", [REPAIR_KEY]
+    ).fetchone()
+    if done:
+        return []
+    comps = sorted(lg for lg in REPEATING if not lg.startswith("U"))  # leagues, not the cups
+    marks = ", ".join("?" for _ in comps)
+    with db.transaction():
+        ids = [r[0] for r in db.con.execute(
+            f"SELECT match_id FROM matches WHERE competition_id IN ({marks})", comps
+        ).fetchall()]  # fmt: skip
+        if ids:
+            id_marks = ", ".join("?" for _ in ids)
+            for table in MATCH_TABLES:
+                db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({id_marks})", ids)
+        for comp in comps:
+            db.con.execute(
+                "DELETE FROM ingest_state WHERE source = 'fotmob' AND detail LIKE ?", [f"{comp} %"]
+            )
+        stale = 0
+        for source, sid, name, key in db.con.execute(
+            "SELECT i.source, i.source_id, i.source_name, t.key FROM team_ids i "
+            "JOIN teams t USING (team_id)"
+        ).fetchall():
+            if frozenset({team_key(name), key}) in DISTINCT_CLUBS:
+                db.con.execute(
+                    "DELETE FROM team_ids WHERE source = ? AND source_id = ?", [source, sid]
+                )
+                stale += 1
+        db.con.execute(
+            "INSERT OR REPLACE INTO ingest_state VALUES ('repair', ?, 'done', ?, now())",
+            [REPAIR_KEY, f"{len(ids)} matches, {stale} team links"],
+        )
+    if not ids and not stale:
+        return []
+    return [Issue("warn", "repaired", f"removed {len(ids)} {'/'.join(comps)} matches merged by "
+                  f"pairing and {stale} wrong club links; they reload over the next runs")]  # fmt: skip
 
 
 def quarantine(db: FootballDB) -> list[Issue]:
@@ -216,4 +284,33 @@ def quarantine(db: FootballDB) -> list[Issue]:
                 "matches",
             ):
                 db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+        out += _quarantine_scores(db)
     return out
+
+
+SCORE_QUARANTINE_LIMIT = 0.05  # beyond this share something systematic is broken: fail instead
+
+
+def _quarantine_scores(db: FootballDB) -> list[Issue]:
+    """Matches whose sources disagree on the score are dropped (and their FotMob pages marked
+    unread, so a fixed loader stores them again), as long as they are a small share. One wrong
+    result must not stop a whole backfill from saving; a broken source or mapping still does."""
+    bad = db.query(
+        "SELECT DISTINCT m.match_id FROM matches m JOIN team_match t ON t.match_id = m.match_id "
+        "AND t.team_id = m.home_team_id WHERE m.finished AND t.goals_for <> m.home_goals"
+    )
+    finished = max(_count(db, "SELECT count(*) FROM matches WHERE finished"), 1)
+    if bad.empty or len(bad) / finished > SCORE_QUARANTINE_LIMIT:
+        return []
+    where = _where(db)
+    ids = [int(i) for i in bad["match_id"]]
+    marks = ", ".join("?" for _ in ids)
+    db.con.execute(
+        "DELETE FROM ingest_state WHERE source = 'fotmob' AND key IN (SELECT source_id FROM "
+        f"match_ids WHERE source = 'fotmob' AND match_id IN ({marks}))",
+        ids,
+    )
+    for table in MATCH_TABLES:
+        db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+    return [Issue("warn", "quarantined_scores",
+                  f"dropped {len(ids)} matches where sources disagree on the score ({where})")]  # fmt: skip

@@ -115,7 +115,7 @@ class FotMobIngestor:
                 hg, ag = (int(x) for x in status["scoreStr"].split(" - "))
             self.db.match_id(
                 SOURCE, m["id"], league.comp_id, season, ko.date(), h, a,
-                allow_repeat=league.cup,
+                allow_repeat=league.cup or league.repeats,
                 matchday=int(rnd) if rnd.isdigit() and not league.cup else None,
                 kickoff=ko, home_goals=hg, away_goals=ag, finished=finished,
             )  # fmt: skip
@@ -137,7 +137,8 @@ class FotMobIngestor:
         hg, ag = int(score[0]["score"]), int(score[1]["score"])
         mid = db.match_id(
             SOURCE, gen["matchId"], league.comp_id, season, ko.date(), h, a,
-            allow_repeat=league.cup, kickoff=ko, home_goals=hg, away_goals=ag, finished=True,
+            allow_repeat=league.cup or league.repeats, kickoff=ko, home_goals=hg, away_goals=ag,
+            finished=True,
         )  # fmt: skip
         self._team_rows(raw, mid, h, a, hg, ag, stamp)
         length = _match_length(raw)

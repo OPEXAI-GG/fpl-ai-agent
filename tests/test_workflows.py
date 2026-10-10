@@ -91,6 +91,23 @@ def test_backtest_workflow_is_read_only_and_manual():
     assert "workflow_dispatch" in wf["on"] and "schedule" not in wf["on"]
 
 
+def test_backtest_workflow_can_replay_a_season():
+    wf = load(WF / "backtest.yml")
+    assert wf["on"]["workflow_dispatch"]["inputs"]["mode"]["options"] == [
+        "projections",
+        "replay",
+        "retro",
+    ]
+    steps = {s.get("name"): s for s in wf["jobs"]["backtest"]["steps"]}
+    assert "mode == 'replay'" in steps["Season replay"]["if"]
+    assert "fpl-agent replay" in steps["Season replay"]["run"]
+    assert '--set "$s"' in steps["Season replay"]["run"]
+    assert "settings" in steps["Season replay"]["env"]["SETTINGS"]
+    assert "mode == 'projections'" in steps["Back-test"]["if"]
+    assert "fpl-agent retro" in steps["Gameweek retro"]["run"]
+    assert "mode == 'retro'" in steps["Gameweek retro"]["if"]
+
+
 def test_review_workflow_sends_the_gameweek_summary_without_blocking_publish():
     wf = load(WF / "review.yml")
     steps = wf["jobs"]["review"]["steps"]

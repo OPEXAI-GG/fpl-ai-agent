@@ -35,9 +35,9 @@ from fpl_agent.solver.planner import (
 MIN_GAIN = {
     "wildcard": 6.0,
     "freehit": 8.0,
-    "bboost": 8.0,
-    "3xc": 4.0,
-}  # expected points over baseline
+    "bboost": 14.0,
+    "3xc": 8.0,
+}  # expected points over baseline; bboost and 3xc set by season replays
 MIN_WIN = {"wildcard": 0.70, "freehit": 0.55, "bboost": 0.55, "3xc": 0.50}
 
 
