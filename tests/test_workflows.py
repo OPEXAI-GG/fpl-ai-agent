@@ -65,7 +65,17 @@ def test_plan_workflow_defaults_to_dry_and_publishes_after_planning():
     names = [s.get("name") for s in job["steps"]]
     assert names.index("Plan") < names.index("Publish database")
     assert "AGENT_MODE: live" not in (WF / "plan.yml").read_text()  # never hard-coded live
-    assert wf["concurrency"]["group"] == "data"  # serialised with the data updates
+    group = wf["concurrency"]["group"]  # serialised with the data updates; a dry check apart
+    assert group.endswith("|| 'data' }}") and "inputs.dry == 'true'" in group
+    publish = next(s for s in job["steps"] if s.get("name") == "Publish database")
+    assert "inputs.dry != 'true'" in publish["if"]  # a dry check never publishes
+
+
+def test_token_check_keeps_clear_of_plan_runs():
+    wf = load(WF / "token-check.yml")
+    assert wf["concurrency"]["group"] == "fpl-token"
+    assert wf["permissions"]["contents"] == "read"
+    assert "plan.yml/runs?status=in_progress" in (WF / "token-check.yml").read_text()
 
 
 def test_review_workflow_runs_after_the_data_update():
