@@ -127,6 +127,33 @@ def test_a_few_score_disagreements_are_only_a_warning_in_a_big_database(db):
     assert found and found[0].severity == "warn"
 
 
+def _disagree(db, n):
+    db.con.execute(
+        "UPDATE matches SET home_goals = 9 WHERE match_id IN (SELECT DISTINCT m.match_id FROM "
+        "matches m JOIN team_match t USING (match_id) WHERE m.finished ORDER BY 1 LIMIT ?)",
+        [n],
+    )
+
+
+def test_quarantine_drops_a_few_matches_whose_sources_disagree(db):
+    _disagree(db, 1)
+    before = db.counts()["matches"]
+    out = [i for i in quarantine(db) if i.check == "quarantined_scores"]
+    assert out and out[0].severity == "warn" and "dropped 1 matches" in out[0].detail
+    assert " says " in out[0].detail  # names where, so the cause can still be found
+    assert db.counts()["matches"] == before - 1
+    assert "score_disagreement" not in names(db)
+
+
+def test_a_broken_source_is_not_quarantined_away(db):
+    finished = db.con.execute("SELECT count(*) FROM matches WHERE finished").fetchone()[0]
+    _disagree(db, max(2, finished // 5))  # far beyond a few corrections
+    before = db.counts()["matches"]
+    assert not [i for i in quarantine(db) if i.check == "quarantined_scores"]
+    assert db.counts()["matches"] == before
+    assert "score_disagreement" in {i.check for i in errors(run_checks(db))}
+
+
 def test_repair_clears_merged_split_season_matches_and_wrong_club_links():
     from fpl_agent.db.quality import repair
 
