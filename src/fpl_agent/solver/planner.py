@@ -45,6 +45,10 @@ class PlannerConfig:
     club_limit: int = 3
     time_limit: float = 60.0
     gap: float = 1e-3
+    # rank risk: each week, minus risk_lambda x a player's points spread (sd) x how far your
+    # multiplier on him (XI 1, captain 2) is from the field's effective ownership. Positive
+    # values hug the template (owning what the top managers own); 0 ignores the field.
+    risk_lambda: float = 0.0
 
 
 @dataclass
@@ -63,6 +67,7 @@ class Candidate:
     team_id: int
     price: int
     xp: list[float]  # expected points per gameweek of the horizon
+    sd: list[float] | None = None  # spread of those points (standard deviation), if known
 
 
 @dataclass
@@ -76,6 +81,7 @@ class PlanInput:
     free_hit_values: dict[int, float] = field(default_factory=dict)
     no_transfer_gws: frozenset[int] = frozenset()  # forced roll (used to price "do nothing")
     locked: frozenset[int] = frozenset()  # squad players that cannot be sold in the first week
+    eo: dict[int, float] = field(default_factory=dict)  # field effective ownership, 1.0 = 100%
 
 
 @dataclass
@@ -232,6 +238,20 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
                     m.add_obj(("b", i, t, k), d * bw[k] * xp)
             m.add_obj(("in", i, t), -d * cfg.transfer_epsilon)
         m.add_obj(("hit", t), -d * (cfg.hit_cost + cfg.hit_buffer))
+    if cfg.risk_lambda and pi.eo:  # |your multiplier - field EO| x spread, made linear
+        for t in range(H):
+            if t in fh:
+                continue
+            d = cfg.decay**t
+            extra = (3.0 if t in tc else 2.0) - 1.0
+            for i in ids:
+                sd = cands[i].sd[t] if cands[i].sd else 0.0
+                if sd <= 0:
+                    continue
+                e = pi.eo.get(i, 0.0)
+                m.var(("dev", i, t), ub=3.0, integer=False, obj=-d * cfg.risk_lambda * sd)
+                m.ge({("dev", i, t): 1.0, ("x", i, t): -1.0, ("c", i, t): -extra}, -e)
+                m.ge({("dev", i, t): 1.0, ("x", i, t): 1.0, ("c", i, t): extra}, e)
     constant = sum(cfg.decay**t * pi.free_hit_values.get(pi.gws[t], 0.0) for t in fh)
 
     sol, obj = m.solve(cfg.time_limit, cfg.gap)

@@ -38,9 +38,17 @@ def build_candidates(proj: Projection, squad: list[SquadPlayer]) -> list[Candida
     proposes a transfer the safety rails would then refuse.
     """
     mean = proj.mean()
+    sd = proj.points.std(axis=-1)
     owned = {p.player_id for p in squad}
     out = [
-        Candidate(int(r.player_id), r.position, int(r.team_id), int(r.price), mean[i].tolist())
+        Candidate(
+            int(r.player_id),
+            r.position,
+            int(r.team_id),
+            int(r.price),
+            mean[i].tolist(),
+            sd[i].tolist(),
+        )
         for i, r in enumerate(proj.meta.itertuples())
         if int(r.player_id) in owned or _buyable(r.status, r.chance)
     ]

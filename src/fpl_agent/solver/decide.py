@@ -117,6 +117,13 @@ TEMPLATE_KEEP = 40.0
 TEMPLATE_CAPTAIN, TEMPLATE_CAPTAIN_SLACK = 50.0, 1.0
 
 
+def rank_risk(gw: int) -> float:
+    """How strongly the plan hugs the top managers' effective ownership (PlannerConfig
+    risk_lambda): firmly until GW10 while ranks are still settling, lightly after. A rank-target
+    mode will later set it from the gap to the target and the gameweeks left."""
+    return 0.15 if gw <= 10 else 0.05
+
+
 def captain_choice(proj: Projection, xi: list[int], slack: float = RANK_CAPTAIN_SLACK):
     """(captain, vice, options): options are the top XI players by expected points this week."""
     rows = {pid: i for i, pid in enumerate(proj.player_ids)}
@@ -149,9 +156,11 @@ def template_players(proj: Projection, ids, ownership: dict[int, float], floor: 
 def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, str] | None = None,
            cfg: PlannerConfig | None = None, chip_cfg: chips_mod.ChipConfig | None = None,
            use_chips: bool = True,
-           ownership: dict[int, float] | None = None) -> Decision:  # fmt: skip
+           ownership: dict[int, float] | None = None,
+           eo: dict[int, float] | None = None) -> Decision:  # fmt: skip
     """`state` must already use canonical player ids (see `inputs.to_canonical`). `ownership`
-    (percent of managers by player) keeps popular players and favours them as captain."""
+    (percent of managers by player) keeps popular players and favours them as captain; `eo`
+    (the field's effective ownership, 1.0 = 100%) is weighed by `cfg.risk_lambda`."""
     own = ownership or {}
     names = names or {}
     cfg = cfg or PlannerConfig()
@@ -172,7 +181,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     value = sum(p.sell_price for p in state.squad) + state.bank
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
                      free_transfers=state.free_transfers, candidates=cands,
-                     locked=locked)  # fmt: skip
+                     locked=locked, eo=dict(eo or {}))  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
     if keep:
