@@ -19,6 +19,9 @@ on:
       to_gw:
         description: "last gameweek"
         default: "30"
+      settings:
+        description: "replay only: settings to try, space-separated, e.g. hit_buffer=1.5 min_gain.bboost=12"
+        default: ""
       explain_players:
         description: "optional: skip the back-test and explain these players in the latest plan (name fragments, comma-separated)"
         default: ""
@@ -57,10 +60,15 @@ jobs:
             --to-gw "${{ github.event.inputs.to_gw }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Season replay
         if: ${{ github.event.inputs.explain_players == '' && github.event.inputs.mode == 'replay' }}
+        env:
+          SETTINGS: ${{ github.event.inputs.settings }}
         run: |
           set -o pipefail
+          sets=()
+          for s in $SETTINGS; do sets+=(--set "$s"); done
           uv run fpl-agent replay --db data_cache/football.duckdb --import-dir data_cache/export \
-            --season "${{ github.event.inputs.season }}" --out backtest.csv | tee -a "$GITHUB_STEP_SUMMARY"
+            --season "${{ github.event.inputs.season }}" "${sets[@]}" --out backtest.csv \
+            | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

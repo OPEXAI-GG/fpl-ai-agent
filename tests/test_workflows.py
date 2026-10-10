@@ -97,6 +97,8 @@ def test_backtest_workflow_can_replay_a_season():
     steps = {s.get("name"): s for s in wf["jobs"]["backtest"]["steps"]}
     assert "mode == 'replay'" in steps["Season replay"]["if"]
     assert "fpl-agent replay" in steps["Season replay"]["run"]
+    assert '--set "$s"' in steps["Season replay"]["run"]
+    assert "settings" in steps["Season replay"]["env"]["SETTINGS"]
     assert "mode != 'replay'" in steps["Back-test"]["if"]
 
 
