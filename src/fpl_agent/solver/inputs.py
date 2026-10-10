@@ -19,7 +19,9 @@ def to_canonical(state: SquadState, pool: pd.DataFrame) -> SquadState:
         raise ValueError(f"squad players not in the player database: {missing}")
     team = dict(zip(pool["fpl_id"].astype(int), pool["team_id"].astype(int), strict=True))
     squad = [replace(p, player_id=m[p.player_id], team_id=team[p.player_id]) for p in state.squad]
-    return replace(state, squad=squad)
+    base = [replace(p, player_id=m[p.player_id], team_id=team[p.player_id])
+            for p in state.base_squad if p.player_id in m]  # fmt: skip
+    return replace(state, squad=squad, base_squad=base)
 
 
 MIN_CHANCE = 75  # never buy or start a player below this chance of playing (also a safety rail)
