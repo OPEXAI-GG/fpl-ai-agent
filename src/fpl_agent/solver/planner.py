@@ -12,9 +12,9 @@ budget with selling prices, free-transfer banking up to five, -4 per extra trans
 * hits at their face value plus a buffer: a -4 must buy about six points.
 
 Chips are parameters of a solve (see `chips.py` for the scenario search): a Wildcard week has free
-unlimited transfers and keeps the banked count; a Bench Boost week scores the whole bench; a
-Triple Captain week multiplies the captain by three; in a Free Hit week the squad is a separate
-one-week team (valued by `free_hit_value`) and the real squad is untouched.
+unlimited transfers and keeps the banked count (adding none that week); a Bench Boost week scores
+the whole bench; a Triple Captain week multiplies the captain by three; in a Free Hit week the
+squad is a separate one-week team (valued by `free_hit_value`) and the real squad is untouched.
 """
 
 from __future__ import annotations
@@ -203,12 +203,14 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             m.eq({("use", t): 1.0}, 0.0)
         else:
             m.eq({**n_t, ("hit", t): -1.0, ("use", t): -1.0}, 0.0)
+        # a Wildcard or Free Hit week keeps the bank as it was but adds no new transfer
+        accrue = 0.0 if t in wc or t in fh else 1.0
         if t == 0:
             m.le({("use", 0): 1.0}, ft0)
-            m.le({("ft", 1): 1.0, ("use", 0): 1.0}, ft0 + 1)
+            m.le({("ft", 1): 1.0, ("use", 0): 1.0}, ft0 + accrue)
         else:
             m.le({("use", t): 1.0, ("ft", t): -1.0}, 0.0)
-            m.le({("ft", t + 1): 1.0, ("use", t): 1.0, ("ft", t): -1.0}, 1.0)
+            m.le({("ft", t + 1): 1.0, ("use", t): 1.0, ("ft", t): -1.0}, accrue)
         if t in fh:  # a Free Hit does not use up the banked transfers either
             m.eq({("use", t): 1.0}, 0.0)
     for t in range(H - 3):  # no more than max_hits_per_4gw hits in any four-week window

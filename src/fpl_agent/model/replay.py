@@ -233,9 +233,7 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                 squad = [keep.get(p) or SquadPlayer(p, pos[p], team[p], price[p], price[p])
                          for p in wk.squad]  # fmt: skip
                 bank = d.bank_after
-            if wk.chip in ("wildcard", "freehit"):
-                ft = min(cfg.planner.max_free, ft + 1)
-            else:
+            if wk.chip not in ("wildcard", "freehit"):  # a chip week keeps the bank as it was
                 ft = min(cfg.planner.max_free, ft - min(n_in, ft) + 1)
         pts, mins = actual_week(db, season, gw)
         week_pos = {**{p.player_id: p.position for p in squad}, **pos}
