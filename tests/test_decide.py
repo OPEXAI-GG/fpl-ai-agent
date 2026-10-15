@@ -338,3 +338,20 @@ def test_behind_the_target_the_armband_goes_to_the_less_captained_close_option(m
     mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
     assert d.xi == d0.xi and d.captain != d0.captain
     assert mean[d.captain] >= mean[d0.captain] - far.captain_slack - 1e-6
+
+
+def _week(xp, hits=0):
+    from fpl_agent.solver.planner import WeekPlan
+
+    return WeekPlan(7, [], [], [], 0, 0, [], [], hits, None, 3, xp)
+
+
+def test_free_hit_gain_is_capped_at_what_its_own_week_gains():
+    from fpl_agent.solver.planner import Plan, PlannerConfig
+
+    base = Plan([_week(55.0), _week(53.0)], 100.0, 0, 3)
+    fh = Plan([_week(58.0), _week(53.0)], 109.0, 0, 3)  # +9 objective, but only +3 in GW7
+    assert ch._gain("freehit", fh, base, 0, PlannerConfig()) == pytest.approx(3.0)
+    assert ch._gain("bboost", fh, base, 0, PlannerConfig()) == pytest.approx(9.0)
+    hit = Plan([_week(60.0, hits=1), _week(53.0)], 100.0, 0, 3)  # the baseline paid a -4
+    assert ch._gain("freehit", fh, hit, 0, PlannerConfig()) == pytest.approx(2.0)
