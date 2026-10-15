@@ -188,7 +188,12 @@ REPAIR_KEY = "repeat-pairings-v1"
 
 
 def repair(db: FootballDB) -> list[Issue]:
-    """One-off fixes for data stored by older code, run before a load (once per database).
+    """Fixes for data stored by older code, run before every load."""
+    return _repair_once(db) + merge_split_teams(db)
+
+
+def _repair_once(db: FootballDB) -> list[Issue]:
+    """One-off fixes for data stored by older code (once per database).
 
     * Split-season leagues (Scotland, Belgium) were keyed by pairing alone, so their two
       meetings of the same home pairing were merged into one match. Their matches are removed
@@ -233,6 +238,99 @@ def repair(db: FootballDB) -> list[Issue]:
         return []
     return [Issue("warn", "repaired", f"removed {len(ids)} {'/'.join(comps)} matches merged by "
                   f"pairing and {stale} wrong club links; they reload over the next runs")]  # fmt: skip
+
+
+# every column that holds a canonical team id
+TEAM_COLUMNS = (("team_ids", "team_id"), ("team_match", "team_id"), ("appearances", "team_id"),
+                ("matches", "home_team_id"), ("matches", "away_team_id"),
+                ("fpl_players_gw", "team_id"), ("transfers", "from_team_id"),
+                ("transfers", "to_team_id"))  # fmt: skip
+# child tables of a match, with the primary-key columns a moved row could collide on
+MATCH_CHILDREN = {"team_match": ("team_id", "source"), "appearances": ("player_id", "source"),
+                  "player_match_stats": ("player_id", "source", "stat"),
+                  "match_odds": ("source", "bookmaker", "closing")}  # fmt: skip
+
+
+def merge_split_teams(db: FootballDB) -> list[Issue]:
+    """Merge clubs stored twice because their names were matched before an alias existed
+    ("Peterboro" from football-data and "Peterborough United" from FotMob), and then the matches
+    that split stored twice (one per source). Runs on every load, so a new alias takes effect on
+    data already stored without a one-off repair."""
+    groups: dict[str, list[tuple[int, str]]] = {}
+    for tid, name in db.con.execute("SELECT team_id, name FROM teams ORDER BY team_id").fetchall():
+        groups.setdefault(team_key(name), []).append((tid, name))
+    split = {k: g for k, g in groups.items() if len(g) > 1}
+    stale = [(k, g[0][0]) for k, g in groups.items() if len(g) == 1]
+    out: list[Issue] = []
+    with db.transaction():
+        for key, members in split.items():
+            (keep, name), *dups = members
+            for dup, dup_name in dups:
+                _move_team(db, dup, keep)
+                out.append(Issue("warn", "merged_teams",
+                                 f"{dup_name} merged into {name} (same club, key {key!r})"))  # fmt: skip
+            db.con.execute("UPDATE teams SET key = ? WHERE team_id = ?", [key, keep])
+        for key, tid in stale:  # keys stored under older aliases, so new names find the club
+            db.con.execute(
+                "UPDATE teams SET key = ? WHERE team_id = ? AND key IS DISTINCT FROM ?",
+                [key, tid, key],
+            )
+        if split:
+            n = _merge_duplicate_matches(db)
+            if n:
+                out.append(Issue("warn", "merged_matches",
+                                 f"{n} matches stored once per source were merged"))  # fmt: skip
+    return out
+
+
+def _move_team(db: FootballDB, dup: int, keep: int) -> None:
+    db.con.execute(
+        "DELETE FROM team_match t WHERE team_id = ? AND EXISTS (SELECT 1 FROM team_match k "
+        "WHERE k.match_id = t.match_id AND k.team_id = ? AND k.source = t.source)",
+        [dup, keep],
+    )
+    for table, col in TEAM_COLUMNS:
+        db.con.execute(f"UPDATE {table} SET {col} = ? WHERE {col} = ?", [keep, dup])
+    db.con.execute("DELETE FROM teams WHERE team_id = ?", [dup])
+
+
+def _merge_duplicate_matches(db: FootballDB) -> int:
+    """Matches of one fixture stored twice: keep the first, fill its gaps from the other and
+    move the other's rows onto it (a row both already have is kept from the first)."""
+    rows = db.con.execute(
+        "SELECT min(match_id), list(match_id ORDER BY match_id) FROM matches WHERE "
+        f"competition_id NOT IN ({', '.join(repr(c) for c in sorted(REPEATING))}) "
+        "GROUP BY competition_id, season, home_team_id, away_team_id HAVING count(*) > 1 "
+        "UNION ALL SELECT min(match_id), list(match_id ORDER BY match_id) FROM matches WHERE "
+        f"competition_id IN ({', '.join(repr(c) for c in sorted(REPEATING))}) "
+        "GROUP BY competition_id, season, home_team_id, away_team_id, match_date "
+        "HAVING count(*) > 1"
+    ).fetchall()
+    n = 0
+    for keep, ids in rows:
+        for dup in ids[1:]:
+            db.con.execute(
+                "UPDATE matches SET matchday = coalesce(matches.matchday, d.matchday), "
+                "kickoff = coalesce(matches.kickoff, d.kickoff), "
+                "home_goals = coalesce(matches.home_goals, d.home_goals), "
+                "away_goals = coalesce(matches.away_goals, d.away_goals), "
+                "finished = coalesce(matches.finished, false) OR coalesce(d.finished, false) "
+                "FROM (SELECT * FROM matches WHERE match_id = ?) d WHERE matches.match_id = ?",
+                [dup, keep],
+            )
+            for table, cols in MATCH_CHILDREN.items():
+                same = " AND ".join(f"k.{c} = t.{c}" for c in cols)
+                db.con.execute(
+                    f"DELETE FROM {table} t WHERE match_id = ? AND EXISTS (SELECT 1 FROM {table} "
+                    f"k WHERE k.match_id = ? AND {same})",
+                    [dup, keep],
+                )
+                db.con.execute(f"UPDATE {table} SET match_id = ? WHERE match_id = ?", [keep, dup])
+            for table in ("shots", "match_ids"):
+                db.con.execute(f"UPDATE {table} SET match_id = ? WHERE match_id = ?", [keep, dup])
+            db.con.execute("DELETE FROM matches WHERE match_id = ?", [dup])
+            n += 1
+    return n
 
 
 def quarantine(db: FootballDB) -> list[Issue]:
