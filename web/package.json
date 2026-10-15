@@ -1,0 +1,13 @@
+{
+  "name": "fplsim-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --no-warnings --test test/*.test.js",
+    "dev": "wrangler dev",
+    "stripe-setup": "node scripts/stripe-setup.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

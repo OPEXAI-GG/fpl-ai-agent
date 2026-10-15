@@ -216,6 +216,21 @@ def plan(args: argparse.Namespace, settings: Settings) -> int:
     return res.exit_code
 
 
+def site_sync_cmd(args: argparse.Namespace) -> int:
+    """Plans for the website's subscribers (advice only; never touches any FPL team)."""
+    from fpl_agent import site
+
+    client = site.SiteClient.from_env()
+    if client is None:
+        print("site sync skipped: SITE_URL and ENGINE_TOKEN are not both set")
+        return 0
+    opts = site.SyncOptions(season=int(args.season), horizon=args.horizon, samples=args.samples,
+                            force=args.force, limit=args.limit)  # fmt: skip
+    res = site.sync(_open_db(args), client, opts)
+    print(res.report())
+    return res.exit_code
+
+
 def review_cmd(args: argparse.Namespace) -> int:
     from fpl_agent import review
 
@@ -418,6 +433,14 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--export", default=None, help="write the database as parquet here")
     pl.add_argument("--out", default=None, help="write gw<N>.md and gw<N>.json here")
     pl.add_argument("--notify", action="store_true", help="send the report to NOTIFY_WEBHOOK")
+    ss = sub.add_parser("site-sync", help="plans for the website's subscribers (advice only)")
+    ss.add_argument("--db", default="data_cache/football.duckdb")
+    ss.add_argument("--import-dir", default=None)
+    ss.add_argument("--season", default="2026")
+    ss.add_argument("--horizon", type=int, default=6)
+    ss.add_argument("--samples", type=int, default=1000)
+    ss.add_argument("--force", action="store_true", help="ignore the window and re-plan everyone")
+    ss.add_argument("--limit", type=int, default=None, help="at most this many full plans")
     rv = sub.add_parser("review", help="score a finished gameweek: predictions and decisions")
     rv.add_argument("--db", default="data_cache/football.duckdb")
     rv.add_argument("--import-dir", default=None)
@@ -490,6 +513,8 @@ def main(argv: list[str] | None = None) -> int:
         return plan(args, settings)
     if args.cmd == "review":
         return review_cmd(args)
+    if args.cmd == "site-sync":
+        return site_sync_cmd(args)
     if args.cmd == "gw-summary":
         return gw_summary_cmd(args, settings)
     if args.cmd == "backtest":
