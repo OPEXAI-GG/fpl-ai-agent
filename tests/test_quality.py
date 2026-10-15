@@ -181,3 +181,38 @@ def test_repair_clears_merged_split_season_matches_and_wrong_club_links():
     )
     assert db.team_id("vaastav-team", "x", "Dundee") != du  # made again, correctly
     assert repair(db) == []  # once per database
+
+
+def test_repair_merges_a_club_stored_twice_and_its_doubled_matches():
+    from fpl_agent.db.quality import repair, run_checks
+
+    db = FootballDB()
+    mk = db.team_id("fotmob", "1", "Milton Keynes Dons")
+    # what older code stored before the alias: one club under two keys
+    db.con.execute("INSERT INTO teams VALUES (90, 'Peterboro', 'peterboro')")
+    db.con.execute("INSERT INTO team_ids VALUES ('football-data', 'Peterboro', 90, 'Peterboro')")
+    db.con.execute("INSERT INTO teams VALUES (91, 'Peterborough United', 'peterborough united')")
+    db.con.execute("INSERT INTO team_ids VALUES ('fotmob', '8677', 91, 'Peterborough United')")
+    fd = db.match_id("football-data", "x", "ENG3", 2026, date(2026, 9, 12), mk, 90,
+                     home_goals=1, away_goals=1, finished=True)  # fmt: skip
+    fm = db.match_id("fotmob", 5, "ENG3", 2026, date(2026, 9, 12), mk, 91, matchday=6)
+    for mid, tid, src in [(fd, 90, "football-data"), (fm, 91, "fotmob")]:
+        db.con.execute(
+            "INSERT INTO team_match (match_id, team_id, source, is_home, goals_for, "
+            "goals_against) VALUES (?, ?, ?, false, 1, 1)",
+            [mid, tid, src],
+        )
+    found = repair(db)
+    assert any(i.check == "merged_teams" and "Peterborough United" in i.detail for i in found)
+    assert any(i.check == "merged_matches" for i in found)
+    assert db.query("SELECT team_id, key FROM teams WHERE team_id >= 90").values.tolist() == [
+        [90, "peterborough"]
+    ]
+    m = db.query("SELECT * FROM matches WHERE competition_id = 'ENG3'")
+    assert len(m) == 1 and m.matchday[0] == 6 and m.home_goals[0] == 1 and m.away_team_id[0] == 90
+    assert sorted(db.query("SELECT source FROM team_match").source) == ["football-data", "fotmob"]
+    assert set(db.query("SELECT match_id FROM match_ids").match_id) == {fd}
+    assert db.team_id("fotmob", "8677", "Peterborough United") == 90
+    assert db.team_id("fotmob", "new", "Peterborough") == 90
+    assert not [i for i in run_checks(db) if i.severity == "error"]
+    assert not [i for i in repair(db) if i.check.startswith("merged")]  # nothing left to merge
