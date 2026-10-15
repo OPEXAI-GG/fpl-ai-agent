@@ -160,7 +160,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         m.var(("hit", t), ub=0.0 if no_hit else cfg.max_hits_per_gw, integer=True)
         m.var(("use", t), ub=cfg.max_free, integer=True)  # free transfers used
         m.var(("ft", t + 1), lb=1, ub=cfg.max_free, integer=True)
-    ft0 = min(max(pi.free_transfers, 1), cfg.max_free)
+    ft0 = min(max(pi.free_transfers, 0), cfg.max_free)  # 0 once this week's are used by hand
 
     for t in range(H):
         for i in ids:

@@ -273,6 +273,9 @@ def test_no_further_transfers_once_this_weeks_moves_are_made():
     assert decide(st, proj, RULES, cfg=CFG, use_chips=False).transfers_in
     d = decide(replace(st, already_transferred=2), proj, RULES, cfg=CFG, use_chips=False)
     assert not d.transfers_in and len(d.xi) == 11
+    assert d.ft_after == 4  # 5 banked, 2 used by hand, +1 for next week
+    st3 = replace(state_for(cands, bank=50, ft=3), already_transferred=3)
+    assert decide(st3, proj, RULES, cfg=CFG, use_chips=False).ft_after == 1
 
 
 def test_the_report_shows_popular_players_you_lack_and_your_differentials():

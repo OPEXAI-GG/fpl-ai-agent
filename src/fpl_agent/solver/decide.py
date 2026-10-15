@@ -239,15 +239,17 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         was = {p.player_id for p in state.base_squad}
         cands = [c for c in cands if c.player_id not in was - now]
         locked = frozenset(now - was)
+    ft = state.free_transfers  # the bank at the start of the week
     if state.already_transferred and not state.wildcard_active:
         locked = frozenset(p.player_id for p in state.squad)  # this week's moves are done
+        ft = max(0, ft - state.already_transferred)  # they used the bank; next week adds one
     # the field's core stays for the whole plan, not just this week: selling a player nearly
     # every top manager owns is a bet against the field the catch-up does not need. Checked
     # again every run, so an injured or benched one can still go.
     keep = template_players(proj, [p.player_id for p in state.squad], own, TEMPLATE_KEEP)
     value = sum(p.sell_price for p in state.squad) + state.bank
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
-                     free_transfers=state.free_transfers, candidates=cands,
+                     free_transfers=ft, candidates=cands,
                      locked=locked, kept=frozenset(keep), eo=dict(eo or {}))  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
