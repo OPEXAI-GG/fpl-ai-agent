@@ -83,9 +83,12 @@ def test_hits_do_not_go_below_one_next_week():
     assert free_transfers_at(history(made={2: 4}), 3) == 1
 
 
-def test_wildcard_and_free_hit_weeks_do_not_consume_free_transfers():
+def test_wildcard_and_free_hit_weeks_keep_the_bank_without_adding_one():
     h = history(chips=[("wildcard", 3)], made={2: 0, 3: 9})
-    assert free_transfers_at(h, 4) == 3
+    assert free_transfers_at(h, 4) == 2
+    # your 2026 season: 2 used in GW3, Triple Captain GW3, Wildcard GW6 -> 3 for GW7
+    h = history(chips=[("3xc", 3), ("wildcard", 6)], made={3: 2, 6: 24})
+    assert free_transfers_at(h, 7) == 3
 
 
 def test_selling_price_is_half_the_profit_rounded_down():

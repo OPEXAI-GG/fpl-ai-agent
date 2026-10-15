@@ -145,7 +145,8 @@ def test_wildcard_week_allows_unlimited_free_changes_and_keeps_the_bank():
     assert len(wc.transfers_in) > 3
     base = solve_plan(pinput(seed=4, ft=1, bank=60), CFG)
     assert plan.objective > base.objective  # the chip is worth something on a weak squad
-    assert plan.weeks[2].ft_before >= 2  # banked transfers were not consumed by the wildcard
+    # banked transfers are neither consumed by the wildcard nor topped up that week
+    assert plan.weeks[2].ft_before == wc.ft_before
 
 
 def test_bench_boost_scores_the_bench_and_changes_the_bench_selection():

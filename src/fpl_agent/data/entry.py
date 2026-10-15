@@ -4,8 +4,8 @@ transfers and which chips are left. Nothing here needs a login.
 * squad: the picks of the last deadline (what the manager actually had);
 * purchase price: the latest transfer-in of that player, or the opening price for the original
   squad (`now_cost - cost_change_start`); selling price = engine.selling_price (half the profit);
-* free transfers: replayed from the transfer history (1 banked per gameweek, max 5, a Wildcard or
-  Free Hit week uses none);
+* free transfers: replayed from the transfer history (1 banked per gameweek, max 5; a Wildcard or
+  Free Hit week neither uses nor adds one);
 * chips: from the history, each chip type allowed once per half-season window.
 
 The state is *before* any transfer made for the upcoming gameweek; transfers already made for it
@@ -54,8 +54,9 @@ def free_transfers_at(history: dict[str, Any], next_gw: int, max_banked: int = 5
     made = {r["event"]: r["event_transfers"] for r in history.get("current", [])}
     ft = 1
     for gw in range(2, next_gw):
-        used = 0 if chips.get(gw) in ("wildcard", "freehit") else min(made.get(gw, 0), ft)
-        ft = min(max_banked, ft - used + 1)
+        if chips.get(gw) in ("wildcard", "freehit"):
+            continue  # a Wildcard or Free Hit week keeps the bank as it was, with no new one
+        ft = min(max_banked, ft - min(made.get(gw, 0), ft) + 1)
     return ft
 
 
