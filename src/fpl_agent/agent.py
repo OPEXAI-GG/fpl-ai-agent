@@ -28,7 +28,7 @@ from fpl_agent.model import calibration, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
-from fpl_agent.solver import timing
+from fpl_agent.solver import rank_target, timing
 from fpl_agent.solver.decide import Decision, decide, rank_risk
 from fpl_agent.solver.inputs import to_canonical
 from fpl_agent.solver.planner import PlannerConfig
@@ -204,10 +204,13 @@ def run_weekly(
                 + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
             )
         project.save_projection(db, proj)
+        target = _chase(fpl, history, ev.id)
+        if target:
+            res.notes.append(target.note())
         cfg = PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0)
         d = decide(state, proj, rules, names=_names(db), cfg=cfg,
                    use_chips=opts.use_chips and not live_changed,
-                   ownership=own, eo=eo)  # fmt: skip
+                   ownership=own, eo=eo, chasing=target)  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -290,6 +293,15 @@ def manual_changes(db, season: int, gw: int, state) -> list[int]:
     if len(planned) != 15:
         return []
     return sorted(q.player_id for q in state.squad if q.player_id not in planned)
+
+
+def _chase(fpl, history: dict, gw: int) -> rank_target.Chase | None:
+    """Where you stand against the rank target; None (normal play) when it cannot be read."""
+    try:
+        return rank_target.chase(fpl, history, gw)
+    except Exception as exc:  # noqa: BLE001  (the standings are optional: plan without them)
+        log.warning("rank target unreadable: %s", type(exc).__name__)
+        return None
 
 
 def _ownership(db, fpl, season: int, gw: int, pool):

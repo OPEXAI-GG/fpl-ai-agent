@@ -15,6 +15,7 @@ from fpl_agent.data.entry import SquadState
 from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
 from fpl_agent.solver import chips as chips_mod
+from fpl_agent.solver import rank_target
 from fpl_agent.solver.inputs import build_candidates, prune
 from fpl_agent.solver.planner import PlanInput, PlannerConfig, WeekPlan
 
@@ -218,10 +219,13 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
            cfg: PlannerConfig | None = None, chip_cfg: chips_mod.ChipConfig | None = None,
            use_chips: bool = True,
            ownership: dict[int, float] | None = None,
-           eo: dict[int, float] | None = None) -> Decision:  # fmt: skip
+           eo: dict[int, float] | None = None,
+           chasing: rank_target.Chase | None = None) -> Decision:  # fmt: skip
     """`state` must already use canonical player ids (see `inputs.to_canonical`). `ownership`
     (percent of managers by player) keeps popular players and favours them as captain; `eo`
-    (the field's effective ownership, 1.0 = 100%) is weighed by `cfg.risk_lambda`."""
+    (the field's effective ownership, 1.0 = 100%) is weighed by `cfg.risk_lambda`. `chasing`
+    (behind a rank target) moves the catch-up risk onto the armband: the least-captained player
+    within its slack of the best captain, and no switch to the most-owned one."""
     own = ownership or {}
     names = names or {}
     cfg = cfg or PlannerConfig()
@@ -283,8 +287,18 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
-        wk.captain, wk.vice, options = captain_choice(proj, wk.xi, eo=eo, risk=cfg.risk_lambda)
-        top = template_players(proj, wk.xi, own, TEMPLATE_CAPTAIN)
+        chase = chasing is not None and chasing.behind
+        if chase:
+            wk.captain, wk.vice, options = captain_choice(
+                proj,
+                wk.xi,
+                slack=max(RANK_CAPTAIN_SLACK, chasing.captain_slack),
+                eo=eo,
+                risk=rank_target.CHASE_RISK,
+            )
+        else:
+            wk.captain, wk.vice, options = captain_choice(proj, wk.xi, eo=eo, risk=cfg.risk_lambda)
+        top = [] if chase else template_players(proj, wk.xi, own, TEMPLATE_CAPTAIN)
         if top and top[0] != wk.captain:
             mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
             if mean[top[0]] >= mean[wk.captain] - TEMPLATE_CAPTAIN_SLACK:
