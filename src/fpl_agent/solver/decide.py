@@ -241,12 +241,14 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         locked = frozenset(now - was)
     if state.already_transferred and not state.wildcard_active:
         locked = frozenset(p.player_id for p in state.squad)  # this week's moves are done
+    # the field's core stays for the whole plan, not just this week: selling a player nearly
+    # every top manager owns is a bet against the field the catch-up does not need. Checked
+    # again every run, so an injured or benched one can still go.
     keep = template_players(proj, [p.player_id for p in state.squad], own, TEMPLATE_KEEP)
-    locked |= frozenset(keep)
     value = sum(p.sell_price for p in state.squad) + state.bank
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
                      free_transfers=state.free_transfers, candidates=cands,
-                     locked=locked, eo=dict(eo or {}))  # fmt: skip
+                     locked=locked, kept=frozenset(keep), eo=dict(eo or {}))  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
     if keep:

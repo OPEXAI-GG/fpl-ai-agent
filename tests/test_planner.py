@@ -2,6 +2,7 @@
 buffers, chips, Free Hit, and agreement with brute force on a tiny problem."""
 
 import itertools
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -289,3 +290,11 @@ def test_transfers_are_listed_as_same_position_swaps_and_a_bench_boost_counts_th
     bb = next(w for w in plan.weeks if w.chip == "bboost")
     xp = {c.player_id: c.xp[pi.gws.index(bb.gw)] for c in pi.candidates}
     assert bb.xp == pytest.approx(sum(xp[i] for i in bb.squad) + xp[bb.captain])
+
+
+def test_a_kept_player_is_not_sold_in_any_week_of_the_plan():
+    pi = pinput(seed=1, ft=2, bank=50)
+    sold = {p for w in solve_plan(pi, CFG).weeks for p in w.transfers_out}
+    assert sold, "the fixture must want to sell someone"
+    kept = solve_plan(replace(pi, kept=frozenset(sold)), CFG)
+    assert not sold & {p for w in kept.weeks for p in w.transfers_out}
