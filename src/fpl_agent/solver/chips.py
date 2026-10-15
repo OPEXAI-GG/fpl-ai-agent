@@ -134,11 +134,27 @@ def search(base: PlanInput, proj: Projection, rules: Rules, available: dict[str,
                 out.append(Scenario(chip, gw, base_plan, ok=False, note=f"unsolved: {exc}"))
                 continue
             real = score_plan(plan, proj, rules, worlds)
-            sc = Scenario(chip, gw, plan, gain=plan.objective - base_plan.objective,
+            gain = _gain(chip, plan, base_plan, base.gws.index(gw), cfg)
+            sc = Scenario(chip, gw, plan, gain=gain,
                           win_share=float((real > base_real).mean()),
                           realized_gain=float((real - base_real).mean()))  # fmt: skip
             out.append(sc)
     return _decide(base, baseline, out, available, cc)
+
+
+def _gain(chip: str, plan: Plan, base_plan: Plan, t: int, cfg: PlannerConfig) -> float:
+    """The planner-objective gain of a chip scenario over the baseline.
+
+    A Free Hit changes only its own week (the squad reverts after it), so its gain is capped at
+    what that week gains over the baseline's week. The rest of the objective difference comes from
+    re-solving the other weeks under a time limit, which is noise and once nearly burned the Free
+    Hit for three points in an ordinary week.
+    """
+    gain = plan.objective - base_plan.objective
+    if chip != "freehit":
+        return gain
+    was = base_plan.weeks[t]
+    return min(gain, plan.weeks[t].xp - (was.xp - was.hits * cfg.hit_cost))
 
 
 def _decide(base: PlanInput, baseline: Scenario, scenarios: list[Scenario],

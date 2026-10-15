@@ -317,3 +317,41 @@ def test_transfers_that_only_win_on_the_mean_are_held(monkeypatch):
     monkeypatch.setattr(dmod, "ROBUST_MIN_GAIN", 1e9)
     held = decide(st, proj, RULES, cfg=CFG, use_chips=False)
     assert not held.transfers_in and any(w.startswith("held ") for w in held.warnings)
+
+
+def test_behind_the_target_the_armband_goes_to_the_less_captained_close_option(monkeypatch):
+    import fpl_agent.solver.rank_target as rt
+    from fpl_agent.solver.rank_target import Chase
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50)
+    d0 = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    eo = {p: 0.0 for p in proj.player_ids} | {d0.captain: 2.0}  # the field captains our pick
+    ahead = Chase(target=10_000, rank=5_000, points=480, target_points=473, weeks_left=32)
+    assert decide(st, proj, RULES, cfg=CFG, use_chips=False, eo=eo,
+                  chasing=ahead).captain == d0.captain  # fmt: skip
+    # far behind with a wide slack and a strong pull: the field's captain loses the armband
+    monkeypatch.setattr(rt, "MAX_SLACK", 5.0)
+    monkeypatch.setattr(rt, "CHASE_RISK", -5.0)
+    far = Chase(target=10_000, rank=6_000_000, points=336, target_points=900, weeks_left=32)
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False, eo=eo, chasing=far)
+    mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+    assert d.xi == d0.xi and d.captain != d0.captain
+    assert mean[d.captain] >= mean[d0.captain] - far.captain_slack - 1e-6
+
+
+def _week(xp, hits=0):
+    from fpl_agent.solver.planner import WeekPlan
+
+    return WeekPlan(7, [], [], [], 0, 0, [], [], hits, None, 3, xp)
+
+
+def test_free_hit_gain_is_capped_at_what_its_own_week_gains():
+    from fpl_agent.solver.planner import Plan, PlannerConfig
+
+    base = Plan([_week(55.0), _week(53.0)], 100.0, 0, 3)
+    fh = Plan([_week(58.0), _week(53.0)], 109.0, 0, 3)  # +9 objective, but only +3 in GW7
+    assert ch._gain("freehit", fh, base, 0, PlannerConfig()) == pytest.approx(3.0)
+    assert ch._gain("bboost", fh, base, 0, PlannerConfig()) == pytest.approx(9.0)
+    hit = Plan([_week(60.0, hits=1), _week(53.0)], 100.0, 0, 3)  # the baseline paid a -4
+    assert ch._gain("freehit", fh, hit, 0, PlannerConfig()) == pytest.approx(2.0)
