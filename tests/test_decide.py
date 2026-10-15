@@ -247,6 +247,7 @@ def test_popular_players_are_kept_and_captained():
     own = {sold: 74.0}
     d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership=own)
     assert sold not in d.transfers_out
+    assert not any(sold in w.transfers_out for w in d.horizon), "nor planned for a later week"
     assert any("kept for ownership" in w and "74%" in w for w in d.warnings)
     if sold in d.xi:  # a popular starter close to the best captain gets the armband
         mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))

@@ -84,6 +84,7 @@ class PlanInput:
     free_hit_values: dict[int, float] = field(default_factory=dict)
     no_transfer_gws: frozenset[int] = frozenset()  # forced roll (used to price "do nothing")
     locked: frozenset[int] = frozenset()  # squad players that cannot be sold in the first week
+    kept: frozenset[int] = frozenset()  # squad players not sold in any week of the plan
     eo: dict[int, float] = field(default_factory=dict)  # field effective ownership, 1.0 = 100%
 
 
@@ -149,7 +150,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             m.var(("x", i, t))
             m.var(("c", i, t))
             m.var(("in", i, t), ub=0.0 if frozen else 1.0)
-            locked = t == 0 and i in pi.locked
+            locked = (t == 0 and i in pi.locked) or i in pi.kept
             m.var(("out", i, t), ub=0.0 if frozen or locked else 1.0)
         for i in outfield:
             for k in range(3):
