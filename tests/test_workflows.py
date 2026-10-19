@@ -128,3 +128,21 @@ def test_discord_bot_workflows_reply_with_a_masked_token_and_never_write():
     assert names[0] == "Hide the Discord reply token"
     assert names.index("Plan") < names.index("Publish the plan for the Discord bot")
     assert names[-1] == "Reply in Discord"
+
+
+def test_site_workflows_are_read_only_and_apart_from_your_team():
+    for name in ("site.yml", "site-deploy.yml"):
+        wf = load(WF / name)
+        assert wf["permissions"] == {"contents": "read"}
+        assert wf["concurrency"]["group"] not in ("data", "plan-dry", "fpl-token")
+        text = (WF / name).read_text()
+        assert "FPL_REFRESH_TOKEN" not in text and "AGENT_MODE" not in text
+        assert "data_publish.sh" not in text  # the site never publishes the database
+    sync = load(WF / "site.yml")["jobs"]["sync"]
+    names = [s.get("name") for s in sync["steps"]]
+    assert names.index("Check the website is online") < names.index("Plan for subscribers")
+    assert (
+        "site-sync"
+        in next(s for s in sync["steps"] if s.get("name") == "Plan for subscribers")["run"]
+    )
+    assert (WF.parent.parent / "scripts" / "site_env.sh").stat().st_mode & 0o111

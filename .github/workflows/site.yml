@@ -1,0 +1,68 @@
+name: site
+# Plans for the FPL Sim website's subscribers: the shared projection once, then the free pick or
+# the full plan for every manager id on the site (fpl-agent site-sync). Advice only: it reads
+# public FPL data, never signs in to FPL and never touches any team, yours included. It does not
+# publish the database and runs apart from the plan and data workflows.
+on:
+  schedule:
+    - cron: "40 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "ignore the deadline window and re-plan everyone (true/false)"
+        default: "false"
+      limit:
+        description: "at most this many full plans (empty = no limit)"
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: site
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      ENGINE_TOKEN: ${{ secrets.ENGINE_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Work out the address
+        run: scripts/site_env.sh
+      - name: Check the website is online
+        id: up
+        run: |
+          if [ -n "$SITE_URL" ] && curl -fsS "$SITE_URL/healthz" >/dev/null; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "The website is not online yet: run site-deploy first. Nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: astral-sh/setup-uv@v5
+        if: steps.up.outputs.up == 'true'
+      - if: steps.up.outputs.up == 'true'
+        run: uv sync --frozen
+      - name: Restore database
+        if: steps.up.outputs.up == 'true'
+        run: scripts/data_restore.sh data_cache/export
+      - name: Refresh prices, news and fixtures
+        if: steps.up.outputs.up == 'true'
+        run: |
+          uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
+            --football-data E0
+      - name: Plan for subscribers
+        if: steps.up.outputs.up == 'true'
+        env:
+          FORCE: ${{ github.event.inputs.force }}
+          LIMIT: ${{ github.event.inputs.limit }}
+        run: |
+          set -o pipefail
+          ARGS=""
+          if [ "$FORCE" = "true" ]; then ARGS="--force"; fi
+          if [[ "$LIMIT" =~ ^[0-9]+$ ]]; then ARGS="$ARGS --limit $LIMIT"; fi
+          uv run fpl-agent site-sync --db data_cache/football.duckdb $ARGS | tee -a "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,23 @@
+# FPL Sim website: a Cloudflare Worker with a D1 database. Deployed by
+# .github/workflows/site-deploy.yml, which fills in the database id and sets the secrets
+# (STRIPE_SECRET_KEY, RESEND_API_KEY, ENGINE_TOKEN, GITHUB_DISPATCH_TOKEN).
+name = "fplsim"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fplsim"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[vars]
+SITE_URL = "https://fplsim.com"
+EMAIL_FROM = "FPL Sim <login@fplsim.com>"
+PRICE_MONTHLY = "£4.99"
+PRICE_SEASON = "£29.99"
+SEASON_END = "2027-05-31"
+STRIPE_TAX = "off"
+GITHUB_REPO = "OPEXAI-GG/fpl-ai-agent"
+GITHUB_REF = "master"

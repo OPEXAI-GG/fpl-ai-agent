@@ -32,3 +32,17 @@ jobs:
         run: |
           npm ci
           npm test
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Website tests and build
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npx wrangler deploy --dry-run --outdir /tmp/fplsim-build
+          node local/build.mjs

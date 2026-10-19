@@ -266,7 +266,7 @@ def run_weekly(
         review.save_decision(db, opts.season, d, DONE)
     res.report = format_report(res, settings.mode)
     if opts.out_dir:
-        write_outputs(opts.out_dir, res, settings.mode)
+        write_outputs(opts.out_dir, res, settings.mode, view=_view(db, d, pool, raw, proj))
     o = res.outcome
     moved = bool(o and o.mode == "live" and o.done)
     failed = bool(o and o.errors and opts.force)  # a hand-started run reports its failure
@@ -325,14 +325,27 @@ def _ownership(db, fpl, season: int, gw: int, pool):
             "ownership: FPL overall (top-10k sample unavailable)")  # fmt: skip
 
 
-def write_outputs(out: Path, res: RunResult, mode: str) -> None:
+def _view(db, d: Decision, pool, raw, proj) -> dict | None:
+    """The plan with names, clubs and expected points, as the dashboard shows it (None if it
+    cannot be built: the report never depends on it)."""
+    try:
+        from fpl_agent import site
+
+        return site.full_plan(d, site._Show(site.labels(pool, raw, _names(db)), proj))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("dashboard view skipped: %s", type(exc).__name__)
+        return None
+
+
+def write_outputs(out: Path, res: RunResult, mode: str, view: dict | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / f"gw{res.gw}.md").write_text(res.report + "\n")
     if res.decision:
         (out / f"gw{res.gw}.json").write_text(json.dumps({
             "mode": mode, "decision": review.decision_payload(res.decision),
             "outcome": res.outcome.__dict__ if res.outcome else None,
-            "chips": res.decision.chip_report}, indent=2, default=str))  # fmt: skip
+            "chips": res.decision.chip_report, "view": view, "notes": res.notes,
+            "created_at": datetime.now(UTC).isoformat()}, indent=2, default=str))  # fmt: skip
 
 
 __all__ = ["RunOptions", "RunResult", "run_weekly", "format_report", "write_outputs"]
