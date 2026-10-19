@@ -51,8 +51,8 @@ def latest() -> dict:
         out["error"] = f"Could not read the latest plan from GitHub ({type(exc).__name__})."
     try:
         out["next"] = next_deadline()
-    except Exception:
-        pass
+    except Exception:  # the deadline is a nice-to-have: the page shows the plan without it
+        out["next"] = None
     return out
 
 
@@ -99,8 +99,8 @@ def main() -> int:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    except KeyboardInterrupt:  # Ctrl+C in the window is the normal way to stop
+        server.server_close()
     return 0
 
 
