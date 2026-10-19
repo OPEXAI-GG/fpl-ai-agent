@@ -45,3 +45,4 @@ jobs:
           npm ci
           npm test
           npx wrangler deploy --dry-run --outdir /tmp/fplsim-build
+          node local/build.mjs

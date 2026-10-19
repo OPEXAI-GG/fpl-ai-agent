@@ -2,11 +2,11 @@
 
 import { html, raw } from "./html.js";
 
-const FONTS =
+export const FONTS =
   "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800" +
   "&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap";
 
-const MARK = raw(`<svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+export const MARK = raw(`<svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
   <rect x="1" y="1" width="26" height="26" rx="8" fill="#d4ff3a"/>
   <rect x="6" y="15" width="3" height="7" rx="1" fill="#10140a"/>
   <rect x="10.5" y="10" width="3" height="12" rx="1" fill="#10140a"/>
@@ -308,9 +308,9 @@ function captainBox(plan) {
 }
 
 const CHIPS = { wildcard: "Wildcard", freehit: "Free Hit", bboost: "Bench Boost", "3xc": "Triple Captain" };
-const chipName = (c) => CHIPS[c] || c;
+export const chipName = (c) => CHIPS[c] || c;
 
-function fullPlan(plan) {
+export function fullPlan(plan) {
   const moves = plan.transfers?.length
     ? html`<div class="moves">${plan.transfers.map(
         (t) => html`<div class="move"><span class="out">${t.out.name}</span><span class="arrow">→</span><span class="in">${t.in.name} <small class="cap-sub">£${fmt(t.in.price)}m</small></span></div>`,

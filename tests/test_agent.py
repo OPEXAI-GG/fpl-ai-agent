@@ -95,6 +95,9 @@ def test_dry_run_produces_a_recorded_decision_and_a_report(env, tmp_path):
     )
     saved = json.loads((tmp_path / f"gw{GW}.json").read_text())
     assert saved["mode"] == "dry" and len(saved["decision"]["xi"]) == 11
+    view = saved["view"]  # what the local dashboard shows: names, clubs, expected points
+    assert view["kind"] == "full" and len(view["xi"]) == 11 and view["captain"]["name"]
+    assert saved["notes"] == res.notes and saved["created_at"]
     assert (tmp_path / f"gw{GW}.md").exists()
     row = w.db.con.execute("SELECT mode FROM decisions WHERE gw = ?", [GW]).fetchone()
     assert row == ("dry",)

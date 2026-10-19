@@ -45,3 +45,16 @@ the amounts charged are set once by the Stripe setup (`MONTHLY_PENCE`, `SEASON_P
 cd web && npm ci && npm test
 node --no-warnings scripts/preview.mjs   # http://localhost:8787 with sample plans
 ```
+
+## On your own computer (your team only)
+
+`local/` is a dashboard for your own team's latest plan, drawn with the same views as the Pro
+page. It reads the plan the agent publishes on the `plan` release after every run, and the next
+deadline from FPL; it needs only Python 3, sends nothing anywhere and never touches your team.
+
+```bash
+cd web && npm run local          # builds local/dist and opens http://127.0.0.1:8765
+```
+
+`node local/build.mjs` writes `local/dist/` (`dashboard.html`, `fplsim_local.py`, `FPL Sim.cmd`):
+copy that folder anywhere on Windows and double-click `FPL Sim.cmd`.
