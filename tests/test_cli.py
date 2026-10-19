@@ -242,3 +242,24 @@ def test_send_without_a_token_uses_the_webhook(tmp_path, posts):
     (tmp_path / "r.md").write_text("x")
     assert cli.main(["send", "--file", str(tmp_path / "r.md")]) == 0
     assert sent == [(None, "x")]
+
+
+def test_lessons_store_the_latest_finished_gameweek(monkeypatch, tmp_path, capsys):
+    from tests.test_lessons import FakeFPL
+
+    class Finished(FakeFPL):
+        def bootstrap_raw(self):
+            return {**super().bootstrap_raw(), "events": [{"id": 7, "finished": True}]}
+
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda text: sent.append(text))
+    monkeypatch.delenv("FPL_ENTRY_ID", raising=False)
+    db = str(tmp_path / "f.duckdb")
+    assert cli.main(["lessons", "--db", db]) == 0 and "skipped" in capsys.readouterr().out
+    monkeypatch.setattr(cli, "FPLClient", FakeFPL)  # GW7 not finished yet
+    assert cli.main(["lessons", "--db", db, "--entry", "1"]) == 0
+    assert "no finished gameweek" in capsys.readouterr().out
+    monkeypatch.setattr(cli, "FPLClient", Finished)
+    assert cli.main(["lessons", "--db", db, "--entry", "1", "--notify"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("GW7 lessons\n") and "by hand" in out and sent == [out.strip()]

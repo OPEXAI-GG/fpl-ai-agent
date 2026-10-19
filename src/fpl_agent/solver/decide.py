@@ -131,7 +131,7 @@ ROBUST_MIN_WIN, ROBUST_MIN_GAIN, ROBUST_WORLDS = 0.55, 1.0, 300
 
 def _robust_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
                       cfg: PlannerConfig, names: dict[int, str], warnings: list[str],
-                      checks: list[str]):  # fmt: skip
+                      checks: list[str], min_win: float = ROBUST_MIN_WIN):  # fmt: skip
     """The chosen plan, or the same plan rolling this week's transfer when the transfers only
     win on the mean: re-score both across simulated worlds (auto-subs, captain cover, hits)."""
     import numpy as np
@@ -155,7 +155,7 @@ def _robust_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
         f"{names.get(o, o)} -> {names.get(i, i)}"
         for i, o in zip(first.transfers_in, first.transfers_out, strict=False)
     )
-    if win < ROBUST_MIN_WIN and gain < ROBUST_MIN_GAIN:
+    if win < min_win and gain < ROBUST_MIN_GAIN:
         warnings.append(f"held {moves}: it beat rolling the transfer in only {win:.0%} of "
                         f"simulated worlds ({gain:+.1f} pts over the horizon)")  # fmt: skip
         return chips_mod.Scenario(chosen.chip, chosen.gw, roll)
@@ -220,12 +220,14 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
            use_chips: bool = True,
            ownership: dict[int, float] | None = None,
            eo: dict[int, float] | None = None,
-           chasing: rank_target.Chase | None = None) -> Decision:  # fmt: skip
+           chasing: rank_target.Chase | None = None,
+           min_win: float = ROBUST_MIN_WIN) -> Decision:  # fmt: skip
     """`state` must already use canonical player ids (see `inputs.to_canonical`). `ownership`
     (percent of managers by player) keeps popular players and favours them as captain; `eo`
     (the field's effective ownership, 1.0 = 100%) is weighed by `cfg.risk_lambda`. `chasing`
     (behind a rank target) moves the catch-up risk onto the armband: the least-captained player
-    within its slack of the best captain, and no switch to the most-owned one."""
+    within its slack of the best captain, and no switch to the most-owned one. `min_win` is the
+    share of simulated worlds this week's moves must beat rolling in (lowered by the memory)."""
     own = ownership or {}
     names = names or {}
     cfg = cfg or PlannerConfig()
@@ -287,7 +289,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     checks: list[str] = []
     first = chosen.plan.first
     if first.transfers_in and not first.chip and not state.wildcard_active:
-        chosen = _robust_transfers(chosen, base, proj, rules, cfg, names, warnings, checks)
+        chosen = _robust_transfers(chosen, base, proj, rules, cfg, names, warnings, checks, min_win)
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
