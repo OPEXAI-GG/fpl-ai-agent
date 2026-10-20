@@ -1,5 +1,143 @@
 # FPL Agent: corrective work and local dashboard
 
+## Subscription product research and release plan (2026-10-21)
+
+**Objective:** turn the local agent into reliable, professional decision support for arbitrary
+managers, with a commercially usable data path and a testable recurring-subscription proposition.
+This section is the current handoff. Earlier approvals below cover their historical local scope;
+they are **not approval for paid/public release or proof of forecasting superiority**.
+
+**Plan:** (1) audit code, live UI and current primary sources; (2) reproduce important defects
+offline; (3) specify prediction/evaluation repairs; (4) define customer isolation, product design,
+rights and economics; (5) execute the prioritized tickets below in dependency order.
+
+**Research acceptance:** findings cite actual code or sources; major claims have reproducible
+evidence; market prices distinguish promotions/unknowns; forecast skill is separate from software
+correctness; tasks have testable gates; no production model, account, secrets or deployment changes.
+
+**Progress:** research and planning complete for this pass. Exa: 19 searches, 95 requested result
+slots, 93 distinct candidate URLs, 22 distinct URLs attempted for deeper page retrieval. These are
+not counts of independently verified studies. Primary sources, caveats and excluded results are
+recorded. Actual loaded desktop/mobile screenshots opened and inspected. Core planner accepts
+generic squads, but persisted decisions/preferences/lessons are not isolated by customer.
+
+Deliverables:
+- [Model reliability audit and experiment protocol](docs/research/model-reliability-2026-10-21.md).
+- [Product, design, licensing and subscription strategy](docs/research/subscription-product-strategy-2026-10-21.md).
+- [Research source manifest](exa-results/fpl-product-strategy-2026-10-21/source-manifest.json).
+- [Offline probe script](artifacts/product-model-audit-20261021.py) and [results](artifacts/product-model-audit-20261021.json).
+- [Loaded desktop](artifacts/product-audit-overview-desktop-loaded.png) and [loaded mobile](artifacts/product-audit-team-mobile-loaded.png) audit screenshots.
+
+**Verification:** `.venv/Scripts/python.exe artifacts/product-model-audit-20261021.py` exited 0.
+Synthetic 100,000-world probe: 40.944% have >10 outfield starters, maximum 19; two near-zero-start
+GKs become approximately 50/50 starters; a zero-gain manual transfer emits `act_now`; an unpaired
+comparison reports a win although common-row RMSE loses 2.0 vs 1.8; zero-minute yellow-card scoring
+returns zero. These demonstrate defects, **not new real-team accuracy results or fixes**. Browser
+console reported zero errors/warnings on inspected routes. Full production test suite was not
+rerun for this research-only pass; prior results below must not be represented as current model
+validation. Production model code and DB were left unchanged.
+
+Read-only latest-projection audit: 277 PL / 27 translated / 364 prior rate sources (668 players).
+Reviews and lessons both zero: the reactive-memory defect is latent, not a demonstrated cause of
+the latest recommendation. Saved `artifacts/product-data-audit-20261021.json`.
+Final research checks: audit script Ruff lint/format passed; probes reran successfully; report
+local links and three strict-JSON artifacts validated; scoped Git whitespace check passed.
+
+**Verdict: Changes needed before commercial release.** C01–C13 are proposed implementation work,
+not completed work. A10 remains partial and now has a more specific validation path. A12's hosted
+scheduler is optional locally but becomes part of C11 for a continuously available paid service.
+No paid services, outreach, deployment or FPL execution were performed.
+
+### [ ] C01 | P0 | Make evaluation comparisons trustworthy
+
+- Files: `model/backtest.py`, `review.py`, `model/features.py`, `model/calibration.py`, README accuracy claims.
+- Steps: pair model/baseline rows by identity and cutoff; persist exact official deadlines and known-at timestamps; exclude post-deadline fallback projections and incomplete outcomes from learning; audit latest-snapshot feature joins; freeze E0–E5 protocol from the model report. Preserve historical diagnostic outputs separately.
+- Accept: synthetic unequal-coverage example correctly reports loss; adding later snapshots/news/odds cannot change earlier eligible forecasts; incomplete results are not zeros; every metric includes common-row n, coverage/exclusions, data/model/rules IDs and cutoff; README claims trace to reproducible eligible artifacts or are explicitly unverified. No claimed holdout improvement without fresh output.
+- Depends: none; prerequisite for model tuning and accuracy marketing.
+
+### [ ] C02 | P0 | Repair simulation and participation semantics
+
+- Files: `model/minutes.py`, `model/simulate.py`, `model/project.py`, `rules/engine.py`, related simulation/rules tests.
+- Steps: define availability/start/cameo probabilities; build coherent club lineup/minutes scenarios with explicit unknown replacements; respect unavailable players, goalkeeper coverage, substitutions and scoring participation; validate probability calibration after joint conditioning.
+- Accept: all audit counterexamples have regression coverage; valid scenario starting counts/roles and minutes accounting; unavailable GK cannot be selected through normalization; missing coverage produces an explicit degraded state; card-only participation and scoring match official rules. Owned d/75 remains start-eligible, including legal cover/cameo scenarios, with no player-name exception. Publish final sampled marginals, not only classifier scores.
+- Depends: C01 protocol; preserve current dry/account safety rails.
+
+### [ ] C03 | P0 | Replace reactive policy learning with validated policy versions
+
+- Files: `lessons.py`, `solver/decide.py`, `solver/rank_target.py`, `solver/cover.py`, `solver/chips.py`, `agent.py`.
+- Steps: keep outcome review descriptive; prevent a lucky or break-even one-week result automatically lowering decision thresholds; preserve current policy as an experiment; add neutral expected-points default and explicit user objectives; remove implicit top-10k chasing/default hard ownership locks from the proposed customer policy. Rerank final plans consistently after captain/bench choices.
+- Accept: zero-gain manual move does not change production policy; no retrospective tuning without a versioned validated experiment; identical state/model/policy produces reproducible advice; neutral policy does not silently chase a rank; final transfer/chip/hold comparisons use identical scoring semantics and expose expected cost/downside. Held-lineup path receives equivalent availability/cover evaluation.
+- Depends: C01/C02; pair policy trials before promoting a replacement.
+
+### [ ] C04 | P0 | Resolve commercial data and branding rights
+
+- Scope: existing FPL/FotMob/archive/news/odds sources, candidate licensed suppliers, fonts/images/branding, export formats.
+- Steps: build per-field provenance/rights matrix; establish permission or replacement for restricted feeds; obtain use-case-specific coverage/price/rights responses before selecting a supplier. Include model training, derived forecasts, retained history, publication, caching, exports and territory. Check product-name/image rights separately.
+- Accept: each launch feature has a documented permitted source and renewal cost; no assumed right to resell raw feeds; required fields pass a representative coverage/correction audit; legal questions have a reviewed resolution. Missing permission blocks affected commercial use, not silently substitutes a scraper. No purchasing or external messages solely on this ticket's authority.
+- Depends: none; run discovery alongside technical repair. FotMob terms are a documented blocker, not a completed procurement decision.
+
+### [ ] C05 | P0 | Version and confirm any manager's actual state
+
+- Files: `data/entry.py`, `execution/live_state.py`, API contracts and future onboarding UI.
+- Steps: import arbitrary entry last-deadline state with provenance; let user confirm/correct current squad, bank, buy/sell prices, FT and chips; persist a state version. Explicitly handle GW1, late entrants, Free Hit reversion, active chips, missing histories and already-made transfers.
+- Accept: representative valid/invalid states and at least 20 diverse consented/synthetic profiles pass reconstruction and legal-plan checks; inferred fields visibly require confirmation when material; no password required for initial value; public entry ID is not treated as proof of ownership; one profile never changes another's inputs. Test legal budgets and selling-price rounding. No fabricated current squad.
+- Depends: C01 rules/cutoff contract; full private persistence depends on C06.
+
+### [ ] C06 | P0 | Isolate customers across storage, jobs and learning
+
+- Files: `db/schema.py`, `review.py`, `lessons.py`, `dashboard/service.py`, `dashboard/jobs.py`; new authenticated API/persistence boundary.
+- Steps: separate shared football forecasts from private account/team/state/plan/job data; scope review history and preferences; preserve versioned decisions; enforce verified identity and authorization at every boundary. Define migration/backups for existing local records before executing any migration.
+- Accept: tenant A cannot read/mutate/cache-hit/export/cancel tenant B's work; retries and concurrent requests retain correct context; no global latest-plan leak or cross-manager learning contamination; restore/deletion procedures tested. Automated negative authorization tests cover APIs, workers, cache keys and artifacts. Public service does not expose the local loopback control server.
+- Depends: C05 contract; required before a hosted multi-user beta. Migration execution remains a separate reviewable action.
+
+### [ ] C07 | P1 | Evidence-aware forecasts and value discovery
+
+- Files: `model/players.py`, `model/translation.py`, `model/project.py`, `solver/value.py`, `solver/inputs.py`.
+- Steps: per-component coverage/exposure metadata; calibrated role/minutes distributions; direct-points challenger using allowed inputs; separate penalty/non-penalty evidence; validated assist/DefCon/bonus treatment; squad-specific gain/uncertainty for value picks. Keep uncertain/prior-only candidates in a labelled research tier.
+- Accept: all high-confidence recommendations have auditable evidence; missing stats never become observed zeros; no invented ownership or low-ownership points bonus; prior-only targets cannot bypass recommendation quality gates; E1/E2/E5 paired results and source-quality cohorts published. Promote only against the predeclared gate, including inconclusive outcomes.
+- Depends: C01/C02/C04. Reuses remaining A10 work; do not duplicate it as a separate implementation.
+
+### [ ] C08 | P1 | All-club news and actual cross-competition workload
+
+- Files: `news.py`, `model/features.py`, ingestion/identity modules, scheduler and evidence UI.
+- Steps: source registry for all clubs; structured dated claims and conflicts; monitor healthy as well as flagged players; deduplicate syndication; ingest actual cup minutes/recovery; bounded deadline-relative refresh. Record quotation permissions and machine-extraction confidence. No LLM-generated fitness probabilities.
+- Accept: all 20 clubs have declared coverage or a visible gap; an undated, old, wrong-player or wrong-fixture article cannot clear a doubt; failed requests visible; a newly injured unflagged player can be detected; training return does not imply starting. Replay contradictory press conferences and European cameo cases; C01 prevents future-news leakage. E4 must demonstrate benefit before workload/news adjustments change production probabilities.
+- Depends: C01/C04; no claim that current City/BBC monitoring already satisfies this ticket.
+
+### [ ] C09 | P1 | Design and validate the customer weekly workflow
+
+- Scope: customer UI only; use the strategy's desktop/mobile critique and design brief.
+- Steps: prototype This Week/Squad/Discover/Plan, team confirmation, clear hold/transfer alternatives, readable pitch/list, player evidence sheets and changed-since-last-plan states. Separate restricted operations UI. Choose stack after confirming component/API boundaries; no framework rewrite solely for appearance.
+- Accept: inspect actual loaded 360/390/768/1440px screenshots; no truncated identity essential to choosing a player; accessible list equivalent; measured contrast/focus/tap targets; honest loading/stale/unknown states. In a five-user usability round, at least four identify action, risk and freshness within 30 seconds and compare an alternative unassisted. Capture failures and iterate; do not mark complete from a build alone.
+- Depends: C05/C06 contracts; prototype work can begin before implementation completes.
+
+### [ ] C10 | P1 | Run a fair multi-team prospective evaluation
+
+- Scope: E0–E5 protocol, immutable forecast/plan logs and public methodology/performance page.
+- Steps: reserve untouched evaluation period; compare neutral/current/challenger policies from identical initial states; include rolling, hits, legal autosubs, chip windows, no-shows and missing-data abstentions. Capture future forecasts before deadlines for 8–12 initial GWs and extend if underpowered.
+- Accept: paired metrics, block uncertainty intervals, cohort coverage, exclusions and costs available; all selected value picks retained in evaluation; correlated squads are not treated as independent seasons. No launch accuracy claim exceeds evidence. No threshold retuned on test outcomes. Source rights allow any external benchmark comparison and publication.
+- Depends: C01–C03/C07; prospective logging can start earlier with explicit experimental status.
+
+### [ ] C11 | P1 | Operate reliably near deadlines at bounded cost
+
+- Scope: shared forecast jobs, private solve jobs, hosting/admin boundary, logs and scheduler (extends A12 for SaaS).
+- Steps: profile stages; cache shared forecasts; dedupe/version private solves; quotas, worker limits, retries, cancellation, graceful timeouts and source-outage behavior; monitor missed deadlines and stale advice; backups/restore drill.
+- Accept: publish workload/hardware and observed p50/p95 latency/cost; target cached brief <2s and ordinary solve <30s p95 at declared load, otherwise revise capacity before promising it; deadline burst test meets queue SLO. Missing update never appears fresh. No laptop dependency for advertised continuous monitoring. Authentication, secret isolation and dependency checks pass. Deployment requires a concrete reviewed release, not just a bind-address change.
+- Depends: C04/C06 and measured engine costs.
+
+### [ ] C12 | P1 | Validate demand and implement honest recurring billing
+
+- Scope: 10–15 customer interviews, 20–30-user beta, pricing experiment, billing/entitlements.
+- Steps: test weekly decision-service positioning; record consent and interview evidence; test £6.99/month and £49/year as hypotheses; recompute economics with actual licenses/compute/tax/processor costs. Use hosted checkout/portal, verified idempotent webhooks and entitlement reconciliation. Review jurisdiction-specific renewal/privacy/consumer terms before charging.
+- Accept: proposed directional gates 70% import completion, 50% four-deadline return, at least 10 explicit willingness-to-pay commitments; document denominators/limitations. Billing handles duplicate/out-of-order events, failed payments, cancellation, refunds and account deletion. Checkout return URL alone grants nothing. Positive contribution after actual costs; no rank guarantee or claim of validated demand from competitor prices.
+- Depends: C04/C06/C09/C11; no unsolicited outreach, purchases or publication authorized by the written plan.
+
+### [ ] C13 | P0 launch gate | Independent release review
+
+- Review C01–C12 evidence against the limited product being sold; explicitly classify experimental features.
+- Accept: data rights resolved; no cross-customer access; legal recommendations from confirmed states; P0 defects closed with regressions; no false accuracy claims; real usability/browser checks; backup/restore and deadline behavior verified; billing/support/cancellation usable. Record Approved or Changes needed with specific remaining blockers.
+- A paid decision-support product may ship without claiming superior predictions if its stated functionality is validated; an accuracy superiority claim requires C10's separate evidence. Do not confuse those gates.
+
 ## Injury-aware decisions and differential discovery (2026-10-20)
 
 Objective: distinguish doubtful owned starters from confirmed absences, verify dated football
