@@ -7,9 +7,13 @@ Run: .venv/Scripts/python.exe artifacts/product-model-audit-20261021.py
 import json
 
 import numpy as np
+import pandas as pd
 
 from fpl_agent.lessons import Week, _hand_moves
+from fpl_agent.model.backtest import beats_baselines, summarize
 from fpl_agent.model.simulate import PlayerSpec, SimConfig, _minutes
+from fpl_agent.rules import Rules
+from fpl_agent.rules.engine import score
 
 
 def main():
@@ -36,6 +40,13 @@ def main():
     availability, start, cameo = 0.75, 0.8, 0.3
     current_play = availability * start + (1 - availability * start) * availability * cameo
     gated_play = availability * (start + (1 - start) * cameo)
+    comparison = pd.DataFrame({
+        "position": ["MID"] * 40, "actual": np.arange(40, dtype=float),
+        "sim": np.arange(40) + np.array([2.0] * 20 + [0.0] * 20),
+        "last5": np.arange(40) + np.array([1.8] * 20 + [np.nan] * 20),
+        "fpl_xp": [np.nan] * 40,
+    })
+    summary = summarize(comparison)
     print(json.dumps({
         "seed": 20261021, "samples": samples,
         "synthetic_inputs_not_real_team_accuracy": True,
@@ -49,6 +60,15 @@ def main():
             "simulated_play_probability_each": (keeper_minutes > 0).mean(axis=0).tolist(),
         },
         "zero_gain_manual_transfer": {"gain": lesson.points, "learning_rule": lesson.rule},
+        "unpaired_baseline_comparison": {
+            "summary": summary[summary.position == "ALL"].to_dict("records"),
+            "current_verdict": beats_baselines(summary),
+            "paired_model_rmse": 2.0, "paired_baseline_rmse": 1.8,
+            "meaning": "The model loses on common rows but the current comparator says it wins.",
+        },
+        "zero_minute_yellow_card": score(
+            {"minutes": 0, "yellow_cards": 1}, "MID", Rules.nearest(2026)
+        ),
         "availability_mixture_example": {
             "availability": availability, "start_if_available": start,
             "cameo_if_available_and_not_starting": cameo,

@@ -1,0 +1,62 @@
+﻿{
+  "seed": 20261021,
+  "samples": 100000,
+  "synthetic_inputs_not_real_team_accuracy": true,
+  "outfield_starts": {
+    "mean": 9.98803,
+    "maximum": 19,
+    "share_more_than_ten": 0.40944,
+    "share_exactly_ten": 0.17626
+  },
+  "near_zero_keeper_marginals": {
+    "input_start_probability_each": 0.0001,
+    "simulated_play_probability_each": [
+      0.50029,
+      0.49971
+    ]
+  },
+  "zero_gain_manual_transfer": {
+    "gain": 0.0,
+    "learning_rule": "act_now"
+  },
+  "unpaired_baseline_comparison": {
+    "summary": [
+      {
+        "position": "ALL",
+        "predictor": "sim",
+        "n": 40,
+        "mae": 1.0,
+        "rmse": 1.4142135623730951,
+        "corr": 0.9989073638746893,
+        "bias": 1.0
+      },
+      {
+        "position": "ALL",
+        "predictor": "last5",
+        "n": 20,
+        "mae": 1.8,
+        "rmse": 1.8000000000000003,
+        "corr": 1.0,
+        "bias": 1.8
+      }
+    ],
+    "current_verdict": {
+      "ALL:last5": true,
+      "MID:last5": true
+    },
+    "paired_model_rmse": 2.0,
+    "paired_baseline_rmse": 1.8,
+    "meaning": "The model loses on common rows but the current comparator says it wins."
+  },
+  "zero_minute_yellow_card": {
+    "total": 0
+  },
+  "availability_mixture_example": {
+    "availability": 0.75,
+    "start_if_available": 0.8,
+    "cameo_if_available_and_not_starting": 0.3,
+    "current_overlay_play_probability": 0.6900000000000001,
+    "shared_gate_play_probability": 0.645,
+    "interpretation": "Semantic inconsistency if availability represents a shared fitness gate; not an empirical calibration result."
+  }
+}
