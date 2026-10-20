@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "duckdb": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-motherduck",
+        "--db-path",
+        "data_cache/football.duckdb",
+        "--ephemeral-connections",
+        "--max-rows",
+        "200"
+      ]
+    }
+  }
+}

@@ -12,3 +12,4 @@ data_cache/
 htmlcov/
 .env
 *.duckdb
+.claude/settings.local.json
