@@ -235,6 +235,31 @@ def review_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def lessons_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    """Find the finished gameweek's mistakes, store the lessons the next plan reads."""
+    from fpl_agent import lessons, notify
+
+    entry = args.entry or settings.entry_id
+    if entry is None:
+        print("lessons skipped: no FPL_ENTRY_ID")
+        return 0
+    fpl = FPLClient()
+    gw = args.gw
+    if gw == 0:  # latest finished gameweek
+        done = [e["id"] for e in fpl.bootstrap_raw().get("events", []) if e.get("finished")]
+        if not done:
+            print("lessons skipped: no finished gameweek yet")
+            return 0
+        gw = max(done)
+    db = _open_db(args)
+    text = lessons.run(db, fpl, int(args.season), gw, entry)
+    _export(db, args)
+    print(text)
+    if args.notify:
+        notify.send(text)
+    return 0
+
+
 def explain_cmd(args: argparse.Namespace) -> int:
     """Why a player projects as he does: fixture, minutes, expected points by source."""
     db = _open_db(args)
@@ -424,6 +449,14 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--season", default="2026")
     rv.add_argument("--export", default=None, help="write the database as parquet here")
     rv.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    ls = sub.add_parser("lessons", help="find a gameweek's mistakes and store the lessons")
+    ls.add_argument("--db", default="data_cache/football.duckdb")
+    ls.add_argument("--import-dir", default=None)
+    ls.add_argument("--season", default="2026")
+    ls.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    ls.add_argument("--gw", type=int, default=0, help="0 = latest finished gameweek")
+    ls.add_argument("--export", default=None, help="write the database as parquet here")
+    ls.add_argument("--notify", action="store_true", help="send the lessons to NOTIFY_WEBHOOK")
     gs = sub.add_parser("gw-summary", help="how your team did in the last finished gameweek")
     gs.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
     gs.add_argument("--gw", type=int, default=0, help="0 = latest finished gameweek")
@@ -490,6 +523,8 @@ def main(argv: list[str] | None = None) -> int:
         return plan(args, settings)
     if args.cmd == "review":
         return review_cmd(args)
+    if args.cmd == "lessons":
+        return lessons_cmd(args, settings)
     if args.cmd == "gw-summary":
         return gw_summary_cmd(args, settings)
     if args.cmd == "backtest":

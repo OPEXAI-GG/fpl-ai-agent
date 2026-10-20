@@ -42,6 +42,7 @@ All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (de
 | Replay a past season | `replay --season 2025` | Runs the real planner, chips and rails through every gameweek and scores the decisions on the official points (auto-subs, vice cover, hits, Free Hit revert). The scoreboard for tuning the planner. |
 | **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
 | Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
+| Lessons from a finished gameweek | `lessons --gw 0 --entry <id>` | Finds the week's mistakes on your real team (hand transfers, held moves that paid, captain, bench, goalkeeper, hits) and stores the lessons the next plan reads. |
 
 `plan` needs a database that has been through `db-update` for the upcoming gameweek. Your squad is
 read from FPL's public endpoints (no login): selling prices are rebuilt from your transfer history,
@@ -62,7 +63,7 @@ free transfers from your gameweek history, and chips left from your chip history
 | `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
 | `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 45 min to 26h away (each run re-plans; the last one lands 45 min to 3h before it); transfers wait for team news until 5h before the deadline unless a planned player is about to change price that night; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
 | `backtest.yml` | manual button | back-test a past season against simple baselines, or (mode `replay`) replay the whole season with the real planner; results in the run summary (read-only) |
-| `review.yml` | Tuesday | score the finished gameweek, publish the reviews and send a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
+| `review.yml` | Tuesday | score the finished gameweek, store its lessons for the next plan, publish the reviews and send the lessons and a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
 | `canary.yml` | daily | check every live source still matches its contract |
 | `discord.yml` | started by the Discord bot | `/explain` against the database (read-only), answered in Discord |
 | `discord-deploy.yml` | manual button | put the Discord bot online and register its commands ([docs/discord-bot.md](docs/discord-bot.md)) |
@@ -111,7 +112,7 @@ mock transports.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
 * **Odds coverage:** only the competitions the Odds API free tier serves for the Premier League are used; without a key the model runs on results and xG alone.
 * **Scout** is deliberately small: availability only, no transfer rumours or tactical claims.
-* **Learning loop:** after each finished gameweek the review scores predictions; the next run applies a small, shrunk per-position correction (capped at 10%) from those reviews and logs it. Models are refitted on all history each run.
+* **Learning loop:** after each finished gameweek the review scores predictions; the next run applies a small, shrunk per-position correction (capped at 10%) from those reviews and logs it. Models are refitted on all history each run. The lessons step lists the week's mistakes and keeps a memory the next plan reads: a few capped switches that fade unless the mistake repeats, and a learned correction for the players most of the top 10k own (see [architecture.md](docs/architecture.md), L9).
 * **Price-change prediction** is not modelled; money in the bank has a small flat value.
 * **Triple Captain** is shown as used in your chip history; the agent plans only the chips FPL says you still have.
 

@@ -30,6 +30,11 @@ jobs:
             --football-data E0 --points
           uv run fpl-agent review --db data_cache/football.duckdb --gw 0 \
             --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Lessons for the next plan
+        continue-on-error: true  # the lessons never block publishing the reviews
+        run: |
+          uv run fpl-agent lessons --db data_cache/football.duckdb --gw 0 \
+            --export data_cache/out --notify | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Gameweek summary to Discord
         continue-on-error: true  # a failed summary never blocks publishing the reviews
         run: uv run fpl-agent gw-summary --notify | tee -a "$GITHUB_STEP_SUMMARY"

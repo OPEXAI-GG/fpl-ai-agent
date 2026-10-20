@@ -25,6 +25,7 @@ sources ──► L1 database ──► L2 team strength ─┐
 | L6 planner | `solver/planner.py`, `solver/chips.py`, `solver/decide.py` | A MILP (HiGHS) over a 6-gameweek horizon: legal squad every week, selling prices, three-per-club, free-transfer banking to five (a banked transfer is valued by how many are banked), hits only if they buy `4 + buffer` points. Chips are scenarios (one solve per chip x gameweek) judged on expected points *and* on how often they win across sampled worlds; a Wildcard needs 70%. Windows that close inside the horizon make a chip must-use. |
 | L7 safety + execution | `execution/` | Rails (kill switch, stale data, hit caps, availability, chip guard, transfer count, budget, legal squad, human edits not overwritten) run on our plan and again on FPL's preview. **Dry mode makes no authenticated request at all.** Live path: refresh-token exchange with rotation write-back, preview -> confirm -> lineup -> read-back verify. |
 | L8 review | `review.py` | After each gameweek: prediction error by position and by scoring component, top-20 calibration, drift flags; decision review (captain regret, transfer gain after hits, XI points vs. predicted). Written to the `reviews` table. It reports and flags; it never edits a model by itself. |
+| L9 lessons | `lessons.py` | After each gameweek, from your real team (hand moves included) and the recorded decisions: transfers you had to make yourself, moves the bot held that paid at once, captain, bench order, goalkeeper, hits that lost, field-core hauls you missed. Each mistake is stored in `lessons` with its cost and lesson. Before the next plan, `memory()` turns recent lessons into small capped switches (banked transfers worth up to 30% less and a 5-point lower robustness bar after held moves paid; +1 hit buffer after a bot hit lost), fading by 0.6 a week unless repeated; projections of the top-10k's core are scaled by their learned residual (shrunk, capped 10%). Watched mistakes seen in 3 of 6 weeks are flagged for a model change. Every switch shows as a `memory:` line in the report. |
 | Scout | `scout.py` | One bounded Claude call over players with injury/news text. Output is validated, can move a player's availability at most 35 points from FPL's own flag, and never revives a player FPL lists as gone. No key = no-op. |
 | Orchestration | `agent.py`, `cli.py`, `.github/workflows/` | `fpl-agent plan` runs the whole chain; workflows keep the database fresh, plan in dry mode and review. |
 
@@ -38,7 +39,7 @@ sources ──► L1 database ──► L2 team strength ─┐
 
 ## Data in the database
 
-Tables: `competitions teams players matches team_match appearances player_match_stats shots match_odds fpl_players_gw fpl_points_gw projections decisions reviews league_translation ingest_log ingest_state` plus id maps. The database is rebuilt from sources; it lives as parquet files in a `data` release asset rather than in git.
+Tables: `competitions teams players matches team_match appearances player_match_stats shots match_odds fpl_players_gw fpl_points_gw projections decisions reviews lessons league_translation ingest_log ingest_state` plus id maps. The database is rebuilt from sources; it lives as parquet files in a `data` release asset rather than in git.
 
 ## Conventions
 

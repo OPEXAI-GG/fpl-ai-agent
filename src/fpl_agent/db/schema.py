@@ -81,3 +81,7 @@ TABLES["ingest_state"] = """
 TABLES["league_translation"] = """
     from_comp VARCHAR, to_comp VARCHAR, stat VARCHAR, factor DOUBLE, n_players INTEGER,
     minutes DOUBLE, updated_at TIMESTAMP, PRIMARY KEY (from_comp, to_comp, stat)"""
+
+TABLES["lessons"] = """
+    season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
+    rule VARCHAR, created_at TIMESTAMP"""

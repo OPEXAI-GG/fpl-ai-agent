@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fpl_agent import notify, review
+from fpl_agent import lessons, notify, review
 from fpl_agent.config import Settings
 from fpl_agent.data import oddsapi, ownership
 from fpl_agent.data.calendar import hours_to_deadline, in_action_window, next_event
@@ -29,7 +29,7 @@ from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
 from fpl_agent.solver import rank_target, timing
-from fpl_agent.solver.decide import Decision, decide, rank_risk
+from fpl_agent.solver.decide import ROBUST_MIN_WIN, Decision, decide, rank_risk
 from fpl_agent.solver.inputs import to_canonical
 from fpl_agent.solver.planner import PlannerConfig
 
@@ -204,13 +204,20 @@ def run_weekly(
                 + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
             )
         project.save_projection(db, proj)
+        # the memory: lessons from the gameweeks already reviewed, read before deciding. The
+        # template correction comes after saving, so the reviews keep learning it from the
+        # uncorrected projections.
+        mem = lessons.memory(db, opts.season, ev.id)
+        mem.apply_template(proj, own if eo else {})  # only with the top-10k sample's ownership
+        res.notes += mem.notes()
         target = _chase(fpl, history, ev.id)
         if target:
             res.notes.append(target.note())
-        cfg = PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0)
+        cfg = mem.planner(PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0))
         d = decide(state, proj, rules, names=_names(db), cfg=cfg,
                    use_chips=opts.use_chips and not live_changed,
-                   ownership=own, eo=eo, chasing=target)  # fmt: skip
+                   ownership=own, eo=eo, chasing=target,
+                   min_win=mem.min_win(ROBUST_MIN_WIN))  # fmt: skip
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (

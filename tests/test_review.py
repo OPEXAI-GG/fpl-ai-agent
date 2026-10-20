@@ -88,3 +88,17 @@ def test_decision_review_scores_captain_and_transfers(stored):
     assert rep["transfer_gain_after_hits"] == rep["transfer_gain"] - 4
     s = review.summarize(w.db, 2024)
     assert s["weeks_reviewed"] >= 1 and s["total_points"] == rep["points_after_hits"]
+
+
+def test_prediction_review_scores_the_field_core_separately(stored):
+    w, proj = stored
+    core = [int(p) for p in proj.player_ids[:5]]
+    fpl = w.db.query("SELECT DISTINCT fpl_id, player_id FROM fpl_players_gw WHERE season = 2024")
+    rows = fpl[fpl["player_id"].isin(core)]
+    w.db.upsert("field_ownership", rows[["fpl_id"]].assign(season=2024, gw=10, owned=80.0,
+                                                          eo=90.0, sample=200))  # fmt: skip
+    try:
+        rep = review.prediction_review(w.db, 2024, 10)
+    finally:
+        w.db.con.execute("DELETE FROM field_ownership")
+    assert rep["template"]["n"] == len(core) and rep["template"]["mean_pred"] > 0

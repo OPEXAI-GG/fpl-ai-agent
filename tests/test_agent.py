@@ -225,3 +225,18 @@ def test_scheduled_run_holds_moves_for_team_news(env, monkeypatch):
     seen.clear()
     res = run_weekly(env[0].db, Settings(), opts(force=True), fpl=fake(env, hours=20))
     assert seen == [] and res.outcome.done  # a hand-started run acts now
+
+
+def test_the_plan_reads_the_lessons_memory(env):
+    from fpl_agent import lessons
+
+    w = env[0]
+    lessons.save(w.db, SEASON, GW - 1, [lessons.Mistake("hand_transfers", 3, "w", "move now",
+                                                        "act_now")])  # fmt: skip
+    try:
+        res = run_weekly(w.db, Settings(), opts(force=True), fpl=fake(env))
+    finally:
+        w.db.con.execute("DELETE FROM lessons")
+    assert res.status == "ok", res.notes
+    assert any(n.startswith("memory: act now (weight 1.00)") for n in res.notes)
+    assert any("lesson from GW9: move now" in n for n in res.notes)
