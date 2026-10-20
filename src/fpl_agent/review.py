@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from fpl_agent.db.database import FootballDB, now
+from fpl_agent.lessons import TEMPLATE
 from fpl_agent.solver.decide import Decision
 
 COMPONENT_ALIAS = {"goals": "goals_scored", "saves": "saves"}
@@ -28,6 +29,11 @@ def decision_payload(d: Decision) -> dict[str, Any]:
         "xi": d.xi, "bench": d.bench, "xp": round(d.xp, 3),
         "xp_no_transfers": round(d.xp_no_transfers, 3), "bank_after": d.bank_after,
         "held": d.chip_report.get("held", {}), "warnings": d.warnings,
+        "captain_options": [{"player_id": int(o["player_id"]), "xpts": round(o["xpts"], 2)}
+                            for o in d.captain_options],
+        # the moves planned for the next weeks, so the lessons can see what was held
+        "plan": [{"gw": w.gw, "in": w.transfers_in, "out": w.transfers_out}
+                 for w in d.horizon[1:3]],
     }  # fmt: skip
 
 
@@ -93,14 +99,30 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     ]
     # top-end calibration: did the players we rated highest deliver?
     top = df.nlargest(20, "xpts")
+    core = df[df["player_id"].isin(_field_core(db, season, gw))]
     report = {"gw": gw, "available": True, "n": len(df),
               "rmse": round(float(np.sqrt((df["err"] ** 2).mean())), 3),
               "bias": round(float(df["err"].mean()), 3), "by_position": by_pos,
               "components": components, "flags": flags,
               "top20": {"predicted": round(float(top["xpts"].mean()), 2),
-                        "actual": round(float(top["actual"].mean()), 2)}}  # fmt: skip
+                        "actual": round(float(top["actual"].mean()), 2)},
+              "template": {"n": len(core),
+                           "mean_pred": round(float(core["xpts"].mean()), 4) if len(core) else 0,
+                           "mean_actual": round(float(core["actual"].mean()), 4)
+                           if len(core) else 0}}  # fmt: skip
     _store(db, season, gw, "prediction", report)
     return report
+
+
+def _field_core(db: FootballDB, season: int, gw: int, floor: float = TEMPLATE) -> set[int]:
+    """Players (canonical ids) owned by at least `floor` percent of the top-10k sample."""
+    rows = db.con.execute(
+        "SELECT DISTINCT p.player_id FROM field_ownership f JOIN fpl_players_gw p "
+        "ON p.season = f.season AND p.fpl_id = f.fpl_id "
+        "WHERE f.season = ? AND f.gw = ? AND f.owned >= ? AND p.player_id IS NOT NULL",
+        [season, gw, floor],
+    ).fetchall()
+    return {int(r[0]) for r in rows}
 
 
 def decision_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
