@@ -20,8 +20,12 @@ def db():
     ingest_fpl.load_live(db, live_payload(boot), 2026, 1)
     ingest_understat.load_league(db, fixture("understat_league.json"), 2026)
     ingest_understat.load_player(db, fixture("understat_player.json"), 1)
-    ingest_football_data.load_csv(db, (FIX / "fd_E0_2026.csv").read_text(), "E0", 2026)
-    ingest_football_data.load_csv(db, (FIX / "fd_E1_2026.csv").read_text(), "E1", 2026)
+    ingest_football_data.load_csv(
+        db, (FIX / "fd_E0_2026.csv").read_text(encoding="utf-8"), "E0", 2026
+    )
+    ingest_football_data.load_csv(
+        db, (FIX / "fd_E1_2026.csv").read_text(encoding="utf-8"), "E1", 2026
+    )
     return db
 
 
@@ -216,3 +220,20 @@ def test_repair_merges_a_club_stored_twice_and_its_doubled_matches():
     assert db.team_id("fotmob", "new", "Peterborough") == 90
     assert not [i for i in run_checks(db) if i.severity == "error"]
     assert not [i for i in repair(db) if i.check.startswith("merged")]  # nothing left to merge
+
+
+def test_legacy_double_gameweek_copies_are_reported():
+    from fpl_agent.db.database import FootballDB
+
+    db = FootballDB()
+    stats = '{"minutes": 180, "total_points": 8}'
+    for fx in (1, 2):  # older code copied the GW totals into each fixture row
+        db.con.execute(
+            "INSERT INTO fpl_points_gw (season, gw, fpl_id, fixture_id, minutes, total_points, "
+            "stats, explain) VALUES (2026, 3, 7, ?, 180, 4, ?, '[{}]')",
+            [fx, stats],
+        )
+    found = [i for i in run_checks(db) if i.check == "dgw_history_legacy"]
+    assert found and found[0].severity == "warn" and found[0].detail.startswith("1 ")
+    db.con.execute("INSERT INTO ingest_state VALUES ('fpl_points', '2026:3', 'final', '', NULL)")
+    assert not [i for i in run_checks(db) if i.check == "dgw_history_legacy"]

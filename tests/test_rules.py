@@ -8,7 +8,7 @@ from fpl_agent.rules import Rules, auto_sub, bonus, effective_captain, score, se
 
 FIX = Path(__file__).parent / "fixtures"
 R = Rules.load(2026)
-GWS = json.loads((FIX / "rules_gws.json").read_text())
+GWS = json.loads((FIX / "rules_gws.json").read_text(encoding="utf-8"))
 
 
 def test_score_matches_official_points_for_every_player():
@@ -90,6 +90,13 @@ def test_auto_sub_replaces_zero_minute_starter_in_bench_order():
     mins["m2"] = 0
     final = auto_sub(XI, BENCH, mins, POS, R)
     assert "m2" not in final and "m4" in final
+
+
+def test_one_minute_cameo_prevents_bench_cover():
+    mins = {p: 90 for p in POS}
+    mins["f1"] = 1
+    final = auto_sub(XI, BENCH, mins, POS, R)
+    assert final == XI
 
 
 def test_auto_sub_skips_bench_players_who_did_not_play():

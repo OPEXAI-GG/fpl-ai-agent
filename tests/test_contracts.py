@@ -26,7 +26,7 @@ def test_recorded_responses_pass(name):
 
 def test_football_data_recorded_csvs_pass():
     for f in ("fd_E0_2026.csv", "fd_E1_2026.csv"):
-        assert contracts.football_data_csv((FIX / f).read_text(), f) == []
+        assert contracts.football_data_csv((FIX / f).read_text(encoding="utf-8"), f) == []
 
 
 @pytest.mark.parametrize("name", REAL)
@@ -86,3 +86,34 @@ def test_require_raises_typed_error():
     contracts.require([], "x")
     with pytest.raises(SourceFormatError, match="x: a; b"):
         contracts.require(["a", "b"], "x")
+
+
+@pytest.mark.parametrize(
+    "name,path",
+    [
+        ("bootstrap", ["elements", -1, "now_cost"]),
+        ("bootstrap", ["teams", -1, "name"]),
+        ("bootstrap", ["events", -1, "finished"]),
+        ("fixtures", [-1, "team_a"]),
+        ("live", ["elements", -1, "stats"]),
+        ("live", ["elements", -1, "stats", "minutes"]),
+    ],
+)
+def test_malformed_last_row_is_caught(name, path):
+    check, payload = REAL[name]
+    assert check(drop(payload, path)), (name, path)
+
+
+def test_unknown_team_references_are_caught():
+    boot = copy.deepcopy(fixture("bootstrap-static.json"))
+    boot["elements"][-1]["team"] = 999
+    assert contracts.fpl_bootstrap(boot)
+    fixtures = fixture("fixtures.json")
+    teams = {t["id"] for t in fixture("bootstrap-static.json")["teams"]}
+    assert contracts.fpl_fixtures(fixtures, teams) == []
+    assert contracts.fpl_fixtures(fixtures, teams - {fixtures[-1]["team_h"]})
+
+
+def test_empty_live_feed_only_valid_before_the_gameweek_finishes():
+    assert contracts.fpl_live({"elements": []}) == []
+    assert contracts.fpl_live({"elements": []}, finished=True)

@@ -2,7 +2,7 @@
 
 An FPL manager that plans your team every week from a simulation of how each player actually scores:
 minutes, team goals for and against, clean sheets, saves, defensive contributions, goals, assists,
-bonus and cards. It plans transfers and chips over a six-gameweek horizon, picks the XI and captain,
+bonus and cards. It plans transfers and chips over an eight-gameweek horizon (`plan --horizon`, default 8), picks the XI and captain,
 checks everything against safety rails, and reports what it would do.
 
 **It is in dry-run mode.** Out of the box nothing logs in to FPL and nothing touches your team. The
@@ -36,13 +36,14 @@ All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (de
 | Part | Command | Notes |
 |---|---|---|
 | Public FPL snapshot | `snapshot` | Stores bootstrap + fixtures under `data_cache/snapshots`. |
-| Build / update the database | `db-update --points --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | FPL, FotMob (15 competitions), Understat, football-data.co.uk. Quality checks run before anything is exported; exit code 2 = FPL failed (nothing written), 3 = data failed checks. |
+| Build / update the database | `db-update --points [--reload-gws 5,6] --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | FPL, FotMob (15 competitions), Understat, football-data.co.uk. Quality checks run before anything is exported; exit code 2 = FPL bootstrap, fixtures or player load failed (nothing written, nothing exported), 3 = data failed checks. |
 | Backfill history to 2017/18 | `backfill --start 2017` | Resumable; includes the vaastav FPL archive (official points since 2016/17). Re-run until it reports nothing left. |
 | Back-test the projections | `backtest --season 2025 --from-gw 10 --to-gw 30` | Point-in-time: models see only data before each deadline. Compares with "last 5 games" and FPL's own xP, per position. |
 | Replay a past season | `replay --season 2025` | Runs the real planner, chips and rails through every gameweek and scores the decisions on the official points (auto-subs, vice cover, hits, Free Hit revert). The scoreboard for tuning the planner. |
 | **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
 | Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
 | Lessons from a finished gameweek | `lessons --gw 0 --entry <id>` | Finds the week's mistakes on your real team (hand transfers, held moves that paid, captain, bench, goalkeeper, hits) and stores the lessons the next plan reads. |
+| **Local dashboard** | `dashboard --port 8765` | Opens on http://127.0.0.1:8765 only. Overview, team, recommendations, players, planning, activity, data health, and three dry-only actions (refresh, dry plan, review). See [docs/dashboard.md](docs/dashboard.md). |
 
 `plan` needs a database that has been through `db-update` for the upcoming gameweek. Your squad is
 read from FPL's public endpoints (no login): selling prices are rebuilt from your transfer history,

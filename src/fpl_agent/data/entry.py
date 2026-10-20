@@ -32,6 +32,9 @@ class SquadState:
     value: int = 0
     already_transferred: int = 0
     wildcard_active: bool = False  # a Wildcard is in force this week: changes are free
+    # the chip already played for the coming deadline (any of the four); a re-plan keeps it
+    # and never plays a second one
+    active_chip: str | None = None
     # the squad at the last deadline; FPL checks a Wildcard week's transfers against it
     base_squad: list[SquadPlayer] = field(default_factory=list)
     picks: list[dict[str, Any]] = field(default_factory=list)
@@ -72,11 +75,14 @@ def parse_squad(
     last_gw = next_gw - 1
     bought: dict[int, int] = {}
     already = 0
+    # a Free Hit squad is gone the week after: its transfers set no purchase price
+    free_hits = {c["event"] for c in history.get("chips", []) if c["name"] == "freehit"}
     for t in sorted(transfers, key=lambda t: t["time"]):
         if t["event"] >= next_gw:
             already += 1
             continue
-        bought[t["element_in"]] = t["element_in_cost"]
+        if t["event"] not in free_hits:
+            bought[t["element_in"]] = t["element_in_cost"]
     squad = []
     for p in picks["picks"]:
         e = els[p["element"]]

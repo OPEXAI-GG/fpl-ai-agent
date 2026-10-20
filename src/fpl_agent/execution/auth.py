@@ -17,6 +17,7 @@ import os
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 import httpx
 
@@ -25,6 +26,38 @@ SecretWriter = Callable[[str, str], None]
 
 class AuthError(Exception):
     pass
+
+
+def check_queued_token(client: httpx.Client, repository: str, run_id: str, token: str) -> None:
+    """Under the shared Actions auth lease, reject a run queued before token rotation.
+
+    Repository secrets are captured when queued. Serialization alone cannot make a queued
+    token fresh. Only metadata is read here, never secret contents; uncertainty blocks auth.
+    """
+    import re
+
+    if (
+        not re.fullmatch(r"[\w.-]+/[\w.-]+", repository)
+        or any(part in (".", "..") for part in repository.split("/"))
+        or not run_id.isdigit()
+        or not token
+    ):
+        raise AuthError("cannot verify queued token freshness: missing Actions identity")
+    base = f"https://api.github.com/repos/{repository}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    try:
+        run = client.get(f"{base}/actions/runs/{run_id}", headers=headers)
+        run.raise_for_status()
+        secret = client.get(f"{base}/actions/secrets/FPL_REFRESH_TOKEN", headers=headers)
+        secret.raise_for_status()
+        queued = datetime.fromisoformat(run.json()["created_at"].replace("Z", "+00:00"))
+        rotated = datetime.fromisoformat(secret.json()["updated_at"].replace("Z", "+00:00"))
+        if queued.tzinfo is None or rotated.tzinfo is None:
+            raise ValueError("timestamps need timezone")
+    except (httpx.HTTPError, KeyError, ValueError, TypeError, AttributeError) as exc:
+        raise AuthError("cannot verify queued token freshness: metadata unavailable") from exc
+    if rotated >= queued:
+        raise AuthError("FPL token changed after this run was queued; start a new run")
 
 
 def gh_secret_writer(repo: str | None = None) -> SecretWriter:
@@ -66,12 +99,14 @@ def _why(r: httpx.Response) -> str:
 class TokenExchange:
     def __init__(self, refresh_token: str, token_url: str, client_id: str,
                  write_back: SecretWriter, secret_name: str = "FPL_REFRESH_TOKEN",
-                 client: httpx.Client | None = None) -> None:  # fmt: skip
+                 client: httpx.Client | None = None,
+                 check_queue: bool = False) -> None:  # fmt: skip
         if not (refresh_token and token_url and client_id):
             raise AuthError("refresh token, token URL and client id are all required")
         self._rt, self._url, self._cid = refresh_token, token_url, client_id
         self._write, self._name = write_back, secret_name
         self._http = client or httpx.Client(timeout=30)
+        self._check_queue = check_queue
 
     @classmethod
     def from_env(cls, write_back: SecretWriter | None = None) -> TokenExchange:
@@ -81,9 +116,18 @@ class TokenExchange:
             env("FPL_TOKEN_URL", ""),
             env("FPL_CLIENT_ID", ""),
             write_back or gh_secret_writer(),
+            check_queue=env("FPL_AUTH_FRESHNESS_REQUIRED") == "true",
         )
 
     def exchange(self) -> Tokens:
+        if self._check_queue:
+            with httpx.Client(timeout=15) as metadata:
+                check_queued_token(
+                    metadata,
+                    os.environ.get("GITHUB_REPOSITORY", ""),
+                    os.environ.get("GITHUB_RUN_ID", ""),
+                    os.environ.get("GH_TOKEN", ""),
+                )
         why = ""
         try:
             r = self._http.post(self._url, data={

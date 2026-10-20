@@ -62,3 +62,19 @@ def test_an_unreadable_reply_keeps_the_old_squad():
     b = base()
     s, changed, note = overlay(b, {"picks": []}, raw(), RULES)
     assert s is b and not changed and "unreadable" in note
+
+
+def test_an_active_bench_boost_is_kept_on_an_unchanged_squad():
+    chips = [{"name": "bboost", "status_for_entry": "active", "played_by_entry": []}]
+    s, changed, note = overlay(base(), my(range(1, 16), chips=chips), raw(), RULES)
+    assert s.active_chip == "bboost" and not s.wildcard_active and not changed
+    assert ("bboost", 6) in s.chips_used and "kept" in note
+
+
+def test_an_active_free_hit_squad_is_kept_not_replanned():
+    chips = [{"name": "freehit", "status_for_entry": "played", "played_by_entry": [6]}]
+    s, changed, note = overlay(base(), my(range(16, 31), chips=chips), raw(), RULES)
+    assert s.active_chip == "freehit" and not s.wildcard_active
+    assert s.already_transferred == 15  # the Free Hit moves are made: no more this week
+    assert {p.player_id for p in s.base_squad} == set(range(1, 16))  # the squad it reverts to
+    assert "Free Hit is active" in note

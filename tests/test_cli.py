@@ -263,3 +263,22 @@ def test_lessons_store_the_latest_finished_gameweek(monkeypatch, tmp_path, capsy
     assert cli.main(["lessons", "--db", db, "--entry", "1", "--notify"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("GW7 lessons\n") and "by hand" in out and sent == [out.strip()]
+
+
+def test_a_failing_command_still_releases_the_database(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    from fpl_agent import review
+
+    def boom(*a, **k):
+        raise RuntimeError("review crashed")
+
+    monkeypatch.setattr(review, "prediction_review", boom)
+    path = tmp_path / "f.duckdb"
+    with pytest.raises(RuntimeError):
+        cli.main(["review", "--db", str(path), "--gw", "1"])
+    # another process can now open the file for writing (it would fail on a held lock)
+    code = subprocess.run([sys.executable, "-c", "import duckdb, sys; duckdb.connect(sys.argv[1])"
+                           ".close()", str(path)], capture_output=True).returncode  # fmt: skip
+    assert code == 0

@@ -150,3 +150,12 @@ def test_second_half_window_resets_chips():
 def test_no_chips_outside_any_window(gw):
     st = parse_squad(picks_for(legal_squad()), [], history(), BOOT, gw, RULES)
     assert "freehit" not in st.chips_available(RULES)
+
+
+def test_free_hit_purchases_do_not_set_the_reverted_squads_prices():
+    els = legal_squad()
+    e = els[3]
+    fh = [{"element_in": e["id"], "element_in_cost": 1, "event": 4, "time": "2026-09-01T10:00:00Z"}]
+    st = parse_squad(picks_for(els), fh, history(chips=[("freehit", 4)]), BOOT, 6, RULES)
+    sp = next(s for s in st.squad if s.player_id == e["id"])
+    assert sp.buy_price == e["now_cost"] - e.get("cost_change_start", 0)

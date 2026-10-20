@@ -2,6 +2,7 @@
 football database, all on recorded real responses (Championship and Premier League)."""
 
 import httpx
+import pandas as pd
 import pytest
 
 from fpl_agent import contracts
@@ -163,9 +164,11 @@ def test_defcon_proxies_are_computed():
         "SELECT player_id, stat, value FROM player_match_stats WHERE stat IN ('cbit','cbirt', "
         "'clearances','blocks','interceptions','tackles','recoveries')"
     )
-    wide = s.pivot(index="player_id", columns="stat", values="value").fillna(0)
-    assert ((wide.clearances + wide.blocks + wide.interceptions + wide.tackles) == wide.cbit).all()
-    assert (wide.cbirt >= wide.cbit).all()
+    wide = s.pivot(index="player_id", columns="stat", values="value")
+    expected = wide[["clearances", "blocks", "interceptions", "tackles"]].sum(axis=1, min_count=4)
+    pd.testing.assert_series_equal(wide.cbit, expected, check_names=False)
+    known = wide.dropna(subset=["cbit", "cbirt"])
+    assert (known.cbirt >= known.cbit).all()
     assert wide.cbit.max() > 3  # somebody defended
 
 
@@ -210,7 +213,7 @@ def test_players_link_to_existing_canonical_ids_when_unambiguous():
     db = FootballDB()
     raw = fixture("fotmob_match_premier.json")
     star = _full_name_starter(raw)
-    pid = db.player_id("fpl", 1, star["name"], "MID")
+    pid = db.player_id("fpl", 1, star["name"], "GKP")  # the recorded starter is a goalkeeper
     FotMobIngestor(db).load_match(raw, PL, 2026)
     row = db.con.execute(
         "SELECT player_id FROM player_ids WHERE source = 'fotmob' AND source_id = ?",
@@ -326,3 +329,46 @@ def test_club_aliases_between_sources():
 
     assert team_key("Sheffield Weds") == team_key("Sheffield Wednesday")
     assert team_key("Nott'm Forest") == team_key("Nottingham Forest")
+
+
+def test_missing_defensive_fields_remain_unknown_but_explicit_zeros_are_valid():
+    from fpl_agent.db.ingest_fotmob import _stat_rows
+
+    def values(stats):
+        return {r["stat"]: r["value"] for r in _stat_rows(1, 1, stats, "DEF", (0, 0), None)}
+
+    assert "cbit" not in values({"clearances": 2})
+    complete = {
+        "clearances": 0,
+        "shot_blocks": 0,
+        "interceptions": 0,
+        "matchstats.headers.tackles": 0,
+    }
+    assert values(complete)["cbit"] == 0
+    assert "cbirt" not in values(complete)
+    assert values({**complete, "recoveries": 3})["cbirt"] == 3
+
+
+def test_a_namesake_in_another_position_is_not_merged_and_says_why():
+    db = FootballDB()
+    raw = fixture("fotmob_match_premier.json")
+    star = _full_name_starter(raw)  # a goalkeeper
+    db.player_id("fpl", 1, star["name"], "FWD")  # same name, a forward: another person
+    FotMobIngestor(db).load_match(raw, PL, 2026)
+    assert db.query("SELECT count(*) n FROM players WHERE name = ?", [star["name"]]).n[0] == 2
+    why = db.query("SELECT detail FROM ingest_state WHERE source = 'link'").detail.tolist()
+    assert any("position GKP differs from FWD" in w for w in why)
+
+
+def test_two_source_ids_with_one_name_never_become_one_person():
+    db = FootballDB()
+    fpl = db.player_id("fpl", 1, "Danny Ward", "GKP")
+    ing = FotMobIngestor(db)
+    first = ing.player(501, "Danny Ward", "GKP")
+    second = ing.player(502, "Danny Ward", "GKP")  # a second FotMob Danny Ward
+    assert first == fpl and second != fpl
+    from fpl_agent.db.quality import run_checks
+
+    assert not [i for i in run_checks(db) if i.check == "player_link_collision"]
+    db.con.execute("INSERT INTO player_ids VALUES ('fotmob', '999', ?, 'Danny Ward')", [fpl])
+    assert [i for i in run_checks(db) if i.check == "player_link_collision"]

@@ -37,20 +37,30 @@ def _recency(season: pd.Series, current: int) -> np.ndarray:
 
 
 def position_priors(pm: pd.DataFrame, target: str = TARGET) -> dict[str, dict[str, float]]:
-    """Position averages measured on target-competition rows; defaults when there are none."""
+    """Position averages measured on target-competition rows; defaults when there are none.
+    `share` is a position's share of its team's xG, `xa_share` its share of the team's xA
+    (measured separately: assists are spread differently from goals); without xA data the
+    assist prior falls back to 0.8 x the goal share, as before."""
     share = dict(POS_SHARE_DEFAULT)
     cbit = dict(POS_CBIT_DEFAULT)
+    xa_share = {p: 0.8 * s for p, s in share.items()}
     d = pm[(pm["comp"] == target) & (pm["minutes"] > 0)]
     if len(d) > 200:
         d = d.assign(expo=d["team_xg"] * d["minutes"] / 90.0)
         for pos, g in d.groupby("position"):
-            if g["expo"].sum() > 20 and g["xg"].notna().any():
-                share[pos] = float(g["xg"].sum() / g["expo"].sum())
+            goal = g[g["xg"].notna() & g["expo"].notna()]
+            assist = g[g["xa"].notna() & g["expo"].notna()]
+            if goal["expo"].sum() > 20:
+                share[pos] = float(goal["xg"].sum() / goal["expo"].sum())
+                xa_share[pos] = 0.8 * share[pos]
+            if assist["expo"].sum() > 20:
+                xa_share[pos] = float(assist["xa"].sum() / assist["expo"].sum())
         for pos, g in d.groupby("position"):
             col = "cbit" if pos == "DEF" else "cbirt"
             if g[col].notna().sum() > 100:
-                cbit[pos] = float(g[col].sum() / g["minutes"].sum() * 90)
-    return {"share": share, "cbit": cbit}
+                known = g[g[col].notna()]
+                cbit[pos] = float(known[col].sum() / known["minutes"].sum() * 90)
+    return {"share": share, "cbit": cbit, "xa_share": xa_share}
 
 
 def nb_dispersion(
@@ -94,10 +104,12 @@ def fit_player_rates(
     d["fx_cbirt"] = [tr.factor(c, "cbirt") for c in d["comp"]]
     d["expo"] = d["team_xg"] * d["minutes"] / 90.0
     d["ew"] = d["w"] * d["expo"]
+    d["xa_ew"] = d["ew"].where(d["xa"].notna() & d["expo"].notna(), 0.0)
     d["xg_w"] = d["w"] * d["xg"].fillna(0) * d["fx_share"]
     d["xa_w"] = d["w"] * d["xa"].fillna(0) * d["fx_xa"]
     d["has_xg"] = d["xg"].notna() & d["expo"].notna()
-    d.loc[~d["has_xg"], ["ew", "xg_w", "xa_w"]] = 0.0
+    d.loc[~d["has_xg"], ["ew", "xg_w"]] = 0.0
+    d.loc[d["expo"].isna(), "xa_w"] = 0.0
     d["cb_w"] = d["w"] * np.where(d["player_id"].map(positions) == "DEF",
                                   d["cbit"].fillna(0) * d["fx_cbit"],
                                   d["cbirt"].fillna(0) * d["fx_cbirt"])  # fmt: skip
@@ -109,7 +121,8 @@ def fit_player_rates(
         )
     )
     agg = d.groupby("player_id").agg(
-        ew=("ew", "sum"), xg_w=("xg_w", "sum"), xa_w=("xa_w", "sum"), cb_w=("cb_w", "sum"),
+        ew=("ew", "sum"), xa_ew=("xa_ew", "sum"),
+        xg_w=("xg_w", "sum"), xa_w=("xa_w", "sum"), cb_w=("cb_w", "sum"),
         cb_min_w=("cb_min_w", "sum"), minutes=("minutes", "sum"),
         pl_minutes=("minutes", lambda s: s[d.loc[s.index, "comp"] == target].sum()),
         goals=("goals", "sum"), xg_raw=("xg", "sum"),
@@ -120,13 +133,14 @@ def fit_player_rates(
     for pid, pos in positions.items():
         a = agg.loc[pid] if pid in agg.index else None
         base_share = pri["share"].get(pos, 0.05)
+        base_xa = pri.get("xa_share", {}).get(pos, 0.8 * base_share)
         base_cb = pri["cbit"].get(pos, 5.0)
         if a is None or a["minutes"] <= 0:
-            xg_s = xa_s = base_share
+            xg_s, xa_s = base_share, base_xa
             finish, cb_mu, evid, src = 1.0, base_cb, 0.0, "prior"
         else:
             xg_s = (a["xg_w"] + EXPOSURE_PRIOR * base_share) / (a["ew"] + EXPOSURE_PRIOR)
-            xa_s = (a["xa_w"] + EXPOSURE_PRIOR * base_share * 0.8) / (a["ew"] + EXPOSURE_PRIOR)
+            xa_s = (a["xa_w"] + EXPOSURE_PRIOR * base_xa) / (a["xa_ew"] + EXPOSURE_PRIOR)
             finish = float(
                 np.clip((a["goals"] + FINISH_PRIOR_XG) / (a["xg_raw"] + FINISH_PRIOR_XG), 0.8, 1.3)
             )

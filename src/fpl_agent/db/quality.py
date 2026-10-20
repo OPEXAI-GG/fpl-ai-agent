@@ -71,6 +71,18 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
               f"SELECT count(*) FROM {table} t LEFT JOIN {parent} p ON t.{col} = p.{pcol} "
               f"WHERE t.{col} IS NOT NULL AND p.{pcol} IS NULL",
               f"{table}.{col} values with no {parent} row")  # fmt: skip
+    check("warn", "player_link_collision",
+          "SELECT count(*) FROM (SELECT 1 FROM player_ids GROUP BY player_id, source "
+          "HAVING count(*) > 1)",
+          "players with two ids from the same source linked to them (a possible merge of two "
+          "people; check the link)")  # fmt: skip
+    check("warn", "dgw_history_legacy",
+          "SELECT count(*) FROM (SELECT 1 FROM fpl_points_gw f WHERE f.explain <> '[]' AND "
+          "NOT EXISTS (SELECT 1 FROM ingest_state s WHERE s.source = 'fpl_points' AND "
+          "s.key = f.season || ':' || f.gw) GROUP BY season, gw, fpl_id "
+          "HAVING count(*) > 1 AND count(DISTINCT stats) = 1)",
+          "double-gameweek rows stored by older code with the GW totals copied to each fixture "
+          "(reload with db-update --points --reload-gws on a backed-up database)")  # fmt: skip
     check("error", "fpl_points_unlinked",
           "SELECT count(*) FROM fpl_points_gw WHERE player_id IS NULL",
           "official point rows not linked to a player")  # fmt: skip

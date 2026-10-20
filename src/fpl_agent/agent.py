@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fpl_agent import lessons, notify, review
+from fpl_agent import lessons, notify, review, runs
 from fpl_agent.config import Settings
 from fpl_agent.data import oddsapi, ownership
 from fpl_agent.data.calendar import hours_to_deadline, in_action_window, next_event
@@ -29,7 +29,7 @@ from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
 from fpl_agent.solver import rank_target, timing
-from fpl_agent.solver.decide import ROBUST_MIN_WIN, Decision, decide, rank_risk
+from fpl_agent.solver.decide import ROBUST_MIN_WIN, Decision, decide, lineup_only, rank_risk
 from fpl_agent.solver.inputs import to_canonical
 from fpl_agent.solver.planner import PlannerConfig
 
@@ -56,11 +56,43 @@ class RunResult:
     outcome: Outcome | None = None
     notes: list[str] = field(default_factory=list)
     report: str = ""
+    run_id: str | None = None
+    held: bool = False  # the moves wait for team news (the lineup is still set)
+    snapshot_at: datetime | None = None
+    projection_run: str | None = None
+    decision_at: datetime | None = None
+    delivered: bool | None = None  # None: nothing to send
+
+    @property
+    def live_blocked(self) -> bool:
+        """A live run that the rails stopped as a whole (stale data, illegal squad, ...)."""
+        o = self.outcome
+        return bool(o and o.mode == "live" and any(b.startswith("[global]") for b in o.blocked))
 
     @property
     def exit_code(self) -> int:
         failed_moves = bool(self.outcome and self.outcome.errors)
-        return 2 if self.status == "error" or failed_moves else 0
+        if self.status == "error" or failed_moves:
+            return 2
+        return 3 if self.live_blocked else 0
+
+    @property
+    def run_status(self) -> str:
+        """For the run record: ok | skipped | held | blocked | failed | error."""
+        if self.status != "ok":
+            return self.status
+        if self.outcome and self.outcome.errors:
+            return "failed"
+        if self.live_blocked:
+            return "blocked"
+        return "held" if self.held else "ok"
+
+    def reasons(self) -> list[str]:
+        o = self.outcome
+        out = [] if self.status == "ok" else list(self.notes)
+        if o:
+            out += o.errors + [b for b in o.blocked if b.startswith("[global]")]
+        return out
 
 
 def _names(db: FootballDB) -> dict[int, str]:
@@ -79,6 +111,8 @@ def format_report(res: RunResult, mode: str) -> str:
         lines += [f"{'DID' if o.mode == 'live' else 'dry-run'}: {x}" for x in o.done]
         lines += [f"blocked by rails: {x}" for x in o.blocked]
         lines += [f"error: {x}" for x in o.errors]
+        if o.unverified:
+            lines.append("not verifiable from FPL's reply: " + ", ".join(o.unverified))
     lines += [f"note: {n}" for n in res.notes]
     return "\n".join(lines)
 
@@ -94,25 +128,78 @@ def run_weekly(
     exchange=None,
     http=None,
 ) -> RunResult:
+    """One weekly run, recorded however it ends (see runs.py), its report written and sent.
+
+    The report goes out once per gameweek (and again until it was delivered), whenever a live
+    run changed the team, and once for each distinct failure or block of a live run (or any
+    failure of a hand-started run)."""
+    entry = opts.entry_id or settings.entry_id
+    rec = runs.RunRecord(opts.season, entry, settings.mode if settings.enabled else "off")
+    own_client = fpl is None
+    fpl = fpl or FPLClient()
+    try:
+        res = _run(db, settings, opts, rec, fpl, scout, odds, now, exchange, http)
+    except Exception as exc:  # noqa: BLE001 - a crash is still a recorded, reported run
+        log.exception("weekly run crashed")
+        res = RunResult("error", notes=[f"run crashed: {type(exc).__name__}: {exc}"])
+    finally:
+        if own_client and hasattr(fpl, "close"):
+            fpl.close()
+    res.run_id = rec.run_id
+    res.report = format_report(res, settings.mode)
+    if opts.out_dir:
+        write_outputs(opts.out_dir, res, settings.mode)
+    key, send = _delivery(db, opts, res, entry)
+    if send:
+        res.delivered = notify.send(res.report)
+    try:
+        runs.save(db, rec, gw=res.gw, status=res.run_status,
+                  state=runs.state_of(res.decision, res.outcome), exit_code=res.exit_code,
+                  reasons=res.reasons(), snapshot_at=res.snapshot_at,
+                  projection_run=res.projection_run, decision_at=res.decision_at,
+                  report_key=key if send else None, delivered=res.delivered)  # fmt: skip
+    except Exception:  # noqa: BLE001 - the record must never hide the run's own outcome
+        log.exception("run record not saved")
+    return res
+
+
+def _delivery(db: FootballDB, opts: RunOptions, res: RunResult, entry: int | None):
+    """(report key, send?) for this run's report."""
+    if not opts.notify or res.gw is None:
+        return None, False
+    o = res.outcome
+    seen = lambda key: runs.delivered_before(db, opts.season, res.gw, entry, key)  # noqa: E731
+    if o and o.mode == "live" and o.done:  # the team changed: always say so
+        return "plan", True
+    reasons = res.reasons()
+    if reasons and (res.live_blocked or (o and o.mode == "live" and o.errors) or opts.force):
+        key = "alert:" + runs.alert_key(reasons)
+        return key, not seen(key)
+    if res.decision is not None:  # the gameweek's plan, until it has been delivered once
+        return "plan", not seen("plan")
+    return None, False
+
+
+def _run(db, settings, opts, rec, fpl, scout, odds, now, exchange, http) -> RunResult:
     res = RunResult("ok")
     if not settings.enabled:
         res.status = "skipped"
-        res.notes.append("kill switch is on (AGENT_ENABLED=false)")
-        res.report = format_report(res, settings.mode)
+        res.notes.append("kill switch is on (AGENT_ENABLED is false or unreadable)")
         return res
     fpl = fpl or FPLClient()
+    rec.start("bootstrap")
     try:
-        bs = fpl.bootstrap()
         raw = fpl.bootstrap_raw()
+        bs = fpl.bootstrap(raw)
         ev = next_event(bs)
     except Exception as exc:  # noqa: BLE001
         res.status, res.notes = "error", [f"could not read FPL bootstrap: {type(exc).__name__}"]
-        res.report = format_report(res, settings.mode)
+        rec.end("bootstrap", "error")
         return res
+    rec.end("bootstrap")
     if ev is None:
         res.status = "skipped"
         res.notes.append("no upcoming gameweek")
-        res.report = format_report(res, settings.mode)
         return res
     res.gw = ev.id
     if not opts.force and not in_action_window(ev, now or datetime.now(UTC)):
@@ -120,24 +207,29 @@ def run_weekly(
         res.notes.append(
             f"deadline is {hours_to_deadline(ev, now):.0f}h away, outside the action window"
         )
-        res.report = format_report(res, settings.mode)
         return res
 
     rules = Rules.nearest(opts.season)
     entry = opts.entry_id or settings.entry_id
     if entry is None:
         res.status, res.notes = "error", ["FPL_ENTRY_ID is not set: cannot read your squad"]
-        res.report = format_report(res, settings.mode)
         return res
+    rec.start("squad")
     try:
-        picks = fpl.entry_picks_raw(entry, ev.id - 1) if ev.id > 1 else {"picks": []}
         transfers = fpl.entry_transfers_raw(entry)
         history = fpl.entry_history_raw(entry)
+        # after a Free Hit the squad reverts to the one from the week before it
+        last = ev.id - 1
+        if last > 1 and any(c["name"] == "freehit" and c["event"] == last
+                            for c in history.get("chips", [])):  # fmt: skip
+            last -= 1
+        picks = fpl.entry_picks_raw(entry, last) if ev.id > 1 else {"picks": []}
         state = parse_squad(picks, transfers, history, raw, ev.id, rules)
     except Exception as exc:  # noqa: BLE001
         res.status, res.notes = "error", [f"could not read your squad: {type(exc).__name__}"]
-        res.report = format_report(res, settings.mode)
+        rec.end("squad", "error")
         return res
+    rec.end("squad")
 
     tokens, live_changed, live_ok = None, False, True
     if settings.is_live:  # plan from the team FPL has now, not the last deadline's
@@ -147,18 +239,26 @@ def run_weekly(
         res.notes.append(note)
 
     pool = project.current_pool(db, opts.season, ev.id)
+    res.snapshot_at = db.con.execute(
+        "SELECT max(snapshot_at) FROM fpl_players_gw WHERE season = ? AND gw = ?",
+        [opts.season, ev.id],
+    ).fetchone()[0]  # when the FPL data the plan uses was fetched
+    at = now or datetime.now(UTC)
+    age = None if res.snapshot_at is None else (
+        at.replace(tzinfo=None) - res.snapshot_at).total_seconds() / 3600  # fmt: skip
+    if age is not None and age > settings.max_snapshot_hours:
+        res.notes.append(f"FPL data is {age:.1f}h old (live runs need under "
+                         f"{settings.max_snapshot_hours:g}h): run db-update")  # fmt: skip
     if pool.empty:
         res.status, res.notes = (
             "error",
             [f"database has no player snapshot for GW{ev.id}: run db-update"],
         )
-        res.report = format_report(res, settings.mode)
         return res
     try:
         state = to_canonical(state, pool)
     except ValueError as exc:
         res.status, res.notes = "error", [str(exc)]
-        res.report = format_report(res, settings.mode)
         return res
 
     hand: list[int] = []
@@ -182,28 +282,50 @@ def run_weekly(
     else:
         res.notes.append("odds skipped: no ODDS_API_KEY")
     scout = scout or Scout()
-    if scout.enabled:
-        pool, adj = scout.run(pool)
-        res.notes.append(f"scout adjusted {len(adj)} players")
-    else:
-        res.notes.append("scout skipped: no ANTHROPIC_API_KEY")
+    ctx = {"season": opts.season, "gw": ev.id, "date": f"{at:%Y-%m-%d}",
+           "first_kickoff": None if ev.deadline_time is None
+           else f"{ev.deadline_time:%Y-%m-%d %H:%M} UTC (deadline)"}  # fmt: skip
+    pool, adj = scout.run(pool, db=db, ctx=ctx, squad={p.player_id for p in state.squad})
+    report = getattr(scout, "last_report", None)
+    res.notes.append(report.note() if report else f"scout adjusted {len(adj)} players")
+    from fpl_agent.news import evidence_notes
+
+    squad_ids = {p.player_id for p in state.squad}
+    squad_names = db.con.execute(
+        "SELECT name FROM players WHERE player_id IN (SELECT unnest(?))", [list(squad_ids)]
+    ).fetchall()
+    res.notes.extend(evidence_notes(db, [r[0] for r in squad_names], at))
 
     pressure = timing.price_pressure(raw)
     own, eo, own_note = _ownership(db, fpl, opts.season, ev.id, pool)
     res.notes.append(own_note)
 
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
+    stage = "model"
+    rec.start(stage)
     try:
         proj = project.build_projection(db, opts.season, gws, rules=rules, pool=pool,
-                                        cfg=SimConfig(n=opts.samples), pool_gw=ev.id)  # fmt: skip
+                                        cfg=SimConfig(n=opts.samples), pool_gw=ev.id,
+                                        cutoff=at.replace(tzinfo=None))  # fmt: skip
+        # the raw model output is what is stored and reviewed, so the calibration learned from
+        # the reviews never feeds back into its own inputs; the scaled values drive the decision
+        project.save_projection(db, proj)
+        res.projection_run = proj.run_id
+        if "rate_source" in proj.meta:
+            prior = int(proj.meta["rate_source"].eq("prior").sum())
+            res.notes.append(
+                f"player-rate coverage: {prior}/{len(proj.meta)} players use position priors "
+                "(no usable detailed appearance history); treat these forecasts cautiously"
+                if prior
+                else "player-rate coverage: all projected players have detailed history"
+            )
         fac = calibration.factors(db, opts.season, ev.id)
         if fac:
             calibration.apply(proj, fac)
             res.notes.append(
-                "learning: position calibration "
+                "learning: position calibration (decision only; stored projections are raw) "
                 + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
             )
-        project.save_projection(db, proj)
         # the memory: lessons from the gameweeks already reviewed, read before deciding. The
         # template correction comes after saving, so the reviews keep learning it from the
         # uncorrected projections.
@@ -214,6 +336,9 @@ def run_weekly(
         if target:
             res.notes.append(target.note())
         cfg = mem.planner(PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0))
+        rec.end(stage)
+        stage = "decision"
+        rec.start(stage)
         d = decide(state, proj, rules, names=_names(db), cfg=cfg,
                    use_chips=opts.use_chips and not live_changed,
                    ownership=own, eo=eo, chasing=target,
@@ -224,20 +349,21 @@ def run_weekly(
             "error",
             [*res.notes, f"model run failed: {type(exc).__name__}: {exc}"],
         )
-        res.report = format_report(res, settings.mode)
+        rec.end(stage, "error")
         return res
+    rec.end(stage)
     res.decision = d
-    first_time = not db.con.execute(
-        "SELECT count(*) FROM decisions WHERE season = ? AND gw = ?", [opts.season, d.gw]
-    ).fetchone()[0]  # a later run in the same window re-plans but does not re-notify
     review.save_decision(db, opts.season, d, settings.mode)
+    res.decision_at = db.con.execute(
+        "SELECT max(created_at) FROM decisions WHERE season = ? AND gw = ?", [opts.season, d.gw]
+    ).fetchone()[0]
 
     mean = dict(zip(proj.meta["player_id"], proj.mean()[:, 0], strict=True))
     recent = {r["event"]: r.get("event_transfers_cost", 0) // 4 for r in history.get("current", [])}
     ctx = safety.Context(
         settings, state, pool[["player_id", "team_id", "position", "status", "chance"]], mean,
         bootstrap_next_gw=ev.id, recent_hits=recent,
-        projected_share=len(proj.meta) / max(len(pool), 1),
+        projected_share=len(proj.meta) / max(len(pool), 1), snapshot_age_hours=age,
     )  # fmt: skip
     fpl_id = dict(zip(pool["player_id"].astype(int), pool["fpl_id"].astype(int), strict=True))
     price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
@@ -251,14 +377,16 @@ def run_weekly(
         )  # fmt: skip
         if why:
             res.notes.append(why)
+    res.held = hold
+    rec.start("execute")
     if not live_ok:  # never send moves built on the last deadline's squad
         res.outcome = Outcome("live", errors=["your current FPL team could not be read: "
                                               "nothing was sent"])  # fmt: skip
-    elif hold:
-        res.outcome = Outcome("live" if settings.is_live else "dry")
     else:
+        # held moves wait for team news, but the squad already owned still gets its best XI
+        # and captain now, so a missed later run cannot leave last week's lineup in place
         res.outcome = execute(
-            d,
+            lineup_only(d, state, proj) if hold else d,
             ctx,
             rules,
             fpl_id,
@@ -267,18 +395,17 @@ def run_weekly(
             exchange=(lambda: Signed(tokens)) if tokens else exchange,
             http=http,
         )
+    if hold:
+        res.notes.append("held run: lineup and captain set for the squad you own; "
+                         "transfers wait for the later run")  # fmt: skip
     o = res.outcome
-    # the squad FPL now holds is the bot's (after hand changes it stays yours all gameweek)
-    if o and o.mode == "live" and o.ok and not o.blocked and not hand:
+    rec.end("execute", "error" if o and o.errors else "ok")
+    # the squad FPL now holds is the bot's (after hand changes it stays yours all gameweek).
+    # Only a run whose moves were read back from FPL and matched counts: a held, blocked,
+    # failed or unverified run never does.
+    if (o and o.mode == "live" and o.ok and o.verified is True and not o.blocked and not hand
+            and not hold):  # fmt: skip
         review.save_decision(db, opts.season, d, DONE)
-    res.report = format_report(res, settings.mode)
-    if opts.out_dir:
-        write_outputs(opts.out_dir, res, settings.mode)
-    o = res.outcome
-    moved = bool(o and o.mode == "live" and o.done)
-    failed = bool(o and o.errors and opts.force)  # a hand-started run reports its failure
-    if opts.notify and (first_time or moved or failed):
-        notify.send(res.report)
     return res
 
 
@@ -333,13 +460,19 @@ def _ownership(db, fpl, season: int, gw: int, pool):
 
 
 def write_outputs(out: Path, res: RunResult, mode: str) -> None:
+    """gw<N>.md/.json for a run that planned; a run that stopped earlier writes
+    run-<status>.md instead, so it never replaces the gameweek's plan for the bot."""
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"gw{res.gw}.md").write_text(res.report + "\n")
+    if not res.decision:
+        (out / f"run-{res.status}.md").write_text(res.report + "\n", encoding="utf-8")
+        return
+    (out / f"gw{res.gw}.md").write_text(res.report + "\n", encoding="utf-8")
     if res.decision:
         (out / f"gw{res.gw}.json").write_text(json.dumps({
             "mode": mode, "decision": review.decision_payload(res.decision),
             "outcome": res.outcome.__dict__ if res.outcome else None,
-            "chips": res.decision.chip_report}, indent=2, default=str))  # fmt: skip
+            "chips": res.decision.chip_report, "run_id": res.run_id}, indent=2,
+            default=str), encoding="utf-8")  # fmt: skip
 
 
 __all__ = ["RunOptions", "RunResult", "run_weekly", "format_report", "write_outputs"]

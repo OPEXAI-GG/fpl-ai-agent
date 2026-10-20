@@ -1,0 +1,65 @@
+- generic [ref=f1e1]:
+  - link "Skip to content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f1e3]:
+    - complementary [ref=f1e4]:
+      - link "Matchroom overview" [ref=f1e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=f1e6]:
+          - text: M
+          - generic [ref=f1e7]: ↗
+        - generic [ref=f1e8]:
+          - text: MATCHROOM
+          - generic [ref=f1e9]: FPL AGENT / LOCAL
+      - navigation "Sections" [ref=f1e11]:
+        - link "Overview" [ref=f1e12] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=f1e13]: ◫
+          - text: Overview
+        - link "My Team" [ref=f1e14] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=f1e15]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=f1e16] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=f1e17]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=f1e18] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=f1e19]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=f1e20] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=f1e21]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=f1e22] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=f1e23]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=f1e24] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=f1e25]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=f1e26] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=f1e27]: ♡
+          - text: Data Health
+    - generic [ref=f1e32]:
+      - banner [ref=f1e33]:
+        - generic [ref=f1e34]: WORKSPACE / AI Decisions
+        - generic [ref=f1e35]: LOCAL CONNECTION
+      - main [active] [ref=f1e39]:
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]:
+            - generic [ref=f1e42]: FANTASY PREMIER LEAGUE
+            - heading "AI Decisions" [level=1] [ref=f1e579]
+            - paragraph [ref=f1e44]: The agent's stored decisions, projections and risk warnings.
+          - link "Open operations" [ref=f1e45] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=f1e46]: ↗
+        - status [ref=f1e47]: data read 10/21/2026, 12:18:44 AM
+        - generic [ref=f1e445]:
+          - text: FPL AGENT
+          - generic [ref=f1e446]: Independent analysis. Informed decisions.
+          - generic [ref=f1e447]: 127.0.0.1 · LOCAL WORKSPACE

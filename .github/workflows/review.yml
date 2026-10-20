@@ -26,6 +26,7 @@ jobs:
         run: scripts/data_restore.sh data_cache/export
       - name: Review the latest finished gameweek
         run: |
+          set -o pipefail   # a failed review must fail the step, not hide behind tee
           uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
             --football-data E0 --points
           uv run fpl-agent review --db data_cache/football.duckdb --gw 0 \

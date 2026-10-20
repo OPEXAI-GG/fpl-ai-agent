@@ -28,6 +28,7 @@ def _json(name: str) -> str:
 
 def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFrame:
     """One row per player per fixture: minutes, event counts, official points, price, status.
+    Blank-gameweek placeholders (fixture 0) are not matches and are left out.
 
     Sorted chronologically per player. Squad snapshots supply team, position and price; for the
     current season several snapshots exist per gameweek and the last one is used.
@@ -43,6 +44,7 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFra
             QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY season, gw, fpl_id)
         ) s ON s.season = f.season AND s.gw = f.gw AND s.fpl_id = f.fpl_id
         WHERE f.player_id IS NOT NULL
+          AND f.fixture_id <> 0 AND f.minutes IS NOT NULL  -- blank-GW placeholder, unknown split
     """
     params: list = []
     if min_season is not None:

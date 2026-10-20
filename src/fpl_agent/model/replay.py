@@ -168,9 +168,12 @@ def _first_squad(proj: project.Projection, cfg: PlannerConfig) -> WeekPlan:
 def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                   cfg: ReplayConfig | None = None, rules: Rules | None = None,
                   progress=None, start: SquadState | None = None,
-                  pool_fn=None) -> ReplayResult:  # fmt: skip
+                  pool_fn=None, cutoff_fn=None) -> ReplayResult:  # fmt: skip
     """`start` begins from a real squad (canonical player ids) instead of a free first pick, and
-    `pool_fn(db, season, gw)` replaces the default pool (every player available)."""
+    `pool_fn(db, season, gw)` replaces the default pool (every player available).
+    `cutoff_fn(gw)` gives the exact decision time when known; otherwise each week is cut 90
+    minutes before its first kickoff (FPL's usual deadline; historical deadlines are not
+    stored), and no data, odds or translation fit from after the cut is used."""
     cfg = cfg or ReplayConfig()
     rules = rules or Rules.nearest(season)
     last = int(db.con.execute(
@@ -193,7 +196,8 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         if not hz or hz[0] != gw:
             continue
         fx = project.fixtures_for(db, season, [gw])
-        as_of = pd.Timestamp(fx["kickoff"].min()).date()
+        cutoff = cutoff_fn(gw) if cutoff_fn else project.approx_deadline(fx["kickoff"].min())
+        as_of = cutoff.date()
         history = frame[
             (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
         ]
@@ -204,6 +208,7 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         proj = project.build_projection(
             db, season, hz, as_of=as_of, cfg=sim, rules=rules, minutes_model=model,
             ratings=strength.fit_ratings(matches, as_of), pool=pool, frame=frame, pm=pm,
+            cutoff=cutoff,
         )  # fmt: skip
         price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
         team = dict(zip(pool["player_id"].astype(int), pool["team_id"].astype(int), strict=True))

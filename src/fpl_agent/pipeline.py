@@ -44,6 +44,7 @@ class UpdateOptions:
     fotmob: tuple[str, ...] = ()  # competition ids, e.g. ("ENG1", "ENG2"); () = skip FotMob
     fotmob_matches: int = 60  # match pages per competition per run (the rest wait for next run)
     understat_leagues: tuple[str, ...] = ("EPL",)
+    reload_gws: tuple[int, ...] = ()  # finished GWs to reload even if already stored (repair)
 
 
 @dataclass
@@ -75,9 +76,10 @@ def run_update(
     fm = fm or FotMobClient()
     report = HealthReport()
     season = opts.season
-    fixed = repair(db)
 
-    # 1. FPL bootstrap is critical: without it there is nothing to decide on.
+    # 1. FPL bootstrap and fixtures are critical: without them there is nothing to decide on.
+    # Both are fetched and checked row by row before anything is written (repairs included), so
+    # a failed refresh leaves the database exactly as it was and exits non-zero.
     def pull_bootstrap():
         raw = fpl.bootstrap_raw()
         contracts.require(contracts.fpl_bootstrap(raw), "fpl bootstrap")
@@ -86,41 +88,35 @@ def run_update(
     raw = guard(report, "fpl:bootstrap", pull_bootstrap, critical=True)
     if raw is None:
         return _finish(db, report, [], CRITICAL_SOURCE_FAILED, opts, alert)
+
+    def pull_fixtures():
+        fixtures = fpl.fixtures_raw()
+        team_ids = {t["id"] for t in raw["teams"]}
+        contracts.require(contracts.fpl_fixtures(fixtures, team_ids), "fpl fixtures")
+        return fixtures
+
+    fixtures = guard(report, "fpl:fixtures", pull_fixtures, critical=True)
+    if fixtures is None:
+        return _finish(db, report, [], CRITICAL_SOURCE_FAILED, opts, alert)
     nxt = next_event(Bootstrap.model_validate(raw))
     gw = nxt.id if nxt else 38
+    fixed = repair(db)
 
-    def load_bootstrap():
-        with db.transaction():
-            return ingest_fpl.load_bootstrap(db, raw, season, gw)
+    def load_fpl():
+        with db.transaction():  # players and fixtures together, or neither
+            n = ingest_fpl.load_bootstrap(db, raw, season, gw)
+            ingest_fpl.load_fixtures(db, fixtures, raw, season)
+            return n
 
-    guard(report, "fpl:players", load_bootstrap, critical=True)
-
-    def load_fixtures():
-        fixtures = fpl.fixtures_raw()
-        contracts.require(contracts.fpl_fixtures(fixtures), "fpl fixtures")
-        with db.transaction():
-            return ingest_fpl.load_fixtures(db, fixtures, raw, season)
-
-    guard(report, "fpl:fixtures", load_fixtures)
+    if guard(report, "fpl:players", load_fpl, critical=True) is None:
+        return _finish(db, report, fixed, CRITICAL_SOURCE_FAILED, opts, alert)
 
     if opts.points:
-        have = {
-            r[0]
-            for r in db.con.execute(
-                "SELECT DISTINCT gw FROM fpl_points_gw WHERE season = ?", [season]
-            ).fetchall()
-        }
         for ev in raw["events"]:
-            if not ev["finished"] or ev["id"] in have:
-                continue
-
-            def load_points(gw_id=ev["id"]):
-                live = fpl.live_raw(gw_id)
-                contracts.require(contracts.fpl_live(live), f"fpl live gw{gw_id}")
-                with db.transaction():
-                    return ingest_fpl.load_live(db, live, season, gw_id)
-
-            guard(report, f"fpl:points gw{ev['id']}", load_points)
+            due = ev["id"] in opts.reload_gws or _points_due(db, season, ev["id"])
+            if ev["finished"] and due:
+                guard(report, f"fpl:points gw{ev['id']}",
+                      lambda e=ev: load_points(db, fpl, season, e))  # fmt: skip
 
     # 2. Understat: xG and shots.
     league = None
@@ -182,6 +178,43 @@ def run_update(
     issues = fixed + quarantine(db) + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, opts, alert)
+
+
+def _points_due(db: FootballDB, season: int, gw: int) -> bool:
+    """A finished gameweek is (re)loaded until it has been stored once FPL marked its data
+    checked (bonus and corrections final). Gameweeks stored by older code, without that mark,
+    are left alone: reloading them is a separate repair (`--reload-gws`)."""
+    if not db.con.execute(
+        "SELECT 1 FROM fpl_points_gw WHERE season = ? AND gw = ? LIMIT 1", [season, gw]
+    ).fetchone():
+        return True
+    mark = db.con.execute(
+        "SELECT status FROM ingest_state WHERE source = 'fpl_points' AND key = ?",
+        [f"{season}:{gw}"],
+    ).fetchone()
+    return mark is not None and mark[0] != "final"
+
+
+def load_points(db: FootballDB, fpl: FPLClient, season: int, ev: dict) -> int:
+    gw = ev["id"]
+    live = fpl.live_raw(gw)
+    contracts.require(contracts.fpl_live(live, finished=True), f"fpl live gw{gw}")
+    stored = db.con.execute(
+        "SELECT count(DISTINCT fpl_id) FROM fpl_points_gw WHERE season = ? AND gw = ?",
+        [season, gw],
+    ).fetchone()[0]
+    if len(live["elements"]) < stored:  # a truncated feed must not replace good history
+        raise SourceFormatError(
+            f"fpl live gw{gw}: {len(live['elements'])} players, {stored} already stored"
+        )
+    final = "final" if ev.get("data_checked") else "provisional"
+    with db.transaction():
+        n = ingest_fpl.load_live(db, live, season, gw)
+        db.con.execute(
+            "INSERT OR REPLACE INTO ingest_state VALUES ('fpl_points', ?, ?, ?, ?)",
+            [f"{season}:{gw}", final, f"{n} rows", ingest_fotmob.now()],
+        )
+    return n
 
 
 def understat_league(db: FootballDB, us: UnderstatClient, code: str, season: int):

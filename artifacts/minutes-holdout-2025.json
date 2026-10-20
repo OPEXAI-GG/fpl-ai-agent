@@ -1,0 +1,57 @@
+{
+  "study_db": "data_cache\\calibration-study-20261020.duckdb",
+  "training_season": 2024,
+  "holdout_season": 2025,
+  "train_rows": 27605,
+  "test_rows": 29747,
+  "method": "Historical archive, season-forward holdout; reconstructed snapshots at kickoff, NOT exact predeadline injury information. Evaluation only: no tuning or production promotion.",
+  "positions": {
+    "ALL": {
+      "n": 29747,
+      "brier_model": 0.07825741435544177,
+      "brier_baseline": 0.10358175245032684,
+      "logloss_model": 0.2533199314910081,
+      "logloss_baseline": 0.35081006214142524,
+      "predicted_start_rate": 0.280203201603466,
+      "actual_start_rate": 0.28103674320099503
+    },
+    "DEF": {
+      "n": 9733,
+      "brier_model": 0.08869310921223843,
+      "brier_baseline": 0.11793758522167253,
+      "logloss_model": 0.28723091379963483,
+      "logloss_baseline": 0.39746533780370696,
+      "predicted_start_rate": 0.3249685716443953,
+      "actual_start_rate": 0.3275454638857495
+    },
+    "FWD": {
+      "n": 3278,
+      "brier_model": 0.07771099870767519,
+      "brier_baseline": 0.09951323536362962,
+      "logloss_model": 0.24765172565722765,
+      "logloss_baseline": 0.33826866763577396,
+      "predicted_start_rate": 0.25016576744058105,
+      "actual_start_rate": 0.25381330079316655
+    },
+    "GKP": {
+      "n": 3427,
+      "brier_model": 0.03171772789465976,
+      "brier_baseline": 0.04593219486500289,
+      "logloss_model": 0.12778522652608293,
+      "logloss_baseline": 0.17123086479471783,
+      "predicted_start_rate": 0.22111120308991233,
+      "actual_start_rate": 0.22176831047563467
+    },
+    "MID": {
+      "n": 13309,
+      "brier_model": 0.08274400523028416,
+      "brier_baseline": 0.10892973595709607,
+      "logloss_model": 0.26224112931414023,
+      "logloss_baseline": 0.366020280976477,
+      "predicted_start_rate": 0.27007994978015243,
+      "actual_start_rate": 0.26899090840784434
+    }
+  },
+  "study_db_sha256": "a4172d4fd425da019d6ca13eea8e2c2aa0c32f640d9a5feb5770810c2cbf200d",
+  "study_db_bytes": 22818816
+}

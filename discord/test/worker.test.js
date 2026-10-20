@@ -178,3 +178,24 @@ test("long answers are split into follow-up messages", async () => {
   assert.ok(sent.every((c) => c.body.content.length <= 1900));
   assert.deepEqual(chunks("y".repeat(4000), 1900).map((p) => p.length), [1900, 1900, 200]);
 });
+
+// ---- the /ask context: compact, dated, facts kept ----
+test("the /ask context is at least 30% smaller and keeps the plan's facts", async () => {
+  const { planContext } = await import("../src/worker.js");
+  const { readFileSync } = await import("node:fs");
+  const md = readFileSync(new URL("./fixtures/plan.md", import.meta.url), "utf8").trim();
+  const json = readFileSync(new URL("./fixtures/plan.json", import.meta.url), "utf8").trim();
+  const before = `Latest plan report:\n${md}\n\nLatest plan data (JSON):\n${json}`;
+  const after = planContext({ md, json, updatedAt: "2026-10-20T12:00:00Z" }, Date.parse("2026-10-20T15:00:00Z"));
+  const saved = 1 - Buffer.byteLength(after) / Buffer.byteLength(before);
+  assert.ok(saved >= 0.3, `only ${(saved * 100).toFixed(0)}% smaller`);
+  assert.ok(after.includes(md), "the full report (every name, transfer and captain) is kept");
+  assert.ok(after.includes('"chip":"wildcard"') && after.includes('"mode":"dry"'));
+  assert.ok(after.includes("3.0 hours before this question"));
+});
+
+test("the /ask context says plainly when there is no plan or no publish time", async () => {
+  const { planContext } = await import("../src/worker.js");
+  assert.equal(planContext({}), "No plan has been published yet.");
+  assert.ok(planContext({ md: "x", json: "not json" }).includes("Data age: unknown"));
+});

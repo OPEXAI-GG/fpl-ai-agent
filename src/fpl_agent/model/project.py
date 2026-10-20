@@ -82,11 +82,13 @@ def current_pool(
 
 # Set-piece duty from FPL's own `penalties_order` / `corners_and_indirect_freekicks_order`.
 # A team wins about 0.13 penalties a match, ~78% scored: ~0.10 goals, about 7% of its goals.
-# The fitted xG share already holds the penalties a player took before, so the first-choice
-# taker gets half of that share on top (a first estimate until the backtest tunes it), and the
-# first-choice corner taker a small assist share.
+# The fitted xG share already holds the penalties a player took before (the sources' xG
+# includes penalty xG), so adding a penalty share on top counts an established taker's
+# penalties twice. Until the model separates non-penalty xG (npxG is stored by Understat and
+# FotMob) and a backtest validates a credit, the extra credit is off (PENALTY_CREDIT = 0); the
+# first-choice corner taker keeps a small assist share.
 PENALTY_SHARE = 0.07
-PENALTY_CREDIT = 0.5
+PENALTY_CREDIT = 0.0
 CORNER_ASSIST_SHARE = 0.01
 
 
@@ -107,7 +109,7 @@ def apply_set_piece_duty(rates: pd.DataFrame, pool: pd.DataFrame) -> pd.DataFram
     for r in pool.itertuples():
         if r.player_id not in out.index:
             continue
-        if _order(r.raw, "penalties_order") == 1:
+        if PENALTY_CREDIT and _order(r.raw, "penalties_order") == 1:
             out.loc[r.player_id, "xg_share"] += PENALTY_SHARE * PENALTY_CREDIT
         if _order(r.raw, "corners_and_indirect_freekicks_order") == 1:
             out.loc[r.player_id, "xa_share"] += CORNER_ASSIST_SHARE
@@ -126,13 +128,38 @@ def fixtures_for(
     )
 
 
-def market_lambdas(db: FootballDB, match_id: int) -> tuple[float, float] | None:
-    """Goal rates implied by the most recent 1X2 (and totals) price we hold for a match."""
-    row = db.con.execute(
-        "SELECT home, draw, away, over25, under25 FROM match_odds WHERE match_id = ? AND home > 1 "
-        "AND draw > 1 AND away > 1 ORDER BY closing DESC, ingested_at DESC LIMIT 1",
-        [match_id],
-    ).fetchone()
+def market_lambdas(db: FootballDB, match_id: int, cutoff: datetime | None = None,
+                   known_at: bool = False) -> tuple[float, float] | None:  # fmt: skip
+    """Goal rates implied by a 1X2 (and totals) price for a match.
+
+    Without `cutoff`, the most recent price held (closing preferred). With a decision
+    `cutoff`, closing prices are never used. The newest price observed by the cutoff comes
+    from the append-only log; failing that, `known_at=False` (a backtest's event-time
+    reconstruction) may use a stored pre-match price whose observation time is unknown, while
+    `known_at=True` uses nothing."""
+    ok = "home > 1 AND draw > 1 AND away > 1"
+    if cutoff is None:
+        sql, params = (f"SELECT home, draw, away, over25, under25 FROM match_odds WHERE "
+                       f"match_id = ? AND {ok} ORDER BY closing DESC, ingested_at DESC LIMIT 1",
+                       [match_id])  # fmt: skip
+    else:
+        row = db.con.execute(
+            f"SELECT home, draw, away, over25, under25 FROM match_odds_log WHERE match_id = ? "
+            f"AND NOT closing AND ingested_at <= ? AND {ok} ORDER BY ingested_at DESC LIMIT 1",
+            [match_id, cutoff],
+        ).fetchone()
+        logged = db.con.execute(
+            "SELECT 1 FROM match_odds_log WHERE match_id = ? LIMIT 1", [match_id]
+        ).fetchone()
+        if row or known_at or logged:  # a logged match is judged by its log alone
+            return _implied(row)
+        sql, params = (f"SELECT home, draw, away, over25, under25 FROM match_odds WHERE "
+                       f"match_id = ? AND NOT closing AND {ok} ORDER BY ingested_at DESC LIMIT 1",
+                       [match_id])  # fmt: skip
+    return _implied(db.con.execute(sql, params).fetchone())
+
+
+def _implied(row) -> tuple[float, float] | None:
     if not row:
         return None
     try:
@@ -174,6 +201,18 @@ def fit_bps_noise(frame: pd.DataFrame, rules: Rules, save_bps: float = 2.0) -> B
     return BpsNoise({**base.mu90, **mu}, {**base.sd90, **sd})
 
 
+# FPL's deadline is normally 90 minutes before a gameweek's first kickoff. Historical deadlines
+# are not stored, so backtests and replays cut there: an approximation, reported as such.
+DEADLINE_LEAD_MIN = 90
+
+
+def approx_deadline(first_kickoff) -> datetime:
+    """Naive-UTC decision cutoff for a past gameweek from its first kickoff."""
+    from datetime import timedelta
+
+    return pd.Timestamp(first_kickoff).to_pydatetime() - timedelta(minutes=DEADLINE_LEAD_MIN)
+
+
 # ---- the pipeline ----------------------------------------------------------------------------
 def build_projection(
     db: FootballDB,
@@ -189,16 +228,25 @@ def build_projection(
     pm: pd.DataFrame | None = None,
     odds_weight: float = 0.5,
     pool_gw: int | None = None,
+    cutoff: datetime | None = None,
+    known_at_odds: bool = False,
 ) -> Projection:
+    """Projections for `gws`. `cutoff` is the decision time (naive UTC): history, matches,
+    player snapshot, odds and league translations are limited to what existed by then, so
+    nothing after it can change the result; closing odds are never used with a cutoff.
+    `as_of` (a date) defaults to the cutoff's date, else today."""
     cfg = cfg or SimConfig()
     rules = rules or Rules.nearest(season)
     first = gws[0]
-    as_of = as_of or date.today()
+    as_of = as_of or (cutoff.date() if cutoff else date.today())
     frame = frame if frame is not None else features.player_gw_frame(db)
     history = frame[
         (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
     ]
-    pool = pool if pool is not None else current_pool(db, season, pool_gw or first)
+    if cutoff is not None and "kickoff" in history:
+        history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
+    pool = (pool if pool is not None
+            else current_pool(db, season, pool_gw or first, as_of=cutoff))  # fmt: skip
     fx = fixtures_for(db, season, gws)
     pool = pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))].reset_index(drop=True)
 
@@ -211,19 +259,26 @@ def build_projection(
     pm = pm[pm["date"] < pd.Timestamp(as_of)]
     positions = dict(zip(pool["player_id"], pool["position"], strict=True))
     rates = players.fit_player_rates(
-        pm, history, positions, season, translation.Translations.load(db)
+        pm, history, positions, season, translation.Translations.load(db, as_of=cutoff)
     ).set_index("player_id")
     rates = apply_set_piece_duty(rates, pool)
+    pool = pool.assign(
+        rate_source=pool["player_id"].map(rates["source"]),
+        evidence_minutes=pool["player_id"].map(rates["evidence_minutes"]),
+    )
     cfg = SimConfig(**{**cfg.__dict__, "noise": fit_bps_noise(history, rules, cfg.bps_save)})
 
     # minutes probabilities per (player, gw)
-    kick = fx.groupby(["gw"])["kickoff"].min()
-    team_gws = {(r.home, r.gw) for r in fx.itertuples()} | {(r.away, r.gw) for r in fx.itertuples()}
+    # each player's own first kickoff of the gameweek (not the gameweek's earliest)
+    sides = pd.concat([fx[["gw", "home", "kickoff"]].rename(columns={"home": "team"}),
+                       fx[["gw", "away", "kickoff"]].rename(columns={"away": "team"})])  # fmt: skip
+    kick = sides.groupby(["team", "gw"])["kickoff"].min().to_dict()
+    team_gws = set(kick)
     rows = []
     for gw in gws:
         sel = pool[[(t, gw) in team_gws for t in pool["team_id"]]]
-        rows.append(sel.assign(season=season, gw=gw, horizon=gw - first + 1,
-                               kickoff=kick.get(gw, pd.NaT)))  # fmt: skip
+        own_kick = [kick.get((t, gw), pd.NaT) for t in sel["team_id"]]
+        rows.append(sel.assign(season=season, gw=gw, horizon=gw - first + 1, kickoff=own_kick))
     upcoming = pd.concat(rows, ignore_index=True) if rows else pool.iloc[0:0]
     mins = minutes_model.forecast(history, upcoming).set_index(["player_id", "gw"])
 
@@ -238,7 +293,7 @@ def build_projection(
 
     for fxr in fx.itertuples():
         lam = ratings.lambdas(fxr.home, fxr.away, COMPETITION)
-        mk = market_lambdas(db, fxr.match_id)
+        mk = market_lambdas(db, fxr.match_id, cutoff, known_at_odds)
         lh, la = odds.blend(lam, mk, odds_weight)
         specs = []
         for team in (fxr.home, fxr.away):
@@ -269,7 +324,19 @@ def build_projection(
                 comp_sum.setdefault(c, np.zeros((len(pool), len(gws))))[i, gi] += v[j]
         fixtures_out.setdefault(fxr.gw, []).append((fxr.home, fxr.away, True, lh, la))
 
-    meta = pool[["player_id", "position", "team_id", "price", "status", "chance"]].copy()
+    meta = pool[
+        [
+            "player_id",
+            "position",
+            "team_id",
+            "price",
+            "status",
+            "chance",
+            "rate_source",
+            "evidence_minutes",
+        ]
+    ].copy()
+    meta["owned"] = pool.get("owned", pd.Series(float("nan"), index=pool.index))
     return Projection(uuid.uuid4().hex[:12], season, list(gws), meta, points, mins_out,
                       comp_sum, fixtures_out)  # fmt: skip
 
@@ -279,6 +346,10 @@ def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int
     f = proj.frame()
     stamp = now()
     detail = f[["p_zero", "p10", "q10", "q90", "exp_minutes"]].round(4).to_dict("records")
+    for row, d in zip(f.to_dict("records"), detail, strict=True):
+        if "rate_source" in row:
+            d["rate_source"] = row["rate_source"]
+            d["evidence_minutes"] = row["evidence_minutes"]
     for name, arr in proj.components.items():  # per-component expectations, same row order
         col = np.concatenate([arr[:, gi] for gi in range(len(proj.gws))])
         for d, v in zip(detail, col, strict=True):

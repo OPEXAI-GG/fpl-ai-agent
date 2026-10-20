@@ -12,7 +12,7 @@ FIX = Path(__file__).parent / "fixtures"
 
 
 def fixture(name: str):
-    return json.loads((FIX / name).read_text())
+    return json.loads((FIX / name).read_text(encoding="utf-8"))
 
 
 def live_payload(bootstrap: dict) -> dict:
@@ -98,10 +98,15 @@ def make_http(
             return httpx.Response(200, json=live_payload(boot))
         if "raw.githubusercontent.com" in url and "vaastav" in url:
             if "players_raw" in url:
-                return httpx.Response(200, text=(FIX / "vaastav_2017_players_raw.csv").read_text())
+                return httpx.Response(
+                    200, text=(FIX / "vaastav_2017_players_raw.csv").read_text(encoding="utf-8")
+                )
             old = any(f"/{y}-" in url for y in (2016, 2017, 2018, 2019))
             return httpx.Response(
-                200, text=(FIX / ("vaastav_2017.csv" if old else "vaastav_2024.csv")).read_text()
+                200,
+                text=(FIX / ("vaastav_2017.csv" if old else "vaastav_2024.csv")).read_text(
+                    encoding="utf-8"
+                ),
             )
         if "fotmob.com" in url:
             return _fotmob(request, all_matches)
@@ -110,9 +115,9 @@ def make_http(
         if "getPlayerData" in url:
             return httpx.Response(200, json=fixture("understat_player.json"))
         if "mmz4281" in url and url.endswith("E0.csv"):
-            return httpx.Response(200, text=(FIX / "fd_E0_2026.csv").read_text())
+            return httpx.Response(200, text=(FIX / "fd_E0_2026.csv").read_text(encoding="utf-8"))
         if "mmz4281" in url and url.endswith("E1.csv"):
-            return httpx.Response(200, text=(FIX / "fd_E1_2026.csv").read_text())
+            return httpx.Response(200, text=(FIX / "fd_E1_2026.csv").read_text(encoding="utf-8"))
         return httpx.Response(404)
 
     return httpx.Client(transport=httpx.MockTransport(handler))

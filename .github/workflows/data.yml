@@ -30,11 +30,14 @@ jobs:
         run: scripts/data_restore.sh data_cache/export
       - name: Decide mode
         id: mode
+        env:
+          IN_MODE: ${{ github.event.inputs.mode || 'weekly' }}
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "30 6 * * *" ]; then
             echo "mode=daily" >> "$GITHUB_OUTPUT"
           else
-            echo "mode=${{ github.event.inputs.mode || 'weekly' }}" >> "$GITHUB_OUTPUT"
+            case "$IN_MODE" in daily|weekly) ;; *) echo "mode must be daily or weekly"; exit 1 ;; esac
+            echo "mode=$IN_MODE" >> "$GITHUB_OUTPUT"
           fi
       - name: Update database
         run: |

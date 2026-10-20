@@ -35,6 +35,8 @@ def test_projection_shape_and_probabilities(world, proj):
     assert f.xpts.between(-1, 20).all()
     assert f.p_zero.between(0, 1).all() and (f.q90 >= f.q10).all()
     assert f.groupby("gw").size().eq(p).all()
+    assert set(proj.meta.rate_source) <= {"prior", "pl", "translated"}
+    assert proj.meta.evidence_minutes.ge(0).all()
 
 
 def test_goalkeepers_defenders_midfielders_forwards_all_have_sensible_means(proj):
@@ -158,3 +160,42 @@ def test_first_choice_penalty_and_corner_takers_get_a_larger_share():
     assert out.loc[2, "xa_share"] == pytest.approx(0.1 + CORNER_ASSIST_SHARE)
     assert out.loc[3].tolist() == rates.loc[3].tolist()
     assert rates.loc[1, "xg_share"] == 0.2  # the input is not changed
+
+
+def test_no_extra_penalty_credit_is_added_on_top_of_penalty_inclusive_xg():
+    import json
+
+    import pandas as pd
+
+    from fpl_agent.model.project import PENALTY_CREDIT, apply_set_piece_duty
+
+    assert PENALTY_CREDIT == 0.0  # off until non-penalty xG and a backtest justify one
+    rates = pd.DataFrame({"player_id": [1], "xg_share": [0.3], "xa_share": [0.1]}).set_index(
+        "player_id"
+    )
+    pool = pd.DataFrame({"player_id": [1], "raw": [json.dumps({"penalties_order": 1})]})
+    assert apply_set_piece_duty(rates, pool).loc[1, "xg_share"] == 0.3
+
+
+def test_minutes_use_each_players_own_kickoff_in_a_double_gameweek(world, monkeypatch):
+    from fpl_agent.model import minutes
+
+    seen = {}
+    real = minutes.MinutesModel.forecast
+
+    def spy(self, history, upcoming):
+        seen["up"] = upcoming.copy()
+        return real(self, history, upcoming)
+
+    monkeypatch.setattr(minutes.MinutesModel, "forecast", spy)
+    project.build_projection(world.db, 2024, [10], as_of=date(2024, 10, 20),
+                             cfg=SimConfig(n=50, seed=1), pool_gw=9)  # fmt: skip
+    fx = project.fixtures_for(world.db, 2024, [10])
+    own = {
+        **dict(zip(fx.home, fx.kickoff, strict=True)),
+        **dict(zip(fx.away, fx.kickoff, strict=True)),
+    }
+    up = seen["up"]
+    assert all(
+        pd.Timestamp(k) == pd.Timestamp(own[t]) for t, k in zip(up.team_id, up.kickoff, strict=True)
+    )

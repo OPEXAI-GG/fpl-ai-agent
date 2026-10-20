@@ -82,6 +82,34 @@ TABLES["league_translation"] = """
     from_comp VARCHAR, to_comp VARCHAR, stat VARCHAR, factor DOUBLE, n_players INTEGER,
     minutes DOUBLE, updated_at TIMESTAMP, PRIMARY KEY (from_comp, to_comp, stat)"""
 
+# every odds observation, append-only: match_odds keeps only the newest price per bookmaker,
+# so a past decision's prices can only be reconstructed from here (prospectively, from now on)
+TABLES["match_odds_log"] = """
+    match_id INTEGER, source VARCHAR, bookmaker VARCHAR, closing BOOLEAN,
+    home DOUBLE, draw DOUBLE, away DOUBLE, over25 DOUBLE, under25 DOUBLE,
+    ah_line DOUBLE, ah_home DOUBLE, ah_away DOUBLE, ingested_at TIMESTAMP"""
+
+# the scout's validated answers, reused while nothing that went into them changed
+TABLES["scout_cache"] = """
+    key VARCHAR PRIMARY KEY, player_id INTEGER, p_play DOUBLE, reason VARCHAR,
+    created_at TIMESTAMP, expires_at TIMESTAMP"""
+
+# one row per scout call: counts, usage and outcome (never the key or the raw reply)
+TABLES["scout_calls"] = """
+    called_at TIMESTAMP, model VARCHAR, prompt_version INTEGER, season INTEGER, gw INTEGER,
+    eligible INTEGER, cached INTEGER, sent INTEGER, accepted INTEGER, rejected INTEGER,
+    input_bytes INTEGER, input_tokens INTEGER, output_tokens INTEGER, stop_reason VARCHAR,
+    latency_ms INTEGER, outcome VARCHAR"""
+
+TABLES["runs"] = """
+    run_id VARCHAR PRIMARY KEY, version INTEGER, season INTEGER, gw INTEGER, entry_id INTEGER,
+    mode VARCHAR, started_at TIMESTAMP, ended_at TIMESTAMP, status VARCHAR, state VARCHAR,
+    exit_code INTEGER, snapshot_at TIMESTAMP, projection_run VARCHAR, decision_at TIMESTAMP,
+    stages JSON, reasons JSON, report_key VARCHAR, delivered BOOLEAN, delivered_at TIMESTAMP"""
+
 TABLES["lessons"] = """
     season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
     rule VARCHAR, created_at TIMESTAMP"""
+
+TABLES["news_evidence"] = """
+    observation_id VARCHAR PRIMARY KEY, observed_at TIMESTAMP, url VARCHAR, payload JSON"""

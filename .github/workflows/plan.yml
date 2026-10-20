@@ -63,18 +63,15 @@ jobs:
     if: ${{ needs.gate.outputs.fresh == 'true' && vars.FPL_ENTRY_ID != '' }}   # idle until you set your team id
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Shared with token-check; backfill never takes this authentication lease.
+    concurrency:
+      group: ${{ github.event.inputs.dry == 'true' && format('fpl-auth-dry-{0}', github.run_id) || 'fpl-auth' }}
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
       AGENT_MODE: ${{ github.event.inputs.dry == 'true' && 'dry' || vars.AGENT_MODE || 'dry' }}
       AGENT_ENABLED: ${{ vars.AGENT_ENABLED || 'true' }}
       FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
-      # only read when AGENT_MODE is live
-      FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
-      FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
-      FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
       DISCORD_APP_ID: ${{ vars.DISCORD_APP_ID }}
       REPLY: ${{ inputs.discord_reply }}   # Discord /plan reply token, lasts 15 minutes
     steps:
@@ -87,21 +84,41 @@ jobs:
       - name: Restore database
         run: scripts/data_restore.sh data_cache/export
       - name: Refresh prices, news and fixtures
+        id: refresh
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           uv run fpl-agent db-update --db data_cache/football.duckdb --import-dir data_cache/export \
-            --football-data E0
+            --football-data E0 --points --fotmob ENG1,UCL,UEL,UECL --fotmob-matches 40
+      - name: Monitor dated football news
+        # Runs throughout the week, even when the later plan exits outside its deadline window.
+        # Advisory public evidence only: no keys or FPL account actions.
+        continue-on-error: true
+        run: uv run fpl-agent news-check --db data_cache/football.duckdb
       - name: Check settings
-        run: uv run fpl-agent status | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          printf 'Mode: %s\nAgent enabled: %s\nTeam configured: %s\n' \
+            "$AGENT_MODE" "$AGENT_ENABLED" "${FPL_ENTRY_ID:+yes}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Plan
         env:
           # lets the agent store FPL's rotating login token back into the repo secret (live only)
           GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}
+          FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
+          FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
+          FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
+          FPL_AUTH_FRESHNESS_REQUIRED: "true"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+          # manual inputs reach the shell as data (env), never pasted into the script
+          IN_FORCE: ${{ github.event.inputs.force }}
+          IN_DRY: ${{ github.event.inputs.dry }}
         run: |
           set -o pipefail   # a failed plan must fail the run, not hide behind tee
           FORCE=""
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then FORCE="--force"; fi
+          if [ "$IN_FORCE" = "true" ]; then FORCE="--force"; fi
           NOTIFY="--notify"
-          if [ "${{ github.event.inputs.dry }}" = "true" ]; then NOTIFY=""; fi
+          if [ "$IN_DRY" = "true" ]; then NOTIFY=""; fi
           uv run fpl-agent plan --db data_cache/football.duckdb --export data_cache/out --out plan_out $NOTIFY $FORCE \
             | tee -a "$GITHUB_STEP_SUMMARY" plan_log.txt
       - uses: actions/upload-artifact@v4
@@ -112,8 +129,9 @@ jobs:
           if-no-files-found: ignore
       - name: Publish database
         # a forced dry check leaves the stored database as it was (its decision would otherwise
-        # count as this gameweek's first plan and stop the real one from notifying)
-        if: always() && github.event.inputs.dry != 'true'
+        # count as this gameweek's first plan and stop the real one from notifying). Never after
+        # a failed refresh, and data_publish.sh refuses an export that fails its manifest check.
+        if: always() && steps.refresh.outcome == 'success' && github.event.inputs.dry != 'true'
         run: scripts/data_publish.sh data_cache/out
       - name: Publish the plan for the Discord bot
         if: always()

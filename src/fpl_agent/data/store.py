@@ -22,7 +22,7 @@ class SnapshotStore:
         folder = self.root / source / (f"gw{gw:02d}" if gw is not None else "season")
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{now.strftime('%Y%m%dT%H%M%SZ')}.json"
-        path.write_text(json.dumps(payload, separators=(",", ":")))
+        path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
         return path
 
     def latest(self, source: str, gw: int | None = None, before: datetime | None = None) -> Any:
@@ -34,7 +34,7 @@ class SnapshotStore:
             files = [f for f in files if f.stem <= cutoff]
         if not files:
             raise FileNotFoundError(f"no snapshot for {source} gw={gw}")
-        return json.loads(files[-1].read_text())
+        return json.loads(files[-1].read_text(encoding="utf-8"))
 
     def write_frame(self, name: str, df: pd.DataFrame, gw: int | None = None) -> Path:
         folder = self.root / "frames"

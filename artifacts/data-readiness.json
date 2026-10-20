@@ -1,0 +1,30 @@
+{
+  "backup": "data_cache\\backups\\football-before-final-analysis-20261020-180844.duckdb",
+  "counts": {
+    "fpl_players_gw": 668,
+    "fpl_points_gw": 3883,
+    "appearances": 0,
+    "player_match_stats": 0
+  },
+  "official_history": [
+    [
+      2026,
+      1,
+      6,
+      3883
+    ]
+  ],
+  "snapshots": [
+    [
+      2026,
+      8,
+      668
+    ]
+  ],
+  "history_rows_with_position": 0,
+  "limitations": [
+    "No detailed appearance/xG/xA history; attacking and defensive rates rely on priors.",
+    "Historical snapshots are missing, preventing a defensible position holdout/backtest.",
+    "No fitted-model cache or parameter retuning is justified by this coverage."
+  ]
+}

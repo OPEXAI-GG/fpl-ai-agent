@@ -1,0 +1,65 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - link "Matchroom overview" [ref=f2e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=f2e6]:
+          - text: M
+          - generic [ref=f2e7]: ↗
+        - generic [ref=f2e8]:
+          - text: MATCHROOM
+          - generic [ref=f2e9]: FPL AGENT / LOCAL
+      - navigation "Sections" [ref=f2e10]:
+        - link "Overview" [ref=f2e11] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=f2e12]: ◫
+          - text: Overview
+        - link "My Team" [ref=f2e13] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=f2e14]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=f2e15] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=f2e16]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=f2e17] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=f2e18]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=f2e19] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=f2e20]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=f2e21] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=f2e22]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=f2e23] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=f2e24]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=f2e25] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=f2e26]: ♡
+          - text: Data Health
+    - generic [ref=f2e27]:
+      - banner [ref=f2e28]:
+        - generic [ref=f2e29]: WORKSPACE / Data Health
+        - generic [ref=f2e30]: LOCAL CONNECTION
+      - main [ref=f2e33]:
+        - generic [ref=f2e34]:
+          - generic [ref=f2e35]:
+            - generic [ref=f2e36]: FANTASY PREMIER LEAGUE
+            - heading "Data Health" [level=1] [ref=f2e37]
+            - paragraph [ref=f2e38]: Know what is fresh, what is missing, and what needs attention.
+          - link "Open operations" [ref=f2e39] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=f2e40]: ↗
+        - status [ref=f2e41]
+        - generic [ref=f2e47]:
+          - text: FPL AGENT
+          - generic [ref=f2e48]: Independent analysis. Informed decisions.
+          - generic [ref=f2e49]: 127.0.0.1 · LOCAL WORKSPACE

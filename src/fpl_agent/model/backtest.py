@@ -1,7 +1,10 @@
 """Point-in-time accuracy backtest for the projection stack.
 
-For each gameweek the models see only what existed before its first kickoff (history up to the
-previous gameweek, matches before that date), project the gameweek, and are scored against the
+For each gameweek the models see only what existed before its deadline (approximated as 90
+minutes before the first kickoff, since historical deadlines are not stored): history up to the
+previous gameweek, matches before that date, the player snapshot, odds and league translations
+as of then, never closing odds. Bookmaker prices whose observation time is unknown are an
+event-time reconstruction, not known-at data. The gameweek is projected and scored against the
 official points. The same rows are scored for two baselines: the player's average over his last
 five fixtures, and FPL's own expected points (`xP`) where the archive has them. Results are
 reported separately for GK, DEF, MID and FWD, as the plan requires.
@@ -44,7 +47,8 @@ def projection_backtest(
         fx = project.fixtures_for(db, season, [gw])
         if fx.empty:
             continue
-        as_of = pd.Timestamp(fx["kickoff"].min()).date()
+        cutoff = project.approx_deadline(fx["kickoff"].min())
+        as_of = cutoff.date()
         history = frame[
             (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
         ]
@@ -55,7 +59,7 @@ def projection_backtest(
         ratings = strength.fit_ratings(matches, as_of)
         proj = project.build_projection(
             db, season, [gw], as_of=as_of, cfg=cfg, rules=rules, minutes_model=model,
-            ratings=ratings, frame=frame, pm=pm_all, pool_gw=gw,
+            ratings=ratings, frame=frame, pm=pm_all, pool_gw=gw, cutoff=cutoff,
         )  # fmt: skip
         f = proj.frame().set_index("player_id")
         hist5 = history.sort_values(["player_id", "season", "gw"]).groupby("player_id").tail(5)

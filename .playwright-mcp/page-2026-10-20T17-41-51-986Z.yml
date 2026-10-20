@@ -1,0 +1,166 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - link "Matchroom overview" [ref=f2e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=f2e6]:
+          - text: M
+          - generic [ref=f2e7]: ↗
+        - generic [ref=f2e8]:
+          - text: MATCHROOM
+          - generic [ref=f2e9]: FPL AGENT / LOCAL
+      - navigation "Sections" [ref=f2e10]:
+        - link "Overview" [ref=f2e11] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=f2e12]: ◫
+          - text: Overview
+        - link "My Team" [ref=f2e13] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=f2e14]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=f2e15] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=f2e16]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=f2e17] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=f2e18]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=f2e19] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=f2e20]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=f2e21] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=f2e22]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=f2e23] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=f2e24]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=f2e25] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=f2e26]: ♡
+          - text: Data Health
+    - generic [ref=f2e27]:
+      - banner [ref=f2e28]:
+        - generic [ref=f2e29]: WORKSPACE / My Team
+        - generic [ref=f2e30]: LOCAL CONNECTION
+      - main [ref=f2e33]:
+        - generic [ref=f2e34]:
+          - generic [ref=f2e35]:
+            - generic [ref=f2e36]: FANTASY PREMIER LEAGUE
+            - heading "My Team" [level=1] [ref=f2e37]
+            - paragraph [ref=f2e38]: Your matchday XI. Every role, every point of difference.
+          - link "Open operations" [ref=f2e39] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=f2e40]: ↗
+        - status [ref=f2e41]: data read 10/20/2026, 9:40:53 PM
+        - generic [ref=f2e43]:
+          - generic [ref=f2e44]:
+            - generic [ref=f2e45]:
+              - heading "Planned lineup · GW8 · 3-4-2" [level=2] [ref=f2e46]
+              - generic [ref=f2e47]: dry run
+            - paragraph [ref=f2e48]: "planned (dry run: nothing sent to FPL). Made 10/20/2026, 9:40:51 PM. Entry: unknown (decisions are not stored per FPL entry)."
+            - generic [ref=f2e49]:
+              - list "GKP" [ref=f2e52]:
+                - button "View David Raya Martín statistics" [ref=f2e53] [cursor=pointer]:
+                  - generic "David Raya Martín" [ref=f2e55]
+                  - generic [ref=f2e56]: Arsenal · £6.1m
+                  - generic [ref=f2e57]: 3.0 xP
+                  - generic [ref=f2e58]: 0–9 pts
+              - list "DEF" [ref=f2e59]:
+                - button "View Gabriel dos Santos Magalhães statistics" [ref=f2e60] [cursor=pointer]:
+                  - generic "Gabriel dos Santos Magalhães" [ref=f2e62]
+                  - generic [ref=f2e63]: Arsenal · £8.0m
+                  - generic [ref=f2e64]: 3.1 xP
+                  - generic [ref=f2e65]: 0–9 pts
+                - button "View Jurriën Timber statistics" [ref=f2e66] [cursor=pointer]:
+                  - generic "Jurriën Timber" [ref=f2e68]
+                  - generic [ref=f2e69]: Arsenal · £6.5m
+                  - generic [ref=f2e70]: 3.2 xP
+                  - generic [ref=f2e71]: 0–9 pts
+                - button "View William Saliba statistics" [ref=f2e72] [cursor=pointer]:
+                  - generic "William Saliba" [ref=f2e74]
+                  - generic [ref=f2e75]: Arsenal · £5.9m
+                  - generic [ref=f2e76]: 3.3 xP
+                  - generic [ref=f2e77]: 0–9 pts
+              - list "MID" [ref=f2e78]:
+                - button "View Myles Lewis-Skelly statistics" [ref=f2e79] [cursor=pointer]:
+                  - generic "Myles Lewis-Skelly" [ref=f2e81]
+                  - generic [ref=f2e82]: Arsenal · £5.4m
+                  - generic [ref=f2e83]: 3.4 xP
+                  - generic [ref=f2e84]: 0–9 pts
+                - button "View Bukayo Saka statistics" [ref=f2e85] [cursor=pointer]:
+                  - generic "Bukayo Saka" [ref=f2e87]
+                  - generic [ref=f2e88]: Arsenal · £9.6m
+                  - generic [ref=f2e89]: 3.5 xP
+                  - generic [ref=f2e90]: 0–9 pts
+                - button "View Declan Rice statistics" [ref=f2e91] [cursor=pointer]:
+                  - generic "Declan Rice" [ref=f2e93]
+                  - generic [ref=f2e94]: Arsenal · £7.4m
+                  - generic [ref=f2e95]: 3.6 xP
+                  - generic [ref=f2e96]: 0–9 pts
+                - button "View Eberechi Eze statistics" [ref=f2e97] [cursor=pointer]:
+                  - generic "Eberechi Eze" [ref=f2e99]
+                  - generic [ref=f2e100]: Arsenal · £6.2m
+                  - generic [ref=f2e101]: 3.7 xP
+                  - generic [ref=f2e102]: 0–9 pts
+              - list "FWD" [ref=f2e103]:
+                - button "View Viktor Gyökeres statistics" [ref=f2e104] [cursor=pointer]:
+                  - generic "vice-captain" [ref=f2e106]: V
+                  - generic "Viktor Gyökeres" [ref=f2e107]
+                  - generic [ref=f2e108]: Arsenal · £7.1m
+                  - generic [ref=f2e109]: 3.8 xP
+                  - generic [ref=f2e110]: 0–9 pts
+                - button "View Kai Havertz statistics" [ref=f2e111] [cursor=pointer]:
+                  - generic "captain" [ref=f2e113]: C
+                  - generic "Kai Havertz" [ref=f2e114]
+                  - generic [ref=f2e115]: Arsenal · £7.6m
+                  - generic [ref=f2e116]: 3.9 xP
+                  - generic [ref=f2e117]: 0–9 pts
+            - heading "Bench (in order)" [level=3] [ref=f2e118]
+            - generic [ref=f2e119]:
+              - button "View Kepa Arrizabalaga Revuelta statistics" [ref=f2e120] [cursor=pointer]:
+                - generic "Kepa Arrizabalaga Revuelta" [ref=f2e122]
+                - generic [ref=f2e123]: Arsenal · £4.9m
+                - generic [ref=f2e124]: 4.0 xP
+                - generic [ref=f2e125]: 0–9 pts
+              - button "View Riccardo Calafiori statistics" [ref=f2e126] [cursor=pointer]:
+                - generic "Riccardo Calafiori" [ref=f2e128]
+                - generic [ref=f2e129]: Arsenal · £5.9m
+                - generic [ref=f2e130]: 4.1 xP
+                - generic [ref=f2e131]: 0–9 pts
+              - button "View Piero Hincapié statistics" [ref=f2e132] [cursor=pointer]:
+                - generic "Piero Hincapié" [ref=f2e134]
+                - generic [ref=f2e135]: Arsenal · £5.2m
+                - generic [ref=f2e136]: 4.2 xP
+                - generic [ref=f2e137]: 0–9 pts
+              - button "View Martin Ødegaard statistics" [ref=f2e138] [cursor=pointer]:
+                - generic "Martin Ødegaard" [ref=f2e140]
+                - generic [ref=f2e141]: Arsenal · £6.8m
+                - generic [ref=f2e142]: 4.3 xP
+                - generic [ref=f2e143]: 0–9 pts
+          - generic [ref=f2e144]:
+            - generic [ref=f2e146]:
+              - generic [ref=f2e147]: Expected points
+              - generic [ref=f2e148]: "55.5"
+              - generic [ref=f2e149]: 54.0 without transfers
+            - generic [ref=f2e151]:
+              - generic [ref=f2e152]: Bank after
+              - generic [ref=f2e153]: £1.5m
+            - generic [ref=f2e155]:
+              - generic [ref=f2e156]: Chip
+              - generic [ref=f2e157]: —
+              - generic [ref=f2e158]: no hits
+          - generic [ref=f2e159]:
+            - heading "About this squad" [level=2] [ref=f2e160]
+            - paragraph [ref=f2e161]: the last deadline's public squad is read from FPL during a plan run and not stored; run a dry plan to refresh the planned squad below
+            - paragraph [ref=f2e162]: your current post-transfer squad needs an FPL sign-in, which the dashboard never does
+        - generic [ref=f2e163]:
+          - text: FPL AGENT
+          - generic [ref=f2e164]: Independent analysis. Informed decisions.
+          - generic [ref=f2e165]: 127.0.0.1 · LOCAL WORKSPACE

@@ -80,8 +80,9 @@ def run(db: FootballDB, season: int, gw: int, entry: int, cfg: replay.ReplayConf
     state = parse_squad(prev, fpl.entry_transfers_raw(entry), fpl.entry_history_raw(entry),
                         raw, gw, rules)  # fmt: skip
     state = to_canonical(state, pool)
+    exact = cutoff.replace(tzinfo=None) if cutoff.tzinfo else cutoff
     res = replay.replay_season(db, season, [gw], cfg, rules, start=state,
-                               pool_fn=lambda *_: pool)  # fmt: skip
+                               pool_fn=lambda *_: pool, cutoff_fn=lambda _: exact)  # fmt: skip
     if not res.weeks:
         return f"GW{gw} could not be planned (no fixtures or projections in the database)"
     agent = res.weeks[0]

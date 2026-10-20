@@ -212,6 +212,40 @@ def test_unavailable_or_doubtful_players_are_never_offered_as_buys():
     assert outsider in {c.player_id for c in build_candidates(proj, st.squad)}
 
 
+@pytest.mark.parametrize("status,chance", [("i", 0.0), ("s", None), ("d", 0.0)])
+def test_owned_unavailable_players_cannot_start_or_be_captain_even_with_high_xp(status, chance):
+    from fpl_agent.solver.decide import best_xi, lineup_only
+
+    proj, cands = projection(1, horizon=1, gws=(10,))
+    st = state_for(cands, bank=60)
+    owned = next(p.player_id for p in st.squad if p.position == "FWD")
+    proj.points[proj.row(owned)] = 100.0
+    proj.meta.loc[proj.meta.player_id == owned, ["status", "chance"]] = [status, chance]
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert owned not in d.xi and d.captain != owned and d.vice != owned
+    xi, _ = best_xi(proj, [p.player_id for p in st.squad], 0)
+    assert len(xi) == 11 and owned not in xi
+    held = lineup_only(d, st, proj)
+    assert owned not in held.xi and held.captain != owned
+
+
+def test_owned_75_percent_doubt_can_start_and_captain_but_is_not_a_buy():
+    from fpl_agent.solver.decide import best_xi
+    from fpl_agent.solver.inputs import _buyable, build_candidates
+
+    proj, cands = projection(1, horizon=1, gws=(10,))
+    st = state_for(cands, bank=60)
+    owned = next(p.player_id for p in st.squad if p.position == "FWD")
+    proj.points[proj.row(owned)] = 20.0
+    proj.meta.loc[proj.meta.player_id == owned, ["status", "chance"]] = ["d", 75.0]
+    candidate = next(c for c in build_candidates(proj, st.squad) if c.player_id == owned)
+    assert candidate.start_allowed == [True]
+    assert not _buyable("d", 75.0)
+    assert owned in best_xi(proj, [p.player_id for p in st.squad], 0)[0]
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    assert owned in d.xi and d.captain == owned
+
+
 def test_an_active_wildcard_replans_the_whole_squad_for_free():
     from dataclasses import replace
 
@@ -359,3 +393,44 @@ def test_free_hit_gain_is_capped_at_what_its_own_week_gains():
     assert ch._gain("bboost", fh, base, 0, PlannerConfig()) == pytest.approx(9.0)
     hit = Plan([_week(60.0, hits=1), _week(53.0)], 100.0, 0, 3)  # the baseline paid a -4
     assert ch._gain("freehit", fh, hit, 0, PlannerConfig()) == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize("chip", ["bboost", "3xc", "freehit"])
+def test_an_active_chip_is_kept_and_no_second_one_is_planned(chip):
+    from dataclasses import replace
+
+    proj, cands = projection(2)
+    st = state_for(cands, chips_used=[(chip, 10)])
+    st = replace(st, active_chip=chip,
+                 already_transferred=15 if chip == "freehit" else 0)  # fmt: skip
+    d = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    assert d.chip == chip and d.chip_report["scenarios"] == []
+    if chip == "freehit":  # the Free Hit squad is already made: lineup only
+        assert d.transfers_in == [] and set(d.xi) | set(d.bench) == {p.player_id for p in st.squad}
+
+
+def test_reported_xp_follows_a_template_captain_override():
+    from fpl_agent.solver import decide as dmod
+
+    proj, cands = projection(3)
+    st = state_for(cands, bank=50)
+    base = decide(st, proj, RULES, cfg=CFG, use_chips=False)
+    mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+    other = max((p for p in base.xi if p != base.captain), key=lambda p: mean[p])
+    own = {other: 95.0}  # nearly every top manager captains him
+    d = decide(st, proj, RULES, cfg=CFG, use_chips=False, ownership=own)
+    if d.captain == other and base.captain != other:
+        assert d.xp == pytest.approx(base.xp + mean[other] - mean[base.captain], abs=1e-4)
+    assert dmod.TEMPLATE_CAPTAIN_SLACK >= 0
+
+
+def test_chip_choice_does_not_depend_on_the_rules_file_order():
+    from copy import deepcopy
+
+    proj, cands = projection(2)
+    st = state_for(cands)
+    flipped = deepcopy(RULES)
+    flipped.data["chips"] = dict(reversed(list(RULES["chips"].items())))
+    a = decide(st, proj, RULES, cfg=CFG, chip_cfg=FAST)
+    b = decide(st, proj, flipped, cfg=CFG, chip_cfg=FAST)
+    assert (a.chip, a.transfers_in, a.captain) == (b.chip, b.transfers_in, b.captain)

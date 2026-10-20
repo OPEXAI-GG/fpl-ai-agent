@@ -1,0 +1,3 @@
+vaastav:2024: ok rows=27605
+vaastav:2025: ok rows=29757
+quality: [warn] quarantined_prices: dropped 312 FPL price rows outside the possible range

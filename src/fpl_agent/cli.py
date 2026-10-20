@@ -66,7 +66,6 @@ def db_update(args: argparse.Namespace) -> int:
     from pathlib import Path
 
     from fpl_agent.data import leagues
-    from fpl_agent.db.database import FootballDB
     from fpl_agent.pipeline import UpdateOptions, run_update
 
     fotmob = (
@@ -81,13 +80,12 @@ def db_update(args: argparse.Namespace) -> int:
         understat_leagues=tuple(c for c in args.understat_leagues.split(",") if c),
         football_data=tuple(d for d in (args.football_data or "").split(",") if d),
         points=args.points,
+        reload_gws=tuple(int(g) for g in args.reload_gws.split(",") if g.strip()),
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
     )
-    db = FootballDB(args.db)
-    if args.import_dir:
-        db.import_parquet(args.import_dir)
+    db = _open_db(args)
     result = run_update(db, opts)
     print(result.message())
     return result.exit_code
@@ -97,7 +95,6 @@ def backfill(args: argparse.Namespace) -> int:
     from pathlib import Path
 
     from fpl_agent.data import leagues
-    from fpl_agent.db.database import FootballDB
     from fpl_agent.pipeline import BackfillOptions, run_backfill
 
     comps = tuple(c for c in args.competitions.split(",") if c) or tuple(leagues.LEAGUES)
@@ -110,18 +107,20 @@ def backfill(args: argparse.Namespace) -> int:
         export=Path(args.export) if args.export else None,
         max_minutes=args.max_minutes,
     )
-    db = FootballDB(args.db)
-    if args.import_dir:
-        db.import_parquet(args.import_dir)
+    db = _open_db(args)
     result = run_backfill(db, opts)
     print(result.message())
     return result.exit_code
+
+
+_OPENED: list = []  # databases opened by this command; closed by main()
 
 
 def _open_db(args: argparse.Namespace):
     from fpl_agent.db.database import FootballDB
 
     db = FootballDB(args.db)
+    _OPENED.append(db)
     if getattr(args, "import_dir", None):
         db.import_parquet(args.import_dir)
     return db
@@ -315,7 +314,7 @@ def send_cmd(args: argparse.Namespace) -> int:
     from fpl_agent import notify
 
     path = Path(args.file)
-    body = path.read_text().strip() if path.is_file() else ""
+    body = path.read_text(encoding="utf-8").strip() if path.is_file() else ""
     message = "\n\n".join(p for p in (args.header, body or args.empty) if p)
     app = os.environ.get("DISCORD_APP_ID", "")
     if args.discord_token and app:
@@ -385,13 +384,91 @@ def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
     if args.out:
         from pathlib import Path
 
-        Path(args.out).write_text(report + "\n")
+        Path(args.out).write_text(report + "\n", encoding="utf-8")
+    return 0
+
+
+def coverage_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    """Alarm when the deadline is close and no run produced a plan (dry) or verified moves (live):
+    catches a schedule that silently did not run. Exit 1 when the alarm is raised."""
+    from fpl_agent import notify, runs
+    from fpl_agent.data.calendar import next_event
+
+    entry = args.entry or settings.entry_id
+    ev = next_event(FPLClient().bootstrap())
+    if ev is None:
+        print("no upcoming gameweek")
+        return 0
+    db = _open_db(args)
+    try:
+        cov = runs.coverage(db, int(args.season), ev.id, entry, ev.deadline_time,
+                            settings.is_live, alarm_hours=args.hours)  # fmt: skip
+        key = f"coverage:{args.season}:{ev.id}"
+        sent = db.con.execute(
+            "SELECT 1 FROM ingest_state WHERE source = 'alarm' AND key = ?", [key]
+        ).fetchone()
+        print(cov.message)
+        if cov.alarm and args.notify and not sent and notify.send(cov.message):
+            db.con.execute("INSERT OR REPLACE INTO ingest_state VALUES ('alarm', ?, 'sent', '', "
+                           "now())", [key])  # fmt: skip
+            _export(db, args)
+    finally:
+        db.close()
+    return 1 if cov.alarm else 0
+
+
+def fit_translations_cmd(args: argparse.Namespace) -> int:
+    """Fit league-strength translations from players seen in two competitions and store them.
+    Run outside the plan (it is slow); plans made before the fit keep using what they had."""
+    from fpl_agent.model import features, translation
+
+    db = _open_db(args)
+    try:
+        pm = features.match_frame(db)
+        table = translation.estimate(pm)
+        n = translation.store(db, table) if not table.empty else 0
+        print(f"stored {n} translation factors from {pm['player_id'].nunique()} players")
+        if args.validate:
+            print(json.dumps(translation.validate(pm), indent=2, default=str))
+        _export(db, args)
+    finally:
+        db.close()
+    return 0
+
+
+def verify_export_cmd(args: argparse.Namespace) -> int:
+    """Check an export folder against its manifest; non-zero when it must not be published."""
+    from fpl_agent.db.database import verify_export
+
+    problems = verify_export(args.dir)
+    for p in problems:
+        print(f"export problem: {p}")
+    if not problems:
+        print(f"export {args.dir} is complete and matches its manifest")
+    return 1 if problems else 0
+
+
+def dashboard_cmd(args: argparse.Namespace) -> int:
+    """The local dashboard on 127.0.0.1 (read-only views plus dry-only jobs)."""
+    from pathlib import Path
+
+    from fpl_agent.dashboard.server import serve
+
+    serve(Path(args.db), args.port, Path(args.state_dir), args.allow_model_keys)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    nc = sub.add_parser(
+        "news-check", help="store dated public injury/news evidence (no FPL writes)"
+    )
+    nc.add_argument("--db", default="data_cache/football.duckdb")
+    nc.add_argument("--import-dir", default=None)
+    nc.add_argument("--season", default="2026")
+    nc.add_argument("--player", action="append", default=[], help="watch a full player name")
+    nc.add_argument("--url", action="append", default=[], help="extra City/BBC article URL")
     sub.add_parser("status", help="show dry/live mode and which settings are missing")
     tc = sub.add_parser("token-check", help="sign in to FPL once; alert if the token is dead")
     tc.add_argument("--no-notify", action="store_true")
@@ -407,6 +484,12 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--season", default="2026")
     d.add_argument("--football-data", default="E0,E1", help="comma list of divisions")
     d.add_argument("--points", action="store_true", help="also load official FPL points per GW")
+    d.add_argument(
+        "--reload-gws",
+        default="",
+        help="comma list of finished GWs to reload "
+        "with --points (repairs history stored by older code; back up first)",
+    )
     d.add_argument("--players", action="store_true", help="also load Understat player histories")
     d.add_argument("--limit", type=int, default=25, help="max players for --players")
     d.add_argument("--export", default=None, help="write parquet files to this directory")
@@ -505,8 +588,75 @@ def main(argv: list[str] | None = None) -> int:
     rt.add_argument("--no-chips", action="store_true")
     rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rt.add_argument("--out", default=None)
+    db_ = sub.add_parser("dashboard", help="local dashboard on http://127.0.0.1 (dry-only jobs)")
+    db_.add_argument("--db", default="data_cache/football.duckdb")
+    db_.add_argument("--port", type=int, default=8765)
+    db_.add_argument("--state-dir", default="data_cache/dashboard",
+                     help="where dashboard jobs, settings and plan files are kept")  # fmt: skip
+    db_.add_argument("--allow-model-keys", action="store_true",
+                     help="pass ANTHROPIC_API_KEY / ODDS_API_KEY to dry plans (costs)")  # fmt: skip
+    cc = sub.add_parser("coverage-check", help="alarm if no good run before the deadline")
+    cc.add_argument("--db", default="data_cache/football.duckdb")
+    cc.add_argument("--import-dir", default=None)
+    cc.add_argument("--season", default="2026")
+    cc.add_argument("--entry", type=int, default=None)
+    cc.add_argument("--hours", type=float, default=3.0, help="alarm this close to the deadline")
+    cc.add_argument("--notify", action="store_true")
+    cc.add_argument("--export", default=None)
+    ft = sub.add_parser("fit-translations", help="fit and store league-strength factors")
+    ft.add_argument("--db", default="data_cache/football.duckdb")
+    ft.add_argument("--import-dir", default=None)
+    ft.add_argument("--export", default=None)
+    ft.add_argument("--validate", action="store_true", help="also print the leave-one-out check")
+    ve = sub.add_parser("verify-export", help="check an export folder against its manifest")
+    ve.add_argument("dir")
     args = parser.parse_args(argv)
+    try:
+        return _dispatch(args)
+    finally:
+        while _OPENED:
+            try:
+                _OPENED.pop().close()
+            except Exception:  # noqa: BLE001 - already closed
+                pass
+
+
+def _dispatch(args: argparse.Namespace) -> int:
+    if args.cmd == "news-check":
+        from fpl_agent.news import monitor
+
+        db = _open_db(args)
+        names = args.player or [
+            r[0]
+            for r in db.con.execute(
+                "SELECT DISTINCT p.name FROM fpl_players_gw f JOIN players p USING(player_id) "
+                "WHERE f.season = ? AND f.gw = (SELECT max(gw) FROM fpl_players_gw "
+                "WHERE season = ?) AND f.status = 'd'",
+                [int(args.season)] * 2,
+            ).fetchall()
+        ]
+        rows = monitor(db, names, urls=args.url)
+        print(
+            json.dumps(
+                {
+                    "coverage": "City official news plus BBC Football; advisory only",
+                    "observations": len(rows),
+                    "failures": sum(r["state"] == "failed" for r in rows),
+                    "matching": [r for r in rows if r["players"]],
+                },
+                ensure_ascii=True,
+            )
+        )
+        return 0 if any(r["state"] != "failed" for r in rows) else 2
+    if args.cmd == "verify-export":
+        return verify_export_cmd(args)
     settings = Settings.from_env()
+    if args.cmd == "dashboard":
+        return dashboard_cmd(args)
+    if args.cmd == "fit-translations":
+        return fit_translations_cmd(args)
+    if args.cmd == "coverage-check":
+        return coverage_cmd(args, settings)
     if args.cmd == "explain":
         return explain_cmd(args)
     if args.cmd == "status":

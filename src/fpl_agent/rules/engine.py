@@ -9,7 +9,10 @@ from typing import Any
 
 import yaml
 
-RULES_DIR = Path(__file__).resolve().parents[3] / "rules"
+# installed wheels carry the rules inside the package (pyproject force-include); a source
+# checkout reads them from the repository's rules/ folder
+_PACKAGED = Path(__file__).resolve().parent / "data"
+RULES_DIR = _PACKAGED if _PACKAGED.is_dir() else Path(__file__).resolve().parents[3] / "rules"
 
 
 @dataclass(frozen=True)
@@ -22,7 +25,7 @@ class Rules:
         matches = sorted(d.glob(f"{season}_*.yaml"))
         if not matches:
             raise FileNotFoundError(f"no rules file for season {season} in {d}")
-        return cls(yaml.safe_load(matches[0].read_text()))
+        return cls(yaml.safe_load(matches[0].read_text(encoding="utf-8")))
 
     @classmethod
     def nearest(cls, season: int, directory: Path | None = None) -> Rules:

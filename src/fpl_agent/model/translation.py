@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from fpl_agent.db.database import FootballDB
+from fpl_agent.db.database import FootballDB, now
 
 TARGET = "ENG1"
 STATS = ("xg_share", "xa_share", "cbit", "cbirt")
@@ -83,7 +83,7 @@ def estimate(
 
 
 def store(db: FootballDB, table: pd.DataFrame) -> int:
-    t = table.assign(updated_at=datetime.now().replace(microsecond=0))
+    t = table.assign(updated_at=now().replace(microsecond=0))  # UTC, like every other stamp
     return db.upsert("league_translation", t)
 
 
@@ -97,8 +97,12 @@ class Translations:
             self._f = {(r.from_comp, r.stat): r.factor for r in table.itertuples()}
 
     @classmethod
-    def load(cls, db: FootballDB) -> Translations:
-        return cls(db.query("SELECT * FROM league_translation"))
+    def load(cls, db: FootballDB, as_of: datetime | None = None) -> Translations:
+        """Stored factors; with `as_of`, only ones fitted by then (later fits are unknown to a
+        decision made at that time, which falls back to the priors)."""
+        if as_of is None:
+            return cls(db.query("SELECT * FROM league_translation"))
+        return cls(db.query("SELECT * FROM league_translation WHERE updated_at <= ?", [as_of]))
 
     def factor(self, comp: str, stat: str) -> float:
         if comp == self.target:

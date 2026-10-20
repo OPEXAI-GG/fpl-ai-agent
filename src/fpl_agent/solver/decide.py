@@ -16,7 +16,7 @@ from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
 from fpl_agent.solver import chips as chips_mod
 from fpl_agent.solver import rank_target
-from fpl_agent.solver.inputs import build_candidates, prune
+from fpl_agent.solver.inputs import _startable, build_candidates, prune
 from fpl_agent.solver.planner import PlanInput, PlannerConfig, WeekPlan
 
 
@@ -89,26 +89,54 @@ class Decision:
                 f"expected {w.xp:.1f} pts ({w.ft_before} free)")  # fmt: skip
 
 
-def _best_xi_points(proj: Projection, squad_ids: list[int], g: int) -> float:
-    """Expected points of the best XI/captain from a fixed squad (the 'do nothing' benchmark)."""
+def best_xi(proj: Projection, squad_ids: list[int], g: int) -> tuple[list[int], dict[int, float]]:
+    """The best legal XI from a fixed squad for gameweek index `g`, and every player's xP."""
     from fpl_agent.solver.planner import FORMATION_MAX, FORMATION_MIN
 
     mean = proj.mean()
     pos = dict(zip(proj.meta["player_id"], proj.meta["position"], strict=True))
     rows = {pid: i for i, pid in enumerate(proj.player_ids)}
     xp = {p: float(mean[rows[p], g]) if p in rows else 0.0 for p in squad_ids}
+    eligible = set(squad_ids)
+    if g == 0 and {"status", "chance"} <= set(proj.meta.columns):
+        eligible = {r.player_id for r in proj.meta.itertuples() if _startable(r.status, r.chance)}
     chosen: list[int] = []
     for p in ("GKP", "DEF", "MID", "FWD"):
-        mine = sorted((i for i in squad_ids if pos.get(i) == p), key=lambda i: -xp[i])
+        mine = sorted(
+            (i for i in squad_ids if i in eligible and pos.get(i) == p), key=lambda i: -xp[i]
+        )
         chosen += mine[: FORMATION_MIN[p]]
-    rest = sorted((i for i in squad_ids if i not in chosen and pos.get(i) != "GKP"),
+    rest = sorted((i for i in squad_ids if i in eligible and i not in chosen
+                   and pos.get(i) != "GKP"),
                   key=lambda i: -xp[i])  # fmt: skip
     for i in rest:
         if len(chosen) == 11:
             break
         if sum(1 for c in chosen if pos[c] == pos[i]) < FORMATION_MAX[pos[i]]:
             chosen.append(i)
+    return chosen, xp
+
+
+def _best_xi_points(proj: Projection, squad_ids: list[int], g: int) -> float:
+    """Expected points of the best XI/captain from a fixed squad (the 'do nothing' benchmark)."""
+    chosen, xp = best_xi(proj, squad_ids, g)
     return sum(xp[i] for i in chosen) + max(xp[i] for i in chosen)
+
+
+def lineup_only(d: Decision, state: SquadState, proj: Projection) -> Decision:
+    """The decision with no transfers: the best XI, bench and captain from the squad already
+    owned, for a run whose moves are held. Only a chip already active is kept."""
+    own = [p.player_id for p in state.squad]
+    xi, xp = best_xi(proj, own, 0)
+    pos = dict(zip(proj.meta["player_id"], proj.meta["position"], strict=True))
+    bench = sorted((p for p in own if p not in xi), key=lambda p: (pos.get(p) == "GKP", -xp[p]))
+    captain, vice, options = captain_choice(proj, xi)
+    keep = state.active_chip if state.active_chip in ("bboost", "3xc") else None
+    return replace(
+        d, chip=keep, transfers_in=[], transfers_out=[], hits=0, xi=xi, bench=bench,
+        captain=captain, vice=vice, xp=_best_xi_points(proj, own, 0), bank_after=state.bank,
+        captain_options=options,
+    )  # fmt: skip
 
 
 # Rank mode: among XI players whose expected points are within this many points of the best,
@@ -254,7 +282,8 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
                      free_transfers=ft, candidates=cands,
                      locked=locked, kept=frozenset(keep), eo=dict(eo or {}))  # fmt: skip
-    avail = state.chips_available(rules) if use_chips else {}
+    # a chip already active for this deadline is kept; no second chip is ever planned
+    avail = state.chips_available(rules) if use_chips and not state.active_chip else {}
     warnings = []
     if keep:
         warnings.append(
@@ -280,6 +309,21 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             "scenarios": [{"chip": s.chip, "gw": s.gw, "gain": round(s.gain, 2),
                            "win_share": round(s.win_share, 2), "ok": s.ok} for s in cd.scenarios],
         }  # fmt: skip
+        report["timing"] = {}
+        for chip, (_, expiry) in avail.items():
+            solved = [s for s in cd.scenarios if s.chip == chip and s.ok]
+            if not solved:
+                continue
+            best = max(solved, key=lambda s: s.gain)
+            current = next((s for s in solved if s.gw == state.next_gw), None)
+            report["timing"][chip] = {
+                "expires_gw": expiry,
+                "best_gw": best.gw,
+                "expiry_in_horizon": expiry <= proj.gws[-1],
+                "gain_forgone_if_used_now": (
+                    round(max(0.0, best.gain - current.gain), 2) if current else None
+                ),
+            }
     else:
         from fpl_agent.solver.planner import solve_plan
 
@@ -288,11 +332,27 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             {"held": {}, "play_now": None, "scenarios": []},
         )
     checks: list[str] = []
+    info = getattr(chosen.plan, "solve", None)
+    if info is not None and not info.optimal:
+        gap = f", gap {info.gap:.1%}" if info.gap is not None else ""
+        warnings.append(f"the planner stopped at its {info.seconds:.0f}s limit with the best plan "
+                        f"found so far, not a proven best{gap}")  # fmt: skip
     first = chosen.plan.first
     if first.transfers_in and not first.chip and not state.wildcard_active:
         chosen = _robust_transfers(chosen, base, proj, rules, cfg, names, warnings, checks, min_win)
     wk = chosen.plan.first
+    from fpl_agent.solver.cover import refine_doubtful_lineup
+
+    cover = refine_doubtful_lineup(wk, proj, rules)
+    if cover:
+        checks.append(
+            f"doubtful-player lineup/bench refinement: {cover['before']:.2f} -> "
+            f"{cover['after']:.2f} simulated points including legal auto-subs and "
+            f"captain fallback ({cover['samples']} worlds; before final captain policy). "
+            "Headline xP remains starting XI plus captain, excluding auto-sub cover."
+        )
     options: list[dict[str, Any]] = []
+    planned_captain = wk.captain
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
         chase = chasing is not None and chasing.behind
         if chase:
@@ -313,7 +373,35 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             else:
                 warnings.append(f"{names.get(top[0], top[0])} ({own[top[0]]:.0f}% owned) is not "
                                 "captain: most of the field will captain him")  # fmt: skip
+        if wk.captain != planned_captain:  # the reported xP follows the armband actually given
+            mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+            wk.xp += float(mean.get(wk.captain, 0.0) - mean.get(planned_captain, 0.0))
     view = []
+    from fpl_agent.solver.value import differential_watchlist
+
+    for gem in differential_watchlist(proj):
+        view.append(
+            f"value watch: {names.get(gem['player_id'], gem['player_id'])}; "
+            f"GBP{gem['price'] / 10:.1f}m, {gem['owned']:.1f}% overall ownership; "
+            f"{gem['xpts']:.1f} predicted points/{gem['weeks']} GWs, "
+            f"+{gem['peer_edge']:.1f} vs same-position peers at this price or cheaper; "
+            f"{gem['expected_minutes']:.0f} expected minutes/GW; {gem['evidence']}. "
+            "Watchlist only: check role, news and transfer opportunity cost."
+        )
+    for r in proj.meta.itertuples():
+        if r.player_id in wk.xi and getattr(r, "status", "a") == "d":
+            warnings.append(
+                f"{names.get(r.player_id, r.player_id)} starts as a doubt: playing risk is "
+                "already included in projected minutes. Zero minutes allows the first legal "
+                "bench substitute; any cameo prevents that cover. Recheck club news at deadline."
+            )
+    if wk.xi:
+        mean = dict(zip(proj.player_ids, proj.mean()[:, 0], strict=True))
+        gap = max((mean.get(p, 0.0) for p in wk.xi), default=0.0) - mean.get(wk.captain, 0.0)
+        view.append(
+            f"captain xP tradeoff: {max(0.0, gap):.2f} below the highest-xP starter; "
+            "ownership/rotation policy may prefer this captain"
+        )
     if own and wk.squad:
         have = set(wk.squad)
         lack = template_players(proj, [p for p in proj.player_ids if p not in have], own,
@@ -330,8 +418,10 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
                 f"your differentials (under {FIELD_DIFFERENTIAL:.0f}% owned, upside): "
                 + ", ".join(f"{names.get(p, p)} {own.get(p, 0.0):.0f}%" for p in diff)
             )
+    if state.active_chip and wk.chip != state.active_chip:
+        warnings.append(f"{state.active_chip} is already active for GW{wk.gw}: kept")
     return Decision(
-        gw=wk.gw, week=wk, chip=wk.chip, transfers_in=wk.transfers_in,
+        gw=wk.gw, week=wk, chip=state.active_chip or wk.chip, transfers_in=wk.transfers_in,
         transfers_out=wk.transfers_out, hits=wk.hits, captain=wk.captain, vice=wk.vice,
         xi=wk.xi, bench=wk.bench, xp=wk.xp,
         xp_no_transfers=_best_xi_points(proj, [p.player_id for p in state.squad], 0),

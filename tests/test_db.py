@@ -9,7 +9,7 @@ FIX = Path(__file__).parent / "fixtures"
 
 
 def load(name):
-    return json.loads((FIX / name).read_text())
+    return json.loads((FIX / name).read_text(encoding="utf-8"))
 
 
 def test_team_keys_agree_across_sources():
@@ -29,7 +29,9 @@ def test_one_match_across_three_sources():
     ingest_fpl.load_bootstrap(db, boot, 2026, 7)
     ingest_fpl.load_fixtures(db, load("fixtures.json"), boot, 2026)
     ingest_understat.load_league(db, load("understat_league.json"), 2026)
-    ingest_football_data.load_csv(db, (FIX / "fd_E0_2026.csv").read_text(), "E0", 2026)
+    ingest_football_data.load_csv(
+        db, (FIX / "fd_E0_2026.csv").read_text(encoding="utf-8"), "E0", 2026
+    )
     # Arsenal v Coventry on 21 Aug is one canonical match, however many sources saw it
     m = db.query(
         "SELECT m.match_id, t.name h, a.name a FROM matches m "
@@ -46,7 +48,9 @@ def test_one_match_across_three_sources():
 
 def test_football_data_odds_and_xg():
     db = FootballDB()
-    n = ingest_football_data.load_csv(db, (FIX / "fd_E1_2026.csv").read_text(), "E1", 2026)
+    n = ingest_football_data.load_csv(
+        db, (FIX / "fd_E1_2026.csv").read_text(encoding="utf-8"), "E1", 2026
+    )
     assert n == 7
     odds = db.query("SELECT * FROM match_odds WHERE closing")
     assert len(odds) >= 7 and odds["home"].notna().all()
@@ -57,7 +61,7 @@ def test_football_data_odds_and_xg():
 
 def test_reingest_is_idempotent():
     db = FootballDB()
-    text = (FIX / "fd_E1_2026.csv").read_text()
+    text = (FIX / "fd_E1_2026.csv").read_text(encoding="utf-8")
     ingest_football_data.load_csv(db, text, "E1", 2026)
     first = db.counts()
     ingest_football_data.load_csv(db, text, "E1", 2026)
@@ -114,7 +118,9 @@ def test_understat_player_links_and_shots():
 
 def test_parquet_roundtrip(tmp_path):
     db = FootballDB()
-    ingest_football_data.load_csv(db, (FIX / "fd_E1_2026.csv").read_text(), "E1", 2026)
+    ingest_football_data.load_csv(
+        db, (FIX / "fd_E1_2026.csv").read_text(encoding="utf-8"), "E1", 2026
+    )
     counts = db.export_parquet(tmp_path)
     db2 = FootballDB()
     db2.import_parquet(tmp_path)
