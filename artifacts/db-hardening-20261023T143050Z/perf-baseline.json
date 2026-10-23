@@ -1,0 +1,39 @@
+{
+ "python": "3.13.12",
+ "machine": "Windows-11-10.0.26300-SP0",
+ "processor": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\work-snapshot.duckdb",
+ "workloads": {
+  "player_gw_frame": {
+   "cold_s": 0.098,
+   "warm_median_s": 0.091,
+   "py_peak_mb": 2.4
+  },
+  "minutes_features": {
+   "cold_s": 0.682,
+   "warm_median_s": 0.648,
+   "py_peak_mb": 4.3
+  },
+  "match_frame": {
+   "cold_s": 0.035,
+   "warm_median_s": 0.031,
+   "py_peak_mb": 2.3
+  },
+  "run_checks": {
+   "cold_s": 0.084,
+   "warm_median_s": 0.079,
+   "py_peak_mb": 3.3
+  },
+  "blocked_writes(repair+quarantine)": {
+   "cold_s": 0.519,
+   "warm_median_s": 0.51,
+   "py_peak_mb": 0.2
+  },
+  "export_parquet": {
+   "cold_s": 0.387,
+   "warm_median_s": 0.362,
+   "py_peak_mb": 1.7
+  }
+ },
+ "db_bytes": 24129536
+}

@@ -67,3 +67,16 @@ and testing on 2025, including positional Brier/log loss against recent-starts b
 Archive snapshots are reconstructed at kickoff, not verified predeadline injury snapshots;
 these results do not validate injury probabilities, transfers or overall FPL returns.
 No production model/DB promotion follows automatically from this study.
+
+### Eligibility of historical data (declared 2026-10-22, DB01-DB02 review)
+
+Reconstructed history is **ineligible for strict point-in-time evaluation**: the 2024 and 2025
+seasons in `data_cache/calibration-study-20261020.duckdb` are stamped at fixture kickoff (81% after
+their gameweek's first kickoff), carry no availability or news (`chance_next`, `news` NULL), and have
+no stored official deadline. `football.duckdb` itself holds only the 2026 season, with FPL
+snapshots for GW8 only. Result-derived features cut by kickoff remain event-time reconstruction
+with no known-at or correction provenance. Such data may be used for explicitly labelled
+reconstruction experiments and diagnostics; it must not support a claim about what was known at a
+deadline. Unknown known-at values stay unknown: do not substitute kickoff or ingestion time. Later
+admission of a feature or period needs independently dated source evidence, a versioned eligibility
+manifest and validation. See `artifacts/db-audit-20261022/report.md`.

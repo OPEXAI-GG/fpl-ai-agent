@@ -180,3 +180,27 @@ def test_same_seed_same_result_and_different_seed_differs():
     b = simulate_fixture(team(100), team(200), 1.4, 1.4, RULES, SimConfig(n=500, seed=9))
     c = simulate_fixture(team(100), team(200), 1.4, 1.4, RULES, SimConfig(n=500, seed=10))
     assert np.array_equal(a.points, b.points) and not np.array_equal(a.points, c.points)
+
+
+def _keeper_starts(p_starts, n=40_000):
+    from fpl_agent.model.simulate import _minutes
+
+    specs = [PlayerSpec(i, "GKP", p, 1.0, 0.0) for i, p in enumerate(p_starts)]
+    return _minutes(np.random.default_rng(3), specs, n, SimConfig()) > 0
+
+
+def test_near_zero_keepers_are_not_promoted_to_starters():
+    played = _keeper_starts([0.0001, 0.0001])  # used to be ~0.5 each
+    assert played.mean(axis=0).max() < 0.002
+
+
+def test_a_doubtful_first_choice_keeper_keeps_his_own_start_chance():
+    played = _keeper_starts([0.6, 0.1])  # used to be renormalised to ~0.86 / ~0.14
+    assert np.allclose(played.mean(axis=0), [0.6, 0.1], atol=0.01)
+    assert played.sum(axis=1).max() == 1  # never two keepers
+
+
+def test_keeper_chances_above_one_still_give_exactly_one_starter():
+    played = _keeper_starts([0.95, 0.3])
+    assert (played.sum(axis=1) == 1).all()
+    assert np.allclose(played.mean(axis=0), [0.95 / 1.25, 0.3 / 1.25], atol=0.01)

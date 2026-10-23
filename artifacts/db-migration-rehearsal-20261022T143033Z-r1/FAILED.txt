@@ -1,0 +1,3 @@
+only declared label change: fpl -> fpl-2026
+consumer output unchanged by migration: dashboard
+rolled back: consumer outputs identical

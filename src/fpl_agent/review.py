@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from fpl_agent.db.database import FootballDB, now
+from fpl_agent.db.fpl_identity import reader_sources
 from fpl_agent.lessons import TEMPLATE
 from fpl_agent.solver.decide import Decision
 
@@ -76,14 +77,20 @@ def _positions(db: FootballDB, season: int, gw: int) -> pd.DataFrame:
 
 
 def _cutoff(db: FootballDB, season: int, gw: int):
-    """The gameweek's decision cutoff: 90 minutes before its first kickoff (FPL's usual
-    deadline; exact past deadlines are not stored). None without fixtures."""
+    """The gameweek's decision cutoff: the official deadline when one was observed (stored from
+    2026-10-23 on), otherwise 90 minutes before its first kickoff (FPL's usual deadline). None
+    without either."""
+    from fpl_agent.db.gameweeks import official_deadline
     from fpl_agent.model.project import approx_deadline
+
+    official = official_deadline(db, season, gw)
+    if official is not None:
+        return official
 
     first = db.con.execute(
         "SELECT min(m.kickoff) FROM matches m JOIN match_ids i USING (match_id) "
-        "WHERE i.source = 'fpl' AND m.season = ? AND m.matchday = ?",
-        [season, gw],
+        "WHERE i.source IN (?, ?) AND m.season = ? AND m.matchday = ?",
+        [*reader_sources(season), season, gw],
     ).fetchone()[0]
     return approx_deadline(first) if first is not None else None
 

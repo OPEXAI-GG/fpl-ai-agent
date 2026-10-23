@@ -1,0 +1,1430 @@
+warning: Encountered error: Access is denied. (os error 5)
+warning: Encountered error: Access is denied. (os error 5)
+warning: Encountered error: Access is denied. (os error 5)
+warning: Encountered error: Access is denied. (os error 5)
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\perf.py:5:1
+  |
+3 | usage: python perf.py SNAPSHOT NEWCOPY OUT.json
+4 | """
+5 | import json, platform, shutil, statistics, sys, time, tracemalloc
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from pathlib import Path
+7 | from fpl_agent.db.database import FootballDB
+  |
+help: Split imports
+   |
+4  | """
+   - import json, platform, shutil, statistics, sys, time, tracemalloc
+5  + import json
+6  + import platform
+7  + import shutil
+8  + import statistics
+9  + import sys
+10 + import time
+11 + import tracemalloc
+12 | from pathlib import Path
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:5:1
+   |
+ 3 |   usage: python perf.py SNAPSHOT NEWCOPY OUT.json
+ 4 |   """
+ 5 | / import json, platform, shutil, statistics, sys, time, tracemalloc
+ 6 | | from pathlib import Path
+ 7 | | from fpl_agent.db.database import FootballDB
+ 8 | | from fpl_agent.db import quality
+ 9 | | from fpl_agent.model import features
+   | |____________________________________^
+10 |
+11 |   snap, copy, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+   |
+help: Organize imports
+   |
+4  | """
+   - import json, platform, shutil, statistics, sys, time, tracemalloc
+5  + import json
+6  + import platform
+7  + import shutil
+8  + import statistics
+9  + import sys
+10 + import time
+11 + import tracemalloc
+12 | from pathlib import Path
+   - from fpl_agent.db.database import FootballDB
+13 +
+14 | from fpl_agent.db import quality
+15 + from fpl_agent.db.database import FootballDB
+16 | from fpl_agent.model import features
+   |
+
+E501 Line too long (103 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:21:101
+   |
+19 |     "run_checks": lambda: quality.run_checks(db),
+20 |     "blocked_writes(repair+quarantine)": lambda: (quality.blocked_writes(db, quality.repair, "r"),
+21 |                                                   quality.blocked_writes(db, quality.quarantine, "q")),
+   |                                                                                                     ^^^
+22 |     "export_parquet": lambda: db.export_parquet(copy.parent / (copy.stem + "-export"), keep=0),
+23 | }
+   |
+
+E501 Line too long (107 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:24:101
+   |
+22 |     "export_parquet": lambda: db.export_parquet(copy.parent / (copy.stem + "-export"), keep=0),
+23 | }
+24 | res = {"python": sys.version.split()[0], "machine": platform.platform(), "processor": platform.processor(),
+   |                                                                                                     ^^^^^^^
+25 |        "snapshot": str(snap), "workloads": {}}
+26 | for name, fn in work.items():
+   |
+
+B007 Loop control variable `i` not used within loop body
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:28:9
+   |
+26 | for name, fn in work.items():
+27 |     times = []
+28 |     for i in range(4):  # timing without tracing (tracemalloc slows pandas several-fold)
+   |         ^
+29 |         t = time.perf_counter(); fn(); times.append(time.perf_counter() - t)
+30 |     tracemalloc.start()
+   |
+help: Rename unused `i` to `_i`
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:29:32
+   |
+27 |     times = []
+28 |     for i in range(4):  # timing without tracing (tracemalloc slows pandas several-fold)
+29 |         t = time.perf_counter(); fn(); times.append(time.perf_counter() - t)
+   |                                ^
+30 |     tracemalloc.start()
+31 |     fn()  # one separate traced run for the Python-side peak
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:29:38
+   |
+27 |     times = []
+28 |     for i in range(4):  # timing without tracing (tracemalloc slows pandas several-fold)
+29 |         t = time.perf_counter(); fn(); times.append(time.perf_counter() - t)
+   |                                      ^
+30 |     tracemalloc.start()
+31 |     fn()  # one separate traced run for the Python-side peak
+   |
+
+E501 Line too long (116 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf.py:34:101
+   |
+32 |     peak = tracemalloc.get_traced_memory()[1]
+33 |     tracemalloc.stop()
+34 |     res["workloads"][name] = {"cold_s": round(times[0], 3), "warm_median_s": round(statistics.median(times[1:]), 3),
+   |                                                                                                     ^^^^^^^^^^^^^^^^
+35 |                               "py_peak_mb": round(peak / 2**20, 1)}
+36 | db.close()
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\perf_growth.py:6:1
+  |
+4 | usage: python perf_growth.py PERFCOPY OUT.json
+5 | """
+6 | import json, statistics, sys, time
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 | from fpl_agent.db.database import FootballDB
+8 | from fpl_agent.model import features as F
+  |
+help: Split imports
+   |
+5  | """
+   - import json, statistics, sys, time
+6  + import json
+7  + import statistics
+8  + import sys
+9  + import time
+10 | from fpl_agent.db.database import FootballDB
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\perf_growth.py:6:1
+   |
+ 4 |   usage: python perf_growth.py PERFCOPY OUT.json
+ 5 |   """
+ 6 | / import json, statistics, sys, time
+ 7 | | from fpl_agent.db.database import FootballDB
+ 8 | | from fpl_agent.model import features as F
+   | |_________________________________________^
+ 9 |
+10 |   db = FootballDB(sys.argv[1])
+   |
+help: Organize imports
+   |
+5  | """
+   - import json, statistics, sys, time
+6  + import json
+7  + import statistics
+8  + import sys
+9  + import time
+10 +
+11 | from fpl_agent.db.database import FootballDB
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf_growth.py:21:32
+   |
+19 |     t = []
+20 |     for _ in range(4):
+21 |         s = time.perf_counter(); fn(); t.append(time.perf_counter() - s)
+   |                                ^
+22 |     res[name] = {"cold_s": round(t[0], 3), "warm_median_s": round(statistics.median(t[1:]), 3)}
+23 | db.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf_growth.py:21:38
+   |
+19 |     t = []
+20 |     for _ in range(4):
+21 |         s = time.perf_counter(); fn(); t.append(time.perf_counter() - s)
+   |                                      ^
+22 |     res[name] = {"cold_s": round(t[0], 3), "warm_median_s": round(statistics.median(t[1:]), 3)}
+23 | db.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf_growth.py:24:33
+   |
+22 |     res[name] = {"cold_s": round(t[0], 3), "warm_median_s": round(statistics.median(t[1:]), 3)}
+23 | db.close()
+24 | print(json.dumps(res, indent=1)); open(sys.argv[2], "w").write(json.dumps(res, indent=1))
+   |                                 ^
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:7:1
+  |
+5 | usage: python perf_minutes_experiment.py DBCOPY OUT.json
+6 | """
+7 | import json, statistics, sys, time
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 | import pandas as pd
+9 | from fpl_agent.db.database import FootballDB
+  |
+help: Split imports
+   |
+6  | """
+   - import json, statistics, sys, time
+7  + import json
+8  + import statistics
+9  + import sys
+10 + import time
+11 | import pandas as pd
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:7:1
+   |
+ 5 |   usage: python perf_minutes_experiment.py DBCOPY OUT.json
+ 6 |   """
+ 7 | / import json, statistics, sys, time
+ 8 | | import pandas as pd
+ 9 | | from fpl_agent.db.database import FootballDB
+10 | | from fpl_agent.model import features as F
+   | |_________________________________________^
+help: Organize imports
+   |
+6  | """
+   - import json, statistics, sys, time
+7  + import json
+8  + import statistics
+9  + import sys
+10 + import time
+11 +
+12 | import pandas as pd
+13 +
+14 | from fpl_agent.db.database import FootballDB
+   |
+
+E501 Line too long (112 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:21:101
+   |
+20 |     def prev_roll(s, w):
+21 |         return s.groupby(g).shift(1).groupby(g).rolling(w, min_periods=1).mean().reset_index(level=0, drop=True)
+   |                                                                                                     ^^^^^^^^^^^^
+22 |
+23 |     def prev_ewm(s):
+   |
+
+E501 Line too long (103 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:24:101
+   |
+23 |     def prev_ewm(s):
+24 |         return s.groupby(g).shift(1).groupby(g).ewm(halflife=30).mean().reset_index(level=0, drop=True)
+   |                                                                                                     ^^^
+25 |
+26 |     for w in (3, 5, 10):
+   |
+
+F841 Local variable `rest` is assigned to but never used
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:32:5
+   |
+30 |     out["s_all"] = prev_ewm(started)
+31 |     out["m_all"] = prev_ewm(mins)
+32 |     rest = F.minutes_features(df.iloc[:0])  # column order reference
+   |     ^^^^
+33 |     base = F.minutes_features  # remaining columns: reuse the original code path exactly
+34 |     return out, base
+   |
+help: Remove assignment to unused variable `rest`
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:56:32
+   |
+54 |     t = []
+55 |     for _ in range(4):
+56 |         s = time.perf_counter(); fn(); t.append(time.perf_counter() - s)
+   |                                ^
+57 |     return round(statistics.median(t[1:]), 3)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:56:38
+   |
+54 |     t = []
+55 |     for _ in range(4):
+56 |         s = time.perf_counter(); fn(); t.append(time.perf_counter() - s)
+   |                                      ^
+57 |     return round(statistics.median(t[1:]), 3)
+   |
+
+E501 Line too long (140 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\perf_minutes_experiment.py:60:101
+   |
+60 | …v_rolling(frame["minutes"].astype(float), frame["player_id"], w) for w in (3, 5, 10)])
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+61 | …)
+62 | …res(frame))
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal.py:5:1
+  |
+3 | usage: python repair_rehearsal.py SNAPSHOT NEWCOPY OUT.json
+4 | """
+5 | import json, shutil, sys
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from pathlib import Path
+7 | from fpl_agent.db.database import FootballDB
+  |
+help: Split imports
+  |
+4 | """
+  - import json, shutil, sys
+5 + import json
+6 + import shutil
+7 + import sys
+8 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal.py:5:1
+   |
+ 3 |   usage: python repair_rehearsal.py SNAPSHOT NEWCOPY OUT.json
+ 4 |   """
+ 5 | / import json, shutil, sys
+ 6 | | from pathlib import Path
+ 7 | | from fpl_agent.db.database import FootballDB
+ 8 | | from fpl_agent.db import quality as q
+   | |_____________________________________^
+ 9 |
+10 |   snap, copy, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+   |
+help: Organize imports
+   |
+4  | """
+   - import json, shutil, sys
+5  + import json
+6  + import shutil
+7  + import sys
+8  | from pathlib import Path
+   - from fpl_agent.db.database import FootballDB
+9  +
+10 | from fpl_agent.db import quality as q
+11 + from fpl_agent.db.database import FootballDB
+12 |
+   |
+
+E731 Do not assign a `lambda` expression, use a `def`
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal.py:14:1
+   |
+12 | shutil.copyfile(snap, copy)
+13 | db = FootballDB(copy)
+14 | data = lambda: {t: d for t, d in q.table_digests(db).items() if t != "repair_log"}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | res = {"snapshot": str(snap), "copy": str(copy)}
+16 | before = q.table_digests(db)
+   |
+help: Rewrite `data` as a `def`
+
+E501 Line too long (105 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal.py:24:101
+   |
+22 | res["changed_tables"] = sorted(t for t, d in data().items() if d != base.get(t))
+23 | ids = [r[0] for r in db.con.execute(
+24 |     "SELECT DISTINCT repair_id FROM repair_log WHERE rolled_back_at IS NULL ORDER BY 1 DESC").fetchall()]
+   |                                                                                                     ^^^^^
+25 | res["journal"] = db.con.execute("SELECT repair_id, table_name, action, count(*) FROM repair_log "
+26 |                                 "GROUP BY ALL ORDER BY ALL").fetchall()
+   |
+
+E501 Line too long (102 > 100)
+ --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:1:101
+  |
+1 | """U02: INJECTED corruption (expected repairs) on a disposable copy of real data, then exact rollback.
+  |                                                                                                     ^^
+2 |
+3 | usage: python repair_rehearsal_corrupt.py SNAPSHOT NEWCOPY OUT.json
+  |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:5:1
+  |
+3 | usage: python repair_rehearsal_corrupt.py SNAPSHOT NEWCOPY OUT.json
+4 | """
+5 | import json, shutil, sys, time
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from pathlib import Path
+7 | from fpl_agent.db.database import FootballDB
+  |
+help: Split imports
+  |
+4 | """
+  - import json, shutil, sys, time
+5 + import json
+6 + import shutil
+7 + import sys
+8 + import time
+9 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:5:1
+   |
+ 3 |   usage: python repair_rehearsal_corrupt.py SNAPSHOT NEWCOPY OUT.json
+ 4 |   """
+ 5 | / import json, shutil, sys, time
+ 6 | | from pathlib import Path
+ 7 | | from fpl_agent.db.database import FootballDB
+ 8 | | from fpl_agent.db import quality as q
+   | |_____________________________________^
+ 9 |
+10 |   snap, copy, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+   |
+help: Organize imports
+   |
+4  | """
+   - import json, shutil, sys, time
+5  + import json
+6  + import shutil
+7  + import sys
+8  + import time
+9  | from pathlib import Path
+10 +
+11 + from fpl_agent.db import quality as q
+12 | from fpl_agent.db.database import FootballDB
+   - from fpl_agent.db import quality as q
+13 |
+   |
+
+E731 Do not assign a `lambda` expression, use a `def`
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:14:1
+   |
+12 | shutil.copyfile(snap, copy)
+13 | db = FootballDB(copy)
+14 | data = lambda: {t: d for t, d in q.table_digests(db).items() if t != "repair_log"}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | c = db.con
+16 | # injected: one finished EPL match made a club-vs-itself, one shot with xg 2, one price row 7,
+   |
+help: Rewrite `data` as a `def`
+
+E501 Line too long (107 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:18:101
+   |
+16 | # injected: one finished EPL match made a club-vs-itself, one shot with xg 2, one price row 7,
+17 | # and an existing club duplicated under an old alias with one of its matches pointed at the copy
+18 | mid = c.execute("SELECT min(match_id) FROM matches WHERE competition_id='ENG1' AND finished").fetchone()[0]
+   |                                                                                                     ^^^^^^^
+19 | c.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = ?", [mid])
+20 | c.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+   |
+
+E501 Line too long (105 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:21:101
+   |
+19 | c.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = ?", [mid])
+20 | c.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+21 | c.execute("UPDATE fpl_players_gw SET now_cost = 7 WHERE rowid = (SELECT min(rowid) FROM fpl_players_gw)")
+   |                                                                                                     ^^^^^
+22 | tid, name = c.execute("SELECT team_id, name FROM teams WHERE key = 'peterborough'").fetchone() or (None, None)
+23 | injected = {"self_match": mid, "split_team": None}
+   |
+
+E501 Line too long (110 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:22:101
+   |
+20 | c.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+21 | c.execute("UPDATE fpl_players_gw SET now_cost = 7 WHERE rowid = (SELECT min(rowid) FROM fpl_players_gw)")
+22 | tid, name = c.execute("SELECT team_id, name FROM teams WHERE key = 'peterborough'").fetchone() or (None, None)
+   |                                                                                                     ^^^^^^^^^^
+23 | injected = {"self_match": mid, "split_team": None}
+24 | if tid:
+   |
+
+E501 Line too long (101 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:29:101
+   |
+27 |     m2 = c.execute("SELECT min(match_id) FROM matches WHERE away_team_id = ?", [tid]).fetchone()[0]
+28 |     c.execute("UPDATE matches SET away_team_id = ? WHERE match_id = ?", [dup, m2])
+29 |     c.execute("UPDATE team_match SET team_id = ? WHERE match_id = ? AND team_id = ?", [dup, m2, tid])
+   |                                                                                                     ^
+30 |     injected["split_team"] = [tid, dup, m2]
+31 | res = {"snapshot": str(snap), "injected": injected}
+   |
+
+E501 Line too long (105 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\repair_rehearsal_corrupt.py:46:101
+   |
+44 |                                 "GROUP BY ALL ORDER BY ALL").fetchall()
+45 | ids = [r[0] for r in db.con.execute(
+46 |     "SELECT DISTINCT repair_id FROM repair_log WHERE rolled_back_at IS NULL ORDER BY 1 DESC").fetchall()]
+   |                                                                                                     ^^^^^
+47 | t = time.perf_counter()
+48 | res["rolled_back"] = {i: q.rollback_repair(db, i) for i in ids}
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:5:1
+  |
+3 | usage: python roundtrip.py SNAPSHOT WORKDIR OUT.json   (SNAPSHOT is copied first, never opened rw)
+4 | """
+5 | import json, shutil, sys, time
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from pathlib import Path
+7 | import duckdb
+  |
+help: Split imports
+  |
+4 | """
+  - import json, shutil, sys, time
+5 + import json
+6 + import shutil
+7 + import sys
+8 + import time
+9 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:5:1
+   |
+ 3 |   usage: python roundtrip.py SNAPSHOT WORKDIR OUT.json   (SNAPSHOT is copied first, never opened rw)
+ 4 |   """
+ 5 | / import json, shutil, sys, time
+ 6 | | from pathlib import Path
+ 7 | | import duckdb
+ 8 | | from fpl_agent.db.database import FootballDB, missing_tables, verify_export
+   | |___________________________________________________________________________^
+ 9 |
+10 |   snap, work, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+   |
+help: Organize imports
+   |
+4  | """
+   - import json, shutil, sys, time
+5  + import json
+6  + import shutil
+7  + import sys
+8  + import time
+9  | from pathlib import Path
+10 +
+11 | import duckdb
+12 +
+13 | from fpl_agent.db.database import FootballDB, missing_tables, verify_export
+   |
+
+E501 Line too long (104 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:35:101
+   |
+33 | con.execute(f"ATTACH '{(work / 'restored.duckdb').as_posix()}' AS b (READ_ONLY)")
+34 | diff = {}
+35 | for (name,) in con.execute("SELECT table_name FROM duckdb_tables() WHERE database_name='a'").fetchall():
+   |                                                                                                     ^^^^
+36 |     where = " WHERE source <> 'import'" if name == "ingest_state" else ""
+37 |     q = lambda c: f'SELECT * FROM {c}."{name}"{where}'
+   |
+
+E731 Do not assign a `lambda` expression, use a `def`
+  --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:37:5
+   |
+35 | for (name,) in con.execute("SELECT table_name FROM duckdb_tables() WHERE database_name='a'").fetchall():
+36 |     where = " WHERE source <> 'import'" if name == "ingest_state" else ""
+37 |     q = lambda c: f'SELECT * FROM {c}."{name}"{where}'
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |     n = con.execute(f"SELECT (SELECT count(*) FROM ({q('a')} EXCEPT ALL {q('b')})) + "
+39 |                     f"(SELECT count(*) FROM ({q('b')} EXCEPT ALL {q('a')}))").fetchone()[0]
+   |
+help: Rewrite `q` as a `def`
+
+B023 Function definition does not bind loop variable `name`
+  --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:37:41
+   |
+35 | for (name,) in con.execute("SELECT table_name FROM duckdb_tables() WHERE database_name='a'").fetchall():
+36 |     where = " WHERE source <> 'import'" if name == "ingest_state" else ""
+37 |     q = lambda c: f'SELECT * FROM {c}."{name}"{where}'
+   |                                         ^^^^
+38 |     n = con.execute(f"SELECT (SELECT count(*) FROM ({q('a')} EXCEPT ALL {q('b')})) + "
+39 |                     f"(SELECT count(*) FROM ({q('b')} EXCEPT ALL {q('a')}))").fetchone()[0]
+   |
+
+B023 Function definition does not bind loop variable `where`
+  --> artifacts\db-hardening-20261023T143050Z\roundtrip.py:37:48
+   |
+35 | for (name,) in con.execute("SELECT table_name FROM duckdb_tables() WHERE database_name='a'").fetchall():
+36 |     where = " WHERE source <> 'import'" if name == "ingest_state" else ""
+37 |     q = lambda c: f'SELECT * FROM {c}."{name}"{where}'
+   |                                                ^^^^^
+38 |     n = con.execute(f"SELECT (SELECT count(*) FROM ({q('a')} EXCEPT ALL {q('b')})) + "
+39 |                     f"(SELECT count(*) FROM ({q('b')} EXCEPT ALL {q('a')}))").fetchone()[0]
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\db-hardening-20261023T143050Z\snapshot.py:5:1
+  |
+3 | usage: python snapshot.py SOURCE DEST OUT.json  (DEST must not exist; SOURCE is only read)
+4 | """
+5 | import hashlib, json, sys, time
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 | from pathlib import Path
+7 | import duckdb
+  |
+help: Split imports
+  |
+4 | """
+  - import hashlib, json, sys, time
+5 + import hashlib
+6 + import json
+7 + import sys
+8 + import time
+9 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\db-hardening-20261023T143050Z\snapshot.py:5:1
+  |
+3 |   usage: python snapshot.py SOURCE DEST OUT.json  (DEST must not exist; SOURCE is only read)
+4 |   """
+5 | / import hashlib, json, sys, time
+6 | | from pathlib import Path
+7 | | import duckdb
+  | |_____________^
+8 |
+9 |   src, dst, out = (Path(a).resolve() for a in sys.argv[1:4])
+  |
+help: Organize imports
+   |
+4  | """
+   - import hashlib, json, sys, time
+5  + import hashlib
+6  + import json
+7  + import sys
+8  + import time
+9  | from pathlib import Path
+10 +
+11 | import duckdb
+   |
+
+E501 Line too long (103 > 100)
+  --> artifacts\db-hardening-20261023T143050Z\snapshot.py:21:101
+   |
+19 | def tables(con, cat):
+20 |     return [r[0] for r in con.execute(
+21 |         "SELECT table_name FROM duckdb_tables() WHERE database_name = ? ORDER BY 1", [cat]).fetchall()]
+   |                                                                                                     ^^^
+
+E401 [*] Multiple imports on one line
+ --> artifacts\deadline-20261023\check_refresh.py:2:1
+  |
+1 | """T03: post-refresh integrity, squad identity coverage and per-input freshness (read only)."""
+2 | import json, sys, urllib.request
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | from datetime import datetime, timezone
+4 | from pathlib import Path
+  |
+help: Split imports
+  |
+1 | """T03: post-refresh integrity, squad identity coverage and per-input freshness (read only)."""
+  - import json, sys, urllib.request
+2 + import json
+3 + import sys
+4 + import urllib.request
+5 | from datetime import datetime, timezone
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\check_refresh.py:2:1
+  |
+1 |   """T03: post-refresh integrity, squad identity coverage and per-input freshness (read only)."""
+2 | / import json, sys, urllib.request
+3 | | from datetime import datetime, timezone
+4 | | from pathlib import Path
+5 | | import duckdb
+6 | | from fpl_agent.db.fpl_identity import season_map
+  | |________________________________________________^
+7 |
+8 |   W = Path(sys.argv[1]); ENTRY = 8700026
+  |
+help: Organize imports
+   |
+1  | """T03: post-refresh integrity, squad identity coverage and per-input freshness (read only)."""
+   - import json, sys, urllib.request
+2  + import json
+3  + import sys
+4  + import urllib.request
+5  | from datetime import datetime, timezone
+6  | from pathlib import Path
+7  +
+8  | import duckdb
+9  +
+10 | from fpl_agent.db.fpl_identity import season_map
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\check_refresh.py:8:22
+   |
+ 6 | from fpl_agent.db.fpl_identity import season_map
+ 7 |
+ 8 | W = Path(sys.argv[1]); ENTRY = 8700026
+   |                      ^
+ 9 | UA = {"User-Agent": "fpl-agent-dry/1.0"}
+10 | def get(url, name):
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\check_refresh.py:12:44
+   |
+10 | def get(url, name):
+11 |     body = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+12 |     (W / "inputs" / name).write_bytes(body); return json.loads(body)
+   |                                            ^
+13 | entry = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/", "entry.json")
+14 | cur = entry["current_event"]
+   |
+
+E501 Line too long (109 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:15:101
+   |
+13 | entry = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/", "entry.json")
+14 | cur = entry["current_event"]
+15 | picks = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/event/{cur}/picks/", f"picks_gw{cur}.json")
+   |                                                                                                     ^^^^^^^^^
+16 | hist = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/history/", "history.json")
+17 | xfers = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/transfers/", "transfers.json")
+   |
+
+E731 Do not assign a `lambda` expression, use a `def`
+  --> artifacts\deadline-20261023\check_refresh.py:19:1
+   |
+17 | xfers = get(f"https://fantasy.premierleague.com/api/entry/{ENTRY}/transfers/", "transfers.json")
+18 | con = duckdb.connect(str(W / "work.duckdb"), read_only=True)
+19 | q = lambda s, p=None: con.execute(s, p or []).fetchall()
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 | canon = season_map(con, "player", 2026)
+21 | owned = [p["element"] for p in picks["picks"]]
+   |
+help: Rewrite `q` as a `def`
+
+UP017 [*] Use `datetime.UTC` alias
+  --> artifacts\deadline-20261023\check_refresh.py:22:39
+   |
+20 | canon = season_map(con, "player", 2026)
+21 | owned = [p["element"] for p in picks["picks"]]
+22 | out = {"checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+   |                                       ^^^^^^^^^^^^
+23 |        "entry": {"current_event": cur, "bank": picks["entry_history"]["bank"], "value": picks["entry_history"]["value"],
+24 |                  "event_transfers": picks["entry_history"]["event_transfers"], "active_chip": picks["active_chip"],
+   |
+help: Convert to `datetime.UTC` alias
+   |
+2  | import json, sys, urllib.request
+   - from datetime import datetime, timezone
+3  + from datetime import datetime, timezone, UTC
+4  | from pathlib import Path
+--------------------------------------------------------------------------------
+21 | owned = [p["element"] for p in picks["picks"]]
+   - out = {"checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+22 + out = {"checked_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+23 |        "entry": {"current_event": cur, "bank": picks["entry_history"]["bank"], "value": picks["entry_history"]["value"],
+   |
+
+E501 Line too long (120 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:23:101
+   |
+21 | owned = [p["element"] for p in picks["picks"]]
+22 | out = {"checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+23 |        "entry": {"current_event": cur, "bank": picks["entry_history"]["bank"], "value": picks["entry_history"]["value"],
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+24 |                  "event_transfers": picks["entry_history"]["event_transfers"], "active_chip": picks["active_chip"],
+25 |                  "chips_used": [(c["name"], c["event"]) for c in hist["chips"]], "n_transfers_total": len(xfers)},
+   |
+
+E501 Line too long (115 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:24:101
+   |
+22 | out = {"checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+23 |        "entry": {"current_event": cur, "bank": picks["entry_history"]["bank"], "value": picks["entry_history"]["value"],
+24 |                  "event_transfers": picks["entry_history"]["event_transfers"], "active_chip": picks["active_chip"],
+   |                                                                                                     ^^^^^^^^^^^^^^^
+25 |                  "chips_used": [(c["name"], c["event"]) for c in hist["chips"]], "n_transfers_total": len(xfers)},
+26 |        "squad_identity": {"owned": owned, "missing_canonical": [e for e in owned if e not in canon]},
+   |
+
+E501 Line too long (114 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:25:101
+   |
+23 |        "entry": {"current_event": cur, "bank": picks["entry_history"]["bank"], "value": picks["entry_history"]["value"],
+24 |                  "event_transfers": picks["entry_history"]["event_transfers"], "active_chip": picks["active_chip"],
+25 |                  "chips_used": [(c["name"], c["event"]) for c in hist["chips"]], "n_transfers_total": len(xfers)},
+   |                                                                                                     ^^^^^^^^^^^^^^
+26 |        "squad_identity": {"owned": owned, "missing_canonical": [e for e in owned if e not in canon]},
+27 |        "bootstrap_ids_without_canonical": len(set(json.loads((W/"inputs"/"bootstrap.json").read_bytes()) and
+   |
+
+E501 Line too long (101 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:26:101
+   |
+24 |                  "event_transfers": picks["entry_history"]["event_transfers"], "active_chip": picks["active_chip"],
+25 |                  "chips_used": [(c["name"], c["event"]) for c in hist["chips"]], "n_transfers_total": len(xfers)},
+26 |        "squad_identity": {"owned": owned, "missing_canonical": [e for e in owned if e not in canon]},
+   |                                                                                                     ^
+27 |        "bootstrap_ids_without_canonical": len(set(json.loads((W/"inputs"/"bootstrap.json").read_bytes()) and
+28 |            [e["id"] for e in json.loads((W/"inputs"/"bootstrap.json").read_bytes())["elements"]]) - set(canon)),
+   |
+
+E501 Line too long (108 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:27:101
+   |
+25 |                  "chips_used": [(c["name"], c["event"]) for c in hist["chips"]], "n_transfers_total": len(xfers)},
+26 |        "squad_identity": {"owned": owned, "missing_canonical": [e for e in owned if e not in canon]},
+27 |        "bootstrap_ids_without_canonical": len(set(json.loads((W/"inputs"/"bootstrap.json").read_bytes()) and
+   |                                                                                                     ^^^^^^^^
+28 |            [e["id"] for e in json.loads((W/"inputs"/"bootstrap.json").read_bytes())["elements"]]) - set(canon)),
+29 |        "duplicates": {
+   |
+
+E501 Line too long (112 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:28:101
+   |
+26 |        "squad_identity": {"owned": owned, "missing_canonical": [e for e in owned if e not in canon]},
+27 |        "bootstrap_ids_without_canonical": len(set(json.loads((W/"inputs"/"bootstrap.json").read_bytes()) and
+28 |            [e["id"] for e in json.loads((W/"inputs"/"bootstrap.json").read_bytes())["elements"]]) - set(canon)),
+   |                                                                                                     ^^^^^^^^^^^^
+29 |        "duplicates": {
+30 |          "player_ids_key": q("SELECT count(*) FROM (SELECT source, source_id FROM player_ids GROUP BY 1,2 HAVING count(*)>1)")[0][0],
+   |
+
+E501 Line too long (133 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:30:101
+   |
+28 | …"/"bootstrap.json").read_bytes())["elements"]]) - set(canon)),
+29 | …
+30 | … (SELECT source, source_id FROM player_ids GROUP BY 1,2 HAVING count(*)>1)")[0][0],
+   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 | …ECT count(*) FROM (SELECT player_id FROM player_ids WHERE source='fpl-2026' GROUP BY 1 HAVING count(*)>1)")[0][0],
+32 | …ECT count(*) FROM (SELECT player_id FROM player_codes GROUP BY 1 HAVING count(*)>1)")[0][0],
+   |
+
+E501 Line too long (164 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:31:101
+   |
+29 | …
+30 | … source_id FROM player_ids GROUP BY 1,2 HAVING count(*)>1)")[0][0],
+31 | …M (SELECT player_id FROM player_ids WHERE source='fpl-2026' GROUP BY 1 HAVING count(*)>1)")[0][0],
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | …M (SELECT player_id FROM player_codes GROUP BY 1 HAVING count(*)>1)")[0][0],
+33 | …ECT gw, snapshot_at, fpl_id FROM fpl_players_gw GROUP BY ALL HAVING count(*)>1)")[0][0],
+   |
+
+E501 Line too long (142 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:32:101
+   |
+30 | …ECT source, source_id FROM player_ids GROUP BY 1,2 HAVING count(*)>1)")[0][0],
+31 | …ount(*) FROM (SELECT player_id FROM player_ids WHERE source='fpl-2026' GROUP BY 1 HAVING count(*)>1)")[0][0],
+32 | …ount(*) FROM (SELECT player_id FROM player_codes GROUP BY 1 HAVING count(*)>1)")[0][0],
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 | …) FROM (SELECT gw, snapshot_at, fpl_id FROM fpl_players_gw GROUP BY ALL HAVING count(*)>1)")[0][0],
+34 | …ELECT season, gw, fpl_id, fixture_id FROM fpl_points_gw GROUP BY ALL HAVING count(*)>1)")[0][0]},
+   |
+
+E501 Line too long (154 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:33:101
+   |
+31 | …) FROM (SELECT player_id FROM player_ids WHERE source='fpl-2026' GROUP BY 1 HAVING count(*)>1)")[0][0],
+32 | …) FROM (SELECT player_id FROM player_codes GROUP BY 1 HAVING count(*)>1)")[0][0],
+33 | … (SELECT gw, snapshot_at, fpl_id FROM fpl_players_gw GROUP BY ALL HAVING count(*)>1)")[0][0],
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 | …season, gw, fpl_id, fixture_id FROM fpl_points_gw GROUP BY ALL HAVING count(*)>1)")[0][0]},
+35 | …
+   |
+
+E501 Line too long (152 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:34:101
+   |
+32 | …*) FROM (SELECT player_id FROM player_codes GROUP BY 1 HAVING count(*)>1)")[0][0],
+33 | …M (SELECT gw, snapshot_at, fpl_id FROM fpl_players_gw GROUP BY ALL HAVING count(*)>1)")[0][0],
+34 | … season, gw, fpl_id, fixture_id FROM fpl_points_gw GROUP BY ALL HAVING count(*)>1)")[0][0]},
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | …
+36 | …er_ids i LEFT JOIN players p USING (player_id) WHERE p.player_id IS NULL")[0][0],
+   |
+
+E501 Line too long (141 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:36:101
+   |
+34 | …SELECT season, gw, fpl_id, fixture_id FROM fpl_points_gw GROUP BY ALL HAVING count(*)>1)")[0][0]},
+35 | …
+36 | …M player_ids i LEFT JOIN players p USING (player_id) WHERE p.player_id IS NULL")[0][0],
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+37 | … FROM fpl_players_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+38 | …FROM fpl_points_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+   |
+
+E501 Line too long (177 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:37:101
+   |
+35 | …
+36 | …T JOIN players p USING (player_id) WHERE p.player_id IS NULL")[0][0],
+37 | …gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 | … g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+39 | …JOIN matches m USING (match_id) WHERE m.match_id IS NULL")[0][0],
+   |
+
+E501 Line too long (175 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:38:101
+   |
+36 | …FT JOIN players p USING (player_id) WHERE p.player_id IS NULL")[0][0],
+37 | …_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+38 | …w g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+39 | … JOIN matches m USING (match_id) WHERE m.match_id IS NULL")[0][0],
+40 | …N teams t USING (team_id) WHERE t.team_id IS NULL")[0][0]},
+   |
+
+E501 Line too long (137 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:39:101
+   |
+37 | …*) FROM fpl_players_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+38 | …) FROM fpl_points_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS NOT NULL AND p.player_id IS NULL")[0][0],
+39 | …OM match_ids i LEFT JOIN matches m USING (match_id) WHERE m.match_id IS NULL")[0][0],
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+40 | …team_ids i LEFT JOIN teams t USING (team_id) WHERE t.team_id IS NULL")[0][0]},
+41 | …
+   |
+
+E501 Line too long (130 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:40:101
+   |
+38 | …       "fpl_points_gw->players": q("SELECT count(*) FROM fpl_points_gw g LEFT JOIN players p USING (player_id) WHERE g.player_id IS N…
+39 | …       "match_ids->matches": q("SELECT count(*) FROM match_ids i LEFT JOIN matches m USING (match_id) WHERE m.match_id IS NULL")[0][0…
+40 | …       "team_ids->teams": q("SELECT count(*) FROM team_ids i LEFT JOIN teams t USING (team_id) WHERE t.team_id IS NULL")[0][0]},
+   |                                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 | …     "mandatory_nulls": {
+42 | …       "latest_snapshot_null_player_id": q("SELECT count(*) FROM fpl_players_gw WHERE season=2026 AND gw=8 AND player_id IS NULL")[0]…
+   |
+
+E501 Line too long (139 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:42:101
+   |
+40 | …eam_ids i LEFT JOIN teams t USING (team_id) WHERE t.team_id IS NULL")[0][0]},
+41 | …
+42 | …count(*) FROM fpl_players_gw WHERE season=2026 AND gw=8 AND player_id IS NULL")[0][0],
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+43 | …(*) FROM fpl_players_gw WHERE season=2026 AND gw=8 AND now_cost IS NULL")[0][0],
+44 | …(*) FROM matches m JOIN match_ids i USING (match_id) WHERE i.source='fpl-2026' AND m.matchday=8 AND m.kickoff IS NULL")[0][0]},
+   |
+
+E501 Line too long (133 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:43:101
+   |
+41 | …
+42 | …CT count(*) FROM fpl_players_gw WHERE season=2026 AND gw=8 AND player_id IS NULL")[0][0],
+43 | …unt(*) FROM fpl_players_gw WHERE season=2026 AND gw=8 AND now_cost IS NULL")[0][0],
+   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 | …unt(*) FROM matches m JOIN match_ids i USING (match_id) WHERE i.source='fpl-2026' AND m.matchday=8 AND m.kickoff IS NULL")[0][0]},
+45 | …
+   |
+
+E501 Line too long (180 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:44:101
+   |
+42 | …yers_gw WHERE season=2026 AND gw=8 AND player_id IS NULL")[0][0],
+43 | …gw WHERE season=2026 AND gw=8 AND now_cost IS NULL")[0][0],
+44 | …IN match_ids i USING (match_id) WHERE i.source='fpl-2026' AND m.matchday=8 AND m.kickoff IS NULL")[0][0]},
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+45 | …
+46 | …STINCT fpl_id) FROM fpl_players_gw WHERE season=2026 GROUP BY gw ORDER BY gw DESC LIMIT 2"),
+   |
+
+E501 Line too long (166 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:46:101
+   |
+44 | …es m JOIN match_ids i USING (match_id) WHERE i.source='fpl-2026' AND m.matchday=8 AND m.kickoff IS NULL")[0][0]},
+45 | …
+46 | …ount(DISTINCT fpl_id) FROM fpl_players_gw WHERE season=2026 GROUP BY gw ORDER BY gw DESC LIMIT 2"),
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+47 | …d_at) FROM fpl_points_gw WHERE season=2026 GROUP BY gw ORDER BY gw"),
+48 | … FROM ingest_log GROUP BY 1,2 ORDER BY 3 DESC LIMIT 12") if q("SELECT count(*) FROM duckdb_columns() WHERE table_name='ingest_log' AN…
+   |
+
+E501 Line too long (136 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:47:101
+   |
+45 | …
+46 | …snapshot_at), count(DISTINCT fpl_id) FROM fpl_players_gw WHERE season=2026 GROUP BY gw ORDER BY gw DESC LIMIT 2"),
+47 | …*), max(ingested_at) FROM fpl_points_gw WHERE season=2026 GROUP BY gw ORDER BY gw"),
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+48 | …e_name, max(at) FROM ingest_log GROUP BY 1,2 ORDER BY 3 DESC LIMIT 12") if q("SELECT count(*) FROM duckdb_columns() WHERE table_name=…
+49 | …st_state WHERE source='link' LIMIT 20"),
+   |
+
+E501 Line too long (287 > 100)
+  --> artifacts\deadline-20261023\check_refresh.py:48:101
+   |
+46 | …pl_players_gw WHERE season=2026 GROUP BY gw ORDER BY gw DESC LIMIT 2"),
+47 | …RE season=2026 GROUP BY gw ORDER BY gw"),
+48 | …2 ORDER BY 3 DESC LIMIT 12") if q("SELECT count(*) FROM duckdb_columns() WHERE table_name='ingest_log' AND column_name='at'")[0][0] else q("SELECT * FROM ingest_log ORDER BY 1 DESC LIMIT 0")},
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+49 | …
+50 | …
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\f17_trace.py:2:1
+  |
+1 |   """T04/F-17: trace why projected players fall back to position priors (diagnostic copy only)."""
+2 | / import sys
+3 | | from datetime import datetime
+4 | | import pandas as pd
+5 | | from fpl_agent.db.database import FootballDB
+6 | | from fpl_agent.model import features, players, translation
+7 | | from fpl_agent.model.project import current_pool
+  | |________________________________________________^
+8 |
+9 |   db = FootballDB(sys.argv[1])
+  |
+help: Organize imports
+  |
+3 | from datetime import datetime
+4 +
+5 | import pandas as pd
+6 +
+7 | from fpl_agent.db.database import FootballDB
+  |
+
+E501 Line too long (103 > 100)
+  --> artifacts\deadline-20261023\f17_trace.py:13:101
+   |
+11 | pool = current_pool(db, 2026, 8, as_of=cutoff)
+12 | pm = features.match_frame(db)
+13 | print("pool", len(pool), "pm rows", len(pm), "pm players", pm["player_id"].nunique() if len(pm) else 0)
+   |                                                                                                     ^^^
+14 | print(pm.head(3).T if len(pm) else "EMPTY")
+15 | print("pm minutes>0", int((pm["minutes"] > 0).sum()) if len(pm) else 0)
+   |
+
+B905 `zip()` without an explicit `strict=` parameter
+  --> artifacts\deadline-20261023\f17_trace.py:19:12
+   |
+17 | print(pm.isna().mean().round(3).to_dict() if len(pm) else "")
+18 | frame = features.player_gw_frame(db)
+19 | pos = dict(zip(pool["player_id"], pool["position"]))
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 | r = players.fit_player_rates(pm[pm["date"] < pd.Timestamp(cutoff.date())], frame, pos, 2026,
+21 |                              translation.Translations.load(db, as_of=cutoff))
+   |
+help: Add explicit value for parameter `strict=`
+
+E401 [*] Multiple imports on one line
+ --> artifacts\deadline-20261023\fetch_deadline.py:2:1
+  |
+1 | """T01: fetch public FPL bootstrap/fixtures into isolated storage and record the event deadline."""
+2 | import json, sys, urllib.request
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | from datetime import datetime, timezone, timedelta
+4 | from pathlib import Path
+  |
+help: Split imports
+  |
+1 | """T01: fetch public FPL bootstrap/fixtures into isolated storage and record the event deadline."""
+  - import json, sys, urllib.request
+2 + import json
+3 + import sys
+4 + import urllib.request
+5 | from datetime import datetime, timezone, timedelta
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\fetch_deadline.py:2:1
+  |
+1 |   """T01: fetch public FPL bootstrap/fixtures into isolated storage and record the event deadline."""
+2 | / import json, sys, urllib.request
+3 | | from datetime import datetime, timezone, timedelta
+4 | | from pathlib import Path
+  | |________________________^
+5 |
+6 |   out = Path(sys.argv[1])
+  |
+help: Organize imports
+  |
+1 | """T01: fetch public FPL bootstrap/fixtures into isolated storage and record the event deadline."""
+  - import json, sys, urllib.request
+  - from datetime import datetime, timezone, timedelta
+2 + import json
+3 + import sys
+4 + import urllib.request
+5 + from datetime import datetime, timedelta, timezone
+6 | from pathlib import Path
+  |
+
+UP017 [*] Use `datetime.UTC` alias
+  --> artifacts\deadline-20261023\fetch_deadline.py:11:23
+   |
+ 9 | for name, url in [("bootstrap", "https://fantasy.premierleague.com/api/bootstrap-static/"),
+10 |                   ("fixtures", "https://fantasy.premierleague.com/api/fixtures/")]:
+11 |     at = datetime.now(timezone.utc)
+   |                       ^^^^^^^^^^^^
+12 |     body = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+13 |     (out / f"{name}.json").write_bytes(body)
+   |
+help: Convert to `datetime.UTC` alias
+   |
+2  | import json, sys, urllib.request
+   - from datetime import datetime, timezone, timedelta
+3  + from datetime import datetime, timezone, timedelta, UTC
+4  | from pathlib import Path
+--------------------------------------------------------------------------------
+10 |                   ("fixtures", "https://fantasy.premierleague.com/api/fixtures/")]:
+   -     at = datetime.now(timezone.utc)
+11 +     at = datetime.now(UTC)
+12 |     body = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+   |
+
+E501 Line too long (109 > 100)
+  --> artifacts\deadline-20261023\fetch_deadline.py:21:101
+   |
+19 |         d = datetime.fromisoformat(e["deadline_time"].replace("Z", "+00:00"))
+20 |         rec.setdefault("events", []).append({
+21 |             "id": e["id"], "is_current": e["is_current"], "is_next": e["is_next"], "finished": e["finished"],
+   |                                                                                                     ^^^^^^^^^
+22 |             "deadline_time": e["deadline_time"], "deadline_dubai": d.astimezone(dubai).isoformat()})
+23 | rec["n_elements"] = len(boot["elements"])
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\deadline-20261023\legality.py:2:1
+  |
+1 | """T05: independent legality check of a dry gw8.json against FPL's own bootstrap and picks."""
+2 | import json, sys
+  | ^^^^^^^^^^^^^^^^
+3 | from collections import Counter
+4 | from pathlib import Path
+  |
+help: Split imports
+  |
+1 | """T05: independent legality check of a dry gw8.json against FPL's own bootstrap and picks."""
+  - import json, sys
+2 + import json
+3 + import sys
+4 | from collections import Counter
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\legality.py:2:1
+  |
+1 |   """T05: independent legality check of a dry gw8.json against FPL's own bootstrap and picks."""
+2 | / import json, sys
+3 | | from collections import Counter
+4 | | from pathlib import Path
+5 | | import duckdb
+  | |_____________^
+6 |
+7 |   W = Path(__file__).parent
+  |
+help: Organize imports
+  |
+1 | """T05: independent legality check of a dry gw8.json against FPL's own bootstrap and picks."""
+  - import json, sys
+2 + import json
+3 + import sys
+4 | from collections import Counter
+5 | from pathlib import Path
+6 +
+7 | import duckdb
+  |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\legality.py:17:49
+   |
+15 | POS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+16 | squad_now = {p["element"] for p in picks["picks"]}
+17 | outs = {to_el[p] for p in plan["transfers_out"]}; ins = {to_el[p] for p in plan["transfers_in"]}
+   |                                                 ^
+18 | squad = (squad_now - outs) | ins
+19 | xi = [to_el[p] for p in plan["xi"]]; bench = [to_el[p] for p in plan["bench"]]
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\legality.py:19:36
+   |
+17 | outs = {to_el[p] for p in plan["transfers_out"]}; ins = {to_el[p] for p in plan["transfers_in"]}
+18 | squad = (squad_now - outs) | ins
+19 | xi = [to_el[p] for p in plan["xi"]]; bench = [to_el[p] for p in plan["bench"]]
+   |                                    ^
+20 | pos = Counter(POS[el[e]["element_type"]] for e in xi)
+21 | cost_in = sum(el[e]["now_cost"] for e in ins)
+   |
+
+E501 Line too long (125 > 100)
+  --> artifacts\deadline-20261023\legality.py:24:101
+   |
+22 | checks = {
+23 |     "15 players": len(squad) == 15,
+24 |     "squad 2/5/5/3": Counter(POS[el[e]["element_type"]] for e in squad) == Counter({"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3}),
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+25 |     "max 3 per club": max(Counter(el[e]["team"] for e in squad).values()) <= 3,
+26 |     "XI+bench = squad": set(xi) | set(bench) == squad and len(xi) == 11 and len(bench) == 4,
+   |
+
+E501 Line too long (145 > 100)
+  --> artifacts\deadline-20261023\legality.py:27:101
+   |
+25 | … squad).values()) <= 3,
+26 | …d len(xi) == 11 and len(bench) == 4,
+27 | …s["GKP"] == 1 and 3 <= pos["DEF"] <= 5 and 2 <= pos["MID"] <= 5 and 1 <= pos["FWD"] <= 3,
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | …]] in xi and to_el[plan["vice"]] in xi and plan["captain"] != plan["vice"],
+29 | …freehit") ,
+   |
+
+E501 Line too long (131 > 100)
+  --> artifacts\deadline-20261023\legality.py:28:101
+   |
+26 | …quad and len(xi) == 11 and len(bench) == 4,
+27 | …D)": pos["GKP"] == 1 and 3 <= pos["DEF"] <= 5 and 2 <= pos["MID"] <= 5 and 1 <= pos["FWD"] <= 3,
+28 | …aptain"]] in xi and to_el[plan["vice"]] in xi and plan["captain"] != plan["vice"],
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 | …ost", "freehit") ,
+30 | …
+   |
+
+E501 Line too long (143 > 100)
+  --> artifacts\deadline-20261023\legality.py:34:101
+   |
+32 | …ad == squad_now,
+33 | …
+34 | …chance_of_playing_next_round"], el[e]["news"]) for e in squad if el[e]["status"] != "a"}
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | …)), "xi_formation": dict(pos), "transfer_cost_in": cost_in,
+36 | …gged_in_squad": flagged,
+   |
+
+E501 Line too long (114 > 100)
+  --> artifacts\deadline-20261023\legality.py:35:101
+   |
+33 | }
+34 | flagged = {el[e]["web_name"]: (el[e]["status"], el[e]["chance_of_playing_next_round"], el[e]["news"]) for e in squad if el[e]["status"…
+35 | out = {"checks": checks, "all_pass": all(checks.values()), "xi_formation": dict(pos), "transfer_cost_in": cost_in,
+   |                                                                                                     ^^^^^^^^^^^^^^
+36 |        "bank_now": picks["entry_history"]["bank"], "flagged_in_squad": flagged,
+37 |        "captain": el[to_el[plan["captain"]]]["web_name"], "vice": el[to_el[plan["vice"]]]["web_name"],
+   |
+
+E501 Line too long (102 > 100)
+  --> artifacts\deadline-20261023\legality.py:37:101
+   |
+35 | out = {"checks": checks, "all_pass": all(checks.values()), "xi_formation": dict(pos), "transfer_cost_in": cost_in,
+36 |        "bank_now": picks["entry_history"]["bank"], "flagged_in_squad": flagged,
+37 |        "captain": el[to_el[plan["captain"]]]["web_name"], "vice": el[to_el[plan["vice"]]]["web_name"],
+   |                                                                                                     ^^
+38 |        "bench_order": [el[e]["web_name"] for e in sorted(bench, key=lambda e: el[e]["element_type"] != 1)]}
+39 | print(json.dumps(out, indent=1, ensure_ascii=False))
+   |
+
+E501 Line too long (107 > 100)
+  --> artifacts\deadline-20261023\legality.py:38:101
+   |
+36 |        "bank_now": picks["entry_history"]["bank"], "flagged_in_squad": flagged,
+37 |        "captain": el[to_el[plan["captain"]]]["web_name"], "vice": el[to_el[plan["vice"]]]["web_name"],
+38 |        "bench_order": [el[e]["web_name"] for e in sorted(bench, key=lambda e: el[e]["element_type"] != 1)]}
+   |                                                                                                     ^^^^^^^
+39 | print(json.dumps(out, indent=1, ensure_ascii=False))
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\deadline-20261023\migrate_work.py:2:1
+  |
+1 | """T01/T02: apply the R1 relabel to the deadline WORKING COPY only (never data_cache/)."""
+2 | import json, sys
+  | ^^^^^^^^^^^^^^^^
+3 | from pathlib import Path
+4 | from fpl_agent.db import fpl_identity as fi
+  |
+help: Split imports
+  |
+1 | """T01/T02: apply the R1 relabel to the deadline WORKING COPY only (never data_cache/)."""
+  - import json, sys
+2 + import json
+3 + import sys
+4 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\migrate_work.py:2:1
+  |
+1 |   """T01/T02: apply the R1 relabel to the deadline WORKING COPY only (never data_cache/)."""
+2 | / import json, sys
+3 | | from pathlib import Path
+4 | | from fpl_agent.db import fpl_identity as fi
+5 | | from fpl_agent.db.database import FootballDB
+  | |____________________________________________^
+6 |
+7 |   path = Path(sys.argv[1]).resolve()
+  |
+help: Organize imports
+  |
+1 | """T01/T02: apply the R1 relabel to the deadline WORKING COPY only (never data_cache/)."""
+  - import json, sys
+2 + import json
+3 + import sys
+4 | from pathlib import Path
+5 +
+6 | from fpl_agent.db import fpl_identity as fi
+  |
+
+E501 Line too long (108 > 100)
+  --> artifacts\deadline-20261023\migrate_work.py:13:101
+   |
+11 | out = {"preflight_problems": plan.problems, "counts": plan.counts, "migrate": fi.migrate(db.con),
+12 |        "noop": fi.migrate(db.con), "seed": fi.FplIdentity(db, 2026).seed_codes(),
+13 |        "labels": db.con.execute("SELECT source, count(*) FROM player_ids GROUP BY 1 ORDER BY 1").fetchall()}
+   |                                                                                                     ^^^^^^^^
+14 | db.close()
+15 | print(json.dumps(out, indent=1, default=str))
+   |
+
+E401 [*] Multiple imports on one line
+ --> artifacts\deadline-20261023\restore_check.py:3:1
+  |
+1 | """T06: export the refreshed working copy, verify the manifest, restore into a new file and
+2 | compare every table (count + order-free content hash). Never touches data_cache/."""
+3 | import json, shutil, sys
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+4 | from pathlib import Path
+5 | from fpl_agent.db.database import FootballDB, verify_export
+  |
+help: Split imports
+  |
+2 | compare every table (count + order-free content hash). Never touches data_cache/."""
+  - import json, shutil, sys
+3 + import json
+4 + import shutil
+5 + import sys
+6 | from pathlib import Path
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> artifacts\deadline-20261023\restore_check.py:3:1
+  |
+1 |   """T06: export the refreshed working copy, verify the manifest, restore into a new file and
+2 |   compare every table (count + order-free content hash). Never touches data_cache/."""
+3 | / import json, shutil, sys
+4 | | from pathlib import Path
+5 | | from fpl_agent.db.database import FootballDB, verify_export
+6 | | from fpl_agent.db.quality import table_digests
+  | |______________________________________________^
+7 |
+8 |   W = Path(sys.argv[1]).resolve()
+  |
+help: Organize imports
+  |
+2 | compare every table (count + order-free content hash). Never touches data_cache/."""
+  - import json, shutil, sys
+3 + import json
+4 + import shutil
+5 + import sys
+6 | from pathlib import Path
+7 +
+8 | from fpl_agent.db.database import FootballDB, verify_export
+  |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\restore_check.py:9:35
+   |
+ 8 | W = Path(sys.argv[1]).resolve()
+ 9 | src = W / "work-final-copy.duckdb"; shutil.copy(W / "work.duckdb", src)
+   |                                   ^
+10 | exp, dst = W / "work-export", W / "work-restored.duckdb"
+11 | assert not exp.exists() and not dst.exists()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\restore_check.py:12:25
+   |
+10 | exp, dst = W / "work-export", W / "work-restored.duckdb"
+11 | assert not exp.exists() and not dst.exists()
+12 | a = FootballDB(str(src)); counts = a.export_parquet(exp)
+   |                         ^
+13 | problems = verify_export(exp)
+14 | b = FootballDB(str(dst)); loaded = b.import_parquet(exp, require_manifest=True)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\restore_check.py:14:25
+   |
+12 | a = FootballDB(str(src)); counts = a.export_parquet(exp)
+13 | problems = verify_export(exp)
+14 | b = FootballDB(str(dst)); loaded = b.import_parquet(exp, require_manifest=True)
+   |                         ^
+15 | da, db_ = table_digests(a), table_digests(b)
+16 | skip = {"ingest_state"}  # restore writes one 'import' marker row; compared without it below
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> artifacts\deadline-20261023\restore_check.py:23:33
+   |
+21 |        "tables_differing": diff, "ingest_state_equal_excluding_import_marker": same_state,
+22 |        "pass": not problems and not diff and same_state}
+23 | print(json.dumps(out, indent=1)); (W / "restore_check.json").write_text(json.dumps(out, indent=1))
+   |                                 ^
+
+Found 99 errors.
+[*] 27 fixable with the `--fix` option (7 hidden fixes can be enabled with the `--unsafe-fixes` option).
+ruff check exit=1
+
+error: Ruff crashed. If you could open an issue at:
+
+    https://github.com/astral-sh/ruff/issues/new?title=%5BPanic%5D
+
+...quoting the executed command, along with the relevant file contents and `pyproject.toml` settings, we'd be very appreciative!
+
+
+thread 'main' (567220) panicked at crates\ruff_db\src\diagnostic\mod.rs:528:14:
+Expected a ruff source file
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ruff format exit=0
+help exit=0
+no journalled repairs
+repair-undo list exit=0
+export artifacts/db-hardening-20261023T143050Z/chain/export is complete and matches its manifest
+verify-export exit=0

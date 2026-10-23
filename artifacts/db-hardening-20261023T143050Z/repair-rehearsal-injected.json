@@ -1,0 +1,104 @@
+{
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\work-snapshot.duckdb",
+ "injected": {
+  "self_match": 1,
+  "split_team": null
+ },
+ "dry": {
+  "repair": [],
+  "quarantine": [
+   "quarantine would change appearances, fpl_players_gw, match_ids, match_odds, match_odds_log, matches, player_match_stats, shots, team_match; blocked (repairs disabled) [rows: appearances removed 40, fpl_players_gw removed 1, match_ids removed 3, match_odds removed 4, match_odds_log removed 4, matches removed 1, player_match_stats removed 618, shots removed 24, team_match removed 6]: dropped 1 shots with impossible values; dropped 1 FPL price rows outside the possible range; ENG1 2026 2026-08-21 00:00:00: Arsenal vs itself (two clubs mapped to one team); match dropped"
+  ]
+ },
+ "dry_s": 0.56,
+ "dry_wrote_nothing": true,
+ "applied": [
+  "quarantined_shots: dropped 1 shots with impossible values",
+  "quarantined_prices: dropped 1 FPL price rows outside the possible range",
+  "quarantined_match: ENG1 2026 2026-08-21 00:00:00: Arsenal vs itself (two clubs mapped to one team); match dropped"
+ ],
+ "apply_s": 0.06,
+ "changed_tables": [
+  "appearances",
+  "fpl_players_gw",
+  "match_ids",
+  "match_odds",
+  "match_odds_log",
+  "matches",
+  "player_match_stats",
+  "shots",
+  "team_match"
+ ],
+ "journal": [
+  [
+   "quarantine",
+   "appearances",
+   "removed",
+   40
+  ],
+  [
+   "quarantine",
+   "fpl_players_gw",
+   "removed",
+   1
+  ],
+  [
+   "quarantine",
+   "match_ids",
+   "removed",
+   3
+  ],
+  [
+   "quarantine",
+   "match_odds",
+   "removed",
+   4
+  ],
+  [
+   "quarantine",
+   "match_odds_log",
+   "removed",
+   4
+  ],
+  [
+   "quarantine",
+   "matches",
+   "removed",
+   1
+  ],
+  [
+   "quarantine",
+   "player_match_stats",
+   "removed",
+   618
+  ],
+  [
+   "quarantine",
+   "shots",
+   "removed",
+   24
+  ],
+  [
+   "quarantine",
+   "team_match",
+   "removed",
+   6
+  ]
+ ],
+ "rolled_back": {
+  "quarantine:20261023T144956207180": {
+   "matches": 1,
+   "match_ids": 3,
+   "match_odds_log": 4,
+   "match_odds": 4,
+   "shots": 24,
+   "player_match_stats": 618,
+   "appearances": 40,
+   "team_match": 6,
+   "fpl_players_gw": 1
+  }
+ },
+ "rollback_s": 0.54,
+ "rollback_exact": false,
+ "ok": false
+}

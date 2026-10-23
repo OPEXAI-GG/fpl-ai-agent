@@ -340,3 +340,73 @@ def test_finalised_gameweeks_are_not_refetched(alerts):
     db, _ = run({"bootstrap-static": (200, boot)}, opts=opts)
     _, res = run({"bootstrap-static": (200, boot)}, opts=opts, db=db)
     assert not any(r.name.startswith("fpl:points") for r in res.report.results)
+
+
+def test_no_repairs_blocks_a_needed_quarantine_without_deleting(alerts, tmp_path):
+    opts = UpdateOptions(season=2026, football_data=("E0", "E1"), repairs=False,
+                         export=tmp_path / "out")  # fmt: skip
+    db, _ = run()
+    db.con.execute("UPDATE fpl_players_gw SET now_cost = 7 WHERE fpl_id = 1")
+    rows = db.counts()["fpl_players_gw"]
+    _, res = run(opts=opts, db=db)
+    assert res.exit_code == BAD_DATA and "quarantine_blocked" in res.message(), res.message()
+    assert db.counts()["fpl_players_gw"] >= rows  # nothing was deleted
+    assert db.con.execute("SELECT count(*) FROM fpl_players_gw WHERE now_cost = 7").fetchone()[0]
+    assert not (tmp_path / "out").exists()  # and nothing exported
+
+
+def test_no_repairs_on_clean_data_is_a_normal_update(alerts):
+    db, res = run(opts=UpdateOptions(season=2026, football_data=("E0", "E1"), repairs=False))
+    assert res.exit_code == OK, res.message()
+
+
+# ---- failure injected midway through a write: nothing partial, nothing looks fresh -----------
+def _digests(db):
+    from fpl_agent.db.quality import table_digests
+
+    return table_digests(db)
+
+
+@pytest.mark.parametrize("target", ["ingest_fpl.load_fixtures", "ingest_fpl.load_live",
+                                    "ingest_football_data.load_csv",
+                                    "ingest_understat.load_league"])  # fmt: skip
+def test_a_crash_midway_through_a_source_leaves_no_partial_rows(alerts, monkeypatch, target):
+    """The first half of a source's write has happened when it fails (injected): its rows,
+    markers and ingest_log entry all roll back, and a fresh run's digests match a run in which
+    that source simply was not called."""
+    import importlib
+
+    db, _ = run(opts=UpdateOptions(season=2026, football_data=("E0", "E1"), points=True))
+    db.con.execute("DELETE FROM fpl_points_gw")  # so the points step runs again
+    db.con.execute("DELETE FROM ingest_state WHERE source = 'fpl_points'")
+    before = _digests(db)
+    mod_name, fn = target.split(".")
+    mod = importlib.import_module(f"fpl_agent.db.{mod_name}")
+    real = getattr(mod, fn)
+
+    def half_then_crash(*a, **k):
+        real(*a, **k)  # every row of the source written ...
+        raise RuntimeError("injected crash")  # ... and then the process fails
+
+    monkeypatch.setattr(mod, fn, half_then_crash)
+    opts = UpdateOptions(season=2026, football_data=("E0", "E1"), points=True)
+    try:
+        _, res = run(opts=opts, db=db)
+    except RuntimeError:
+        res = None
+    after = _digests(db)
+    tables = {"load_fixtures": ("fpl_players_gw", "matches", "match_ids"),
+              "load_live": ("fpl_points_gw",),
+              "load_csv": ("match_odds_log",),
+              "load_league": ("shots",)}[fn]  # fmt: skip
+    for t in tables:
+        assert after[t] == before[t], t
+    if fn == "load_live":
+        assert (
+            db.con.execute(
+                "SELECT count(*) FROM ingest_state WHERE source = 'fpl_points'"
+            ).fetchone()[0]
+            == 0
+        )  # no success marker for points that were not stored
+    if res is not None:
+        assert res.exit_code != OK or fn not in ("load_fixtures",), res.message()

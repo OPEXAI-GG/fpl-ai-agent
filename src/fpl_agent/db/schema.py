@@ -113,3 +113,29 @@ TABLES["lessons"] = """
 
 TABLES["news_evidence"] = """
     observation_id VARCHAR PRIMARY KEY, observed_at TIMESTAMP, url VARCHAR, payload JSON"""
+
+# Identity evidence (R1). `player_codes` records a source's stable per-person code (FPL's `code`)
+# against the canonical player, so a person is linked across seasons by evidence, not by name.
+# `migration_log` is the journal of the reversible relabel of legacy `fpl` identity rows.
+TABLES["player_codes"] = """
+    source VARCHAR, code VARCHAR, player_id INTEGER, evidence VARCHAR,
+    first_season INTEGER, recorded_at TIMESTAMP, PRIMARY KEY (source, code)"""
+
+TABLES["migration_log"] = """
+    migration_id VARCHAR, table_name VARCHAR, source_id VARCHAR, canonical_id INTEGER,
+    source_name VARCHAR, old_source VARCHAR, new_source VARCHAR, applied_at TIMESTAMP,
+    rolled_back_at TIMESTAMP, PRIMARY KEY (migration_id, table_name, source_id)"""
+
+# Before/after images of every row an automatic repair or quarantine removed or rewrote (R2), in
+# the same transaction as the change; `quality.rollback_repair` restores one step exactly.
+TABLES["repair_log"] = """
+    repair_id VARCHAR, seq INTEGER, step VARCHAR, table_name VARCHAR, action VARCHAR,
+    image VARCHAR, reason VARCHAR, logged_at TIMESTAMP, rolled_back_at TIMESTAMP,
+    PRIMARY KEY (repair_id, seq)"""
+
+# Every observed official FPL deadline, versioned: a row is added only when the deadline FPL
+# reports for a gameweek differs from the newest one stored, so `observed_at` says what was
+# known when (prospective from 2026-10-23; earlier deadlines were never stored).
+TABLES["fpl_deadlines"] = """
+    season INTEGER, gw INTEGER, deadline_time TIMESTAMP, observed_at TIMESTAMP,
+    PRIMARY KEY (season, gw, observed_at)"""

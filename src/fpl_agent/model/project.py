@@ -34,6 +34,7 @@ class Projection:
     minutes: np.ndarray  # (players, gws, samples) int16
     components: dict[str, np.ndarray] = field(default_factory=dict)  # name -> (players, gws)
     fixtures: dict[int, list[tuple[int, int, bool, float, float]]] = field(default_factory=dict)
+    inputs: dict[str, int] = field(default_factory=dict)  # degraded-history counts (F-17)
 
     @property
     def player_ids(self) -> list[int]:
@@ -245,6 +246,8 @@ def build_projection(
     ]
     if cutoff is not None and "kickoff" in history:
         history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
+    if cutoff is not None:
+        history = features.positions_as_of(history, db, cutoff)
     pool = (pool if pool is not None
             else current_pool(db, season, pool_gw or first, as_of=cutoff))  # fmt: skip
     fx = fixtures_for(db, season, gws)
@@ -338,7 +341,19 @@ def build_projection(
     ].copy()
     meta["owned"] = pool.get("owned", pd.Series(float("nan"), index=pool.index))
     return Projection(uuid.uuid4().hex[:12], season, list(gws), meta, points, mins_out,
-                      comp_sum, fixtures_out)  # fmt: skip
+                      comp_sum, fixtures_out, history_inputs(history))  # fmt: skip
+
+
+def history_inputs(history: pd.DataFrame) -> dict[str, int]:
+    """How much of the official history the models trained on lacks its own snapshot: such rows
+    have no price, status or team (the minutes model then drops its price features), and a
+    position only where the season's snapshots agree on one."""
+    if history.empty or "position_source" not in history:
+        return {}
+    src = history["position_source"]
+    return {"rows": len(history), "own_snapshot": int(src.eq("snapshot").sum()),
+            "season_position": int(src.eq("season").sum()), "no_position": int(src.isna().sum()),
+            "no_price": int(history["price"].isna().sum())}  # fmt: skip
 
 
 def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int:

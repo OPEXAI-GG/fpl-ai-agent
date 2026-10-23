@@ -7,7 +7,14 @@ import pytest
 
 from fpl_agent.db import ingest_football_data, ingest_fpl, ingest_understat
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import errors, format_issues, quarantine, run_checks
+from fpl_agent.db.quality import (
+    blocked_writes,
+    errors,
+    format_issues,
+    quarantine,
+    run_checks,
+    table_digests,
+)
 from tests.helpers import FIX, fixture, live_payload
 
 
@@ -237,3 +244,242 @@ def test_legacy_double_gameweek_copies_are_reported():
     assert found and found[0].severity == "warn" and found[0].detail.startswith("1 ")
     db.con.execute("INSERT INTO ingest_state VALUES ('fpl_points', '2026:3', 'final', '', NULL)")
     assert not [i for i in run_checks(db) if i.check == "dgw_history_legacy"]
+
+
+def test_blocked_quarantine_reports_the_change_and_never_writes(db):
+    db.con.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+    before = table_digests(db)
+    out = blocked_writes(db, quarantine, "quarantine")
+    assert [i.check for i in out] == ["quarantine_blocked"] and out[0].severity == "error"
+    assert "shots" in out[0].detail and "quarantined_shots" not in out[0].check
+    assert table_digests(db) == before  # the real database is untouched
+    assert db.con.execute("SELECT current_database()").fetchone()[0] != "repair_probe"
+    assert not db.con.execute(
+        "SELECT 1 FROM duckdb_databases() WHERE database_name = 'repair_probe'"
+    ).fetchall()
+
+
+def test_blocked_quarantine_is_silent_on_clean_data(db):
+    assert blocked_writes(db, quarantine, "quarantine") == []
+
+
+def test_a_failing_probe_still_restores_the_connection(db):
+    def boom(d):
+        d.con.execute("DELETE FROM shots")
+        raise RuntimeError("probe failed")
+
+    before = table_digests(db)
+    with pytest.raises(RuntimeError):
+        blocked_writes(db, boom, "quarantine")
+    assert table_digests(db) == before
+    assert db.con.execute("SELECT current_database()").fetchone()[0] != "repair_probe"
+
+
+# ---- reversible repairs (R2) -----------------------------------------------------------------
+def test_reference_registry_matches_the_declared_schema():
+    """Every canonical-id column in the schema is either in REFERENCES (so merges and deletes
+    reach it) or named in NOT_REFERENCES with a reason."""
+    from fpl_agent.db.database import declared_columns
+    from fpl_agent.db.quality import NOT_REFERENCES, REFERENCES
+
+    ids = {"match_id", "team_id", "player_id", "home_team_id", "away_team_id", "from_team_id",
+           "to_team_id", "canonical_id"}  # fmt: skip
+    found = {(t, c) for t, cols in declared_columns().items() for c in cols if c in ids}
+    listed = {r for refs in REFERENCES.values() for r in refs}
+    assert found == listed | set(NOT_REFERENCES)
+    assert not listed & set(NOT_REFERENCES)
+
+
+def _orphans(db):
+    from fpl_agent.db.quality import REFERENCES
+
+    parents = {"match": ("matches", "match_id"), "team": ("teams", "team_id"),
+               "player": ("players", "player_id")}  # fmt: skip
+    out = {}
+    for kind, refs in REFERENCES.items():
+        pt, pc = parents[kind]
+        for t, c in refs:
+            if (t, c) == (pt, pc):
+                continue
+            n = db.con.execute(f"SELECT count(*) FROM {t} WHERE {c} IS NOT NULL AND {c} NOT IN "
+                               f"(SELECT {pc} FROM {pt})").fetchone()[0]  # fmt: skip
+            if n:
+                out[f"{t}.{c}"] = n
+    return out
+
+
+def _data(db):
+    return {t: d for t, d in table_digests(db).items() if t != "repair_log"}
+
+
+def _journal_id(db):
+    return db.con.execute(
+        "SELECT DISTINCT repair_id FROM repair_log WHERE rolled_back_at IS NULL "
+        "ORDER BY 1 DESC LIMIT 1"
+    ).fetchone()[0]
+
+
+def _log_odds(db, mid):
+    db.con.execute(
+        "INSERT INTO match_odds_log (match_id, source, bookmaker, closing, home, ingested_at) "
+        "VALUES (?, 'fd', 'b365', true, 2.1, '2026-09-01')",
+        [mid],
+    )
+
+
+def test_quarantine_removes_every_dependent_and_rolls_back_exactly(db):
+    from fpl_agent.db.quality import rollback_repair
+
+    db.con.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = 1")
+    _log_odds(db, 1)
+    db.con.execute("UPDATE shots SET xg = 2 WHERE shot_id = (SELECT min(shot_id) FROM shots)")
+    before = _data(db)
+    assert quarantine(db)
+    assert _orphans(db) == {}  # match_odds_log included
+    left = db.con.execute("SELECT count(*) FROM match_odds_log WHERE match_id = 1").fetchone()
+    assert left == (0,)
+    restored = rollback_repair(db, _journal_id(db))
+    assert restored["matches"] == 1 and restored["match_odds_log"] >= 1 and restored["shots"] >= 1
+    assert _data(db) == before
+
+
+def _split_club():
+    """The merge test's set-up, plus references a merge must also move."""
+    db = FootballDB()
+    mk = db.team_id("fotmob", "1", "Milton Keynes Dons")
+    db.con.execute("INSERT INTO teams VALUES (90, 'Peterboro', 'peterboro')")
+    db.con.execute("INSERT INTO team_ids VALUES ('football-data', 'Peterboro', 90, 'Peterboro')")
+    db.con.execute("INSERT INTO teams VALUES (91, 'Peterborough United', 'peterborough united')")
+    db.con.execute("INSERT INTO team_ids VALUES ('fotmob', '8677', 91, 'Peterborough United')")
+    fd = db.match_id("football-data", "x", "ENG3", 2026, date(2026, 9, 12), mk, 90,
+                     home_goals=1, away_goals=1, finished=True)  # fmt: skip
+    fm = db.match_id("fotmob", 5, "ENG3", 2026, date(2026, 9, 12), mk, 91, matchday=6)
+    for mid, tid, src in [(fd, 90, "football-data"), (fm, 91, "fotmob"),
+                          (fm, 91, "football-data")]:  # fmt: skip
+        db.con.execute(
+            "INSERT INTO team_match (match_id, team_id, source, is_home, goals_for, "
+            "goals_against) VALUES (?, ?, ?, false, 1, 1)",
+            [mid, tid, src],
+        )
+    _log_odds(db, fm)
+    db.con.execute(
+        "INSERT INTO transfers (player_id, from_team_id, to_team_id, source) "
+        "VALUES (NULL, 91, ?, 't')",
+        [mk],
+    )
+    return db, fd, fm
+
+
+def test_a_merge_moves_every_reference_and_rolls_back_exactly():
+    from fpl_agent.db.quality import repair, rollback_repair
+
+    db, fd, fm = _split_club()
+    before = _data(db)
+    found = repair(db)
+    assert any(i.check == "merged_matches" for i in found)
+    assert _orphans(db) == {}
+    assert db.con.execute("SELECT match_id FROM match_odds_log").fetchall() == [(fd,)]
+    assert db.con.execute("SELECT from_team_id FROM transfers").fetchall() == [(90,)]
+    # the colliding copy of a team_match row is journalled, not lost
+    kept = db.con.execute(
+        "SELECT count(*) FROM repair_log WHERE table_name = 'team_match' AND action = 'removed'"
+    ).fetchone()[0]
+    assert kept >= 1
+    ids = db.con.execute("SELECT DISTINCT repair_id FROM repair_log ORDER BY 1 DESC").fetchall()
+    for (rid,) in ids:
+        rollback_repair(db, rid)
+    assert _data(db) == before
+
+
+def test_rollback_refuses_after_an_intervening_change_and_writes_nothing():
+    from fpl_agent.db.quality import RepairConflict, merge_split_teams, rollback_repair
+
+    db, _, _ = _split_club()
+    merge_split_teams(db)
+    db.con.execute("UPDATE match_odds_log SET home = 9.9")  # someone changed a moved row since
+    state = table_digests(db)
+    with pytest.raises(RepairConflict, match="changed since"):
+        rollback_repair(db, _journal_id(db))
+    assert table_digests(db) == state
+
+
+def test_rollback_refuses_a_key_collision_and_a_second_rollback():
+    from fpl_agent.db.quality import RepairConflict, rollback_repair
+
+    db = FootballDB()
+    db.con.execute("INSERT INTO teams VALUES (1, 'A', 'a'), (2, 'B', 'b')")
+    db.con.execute("INSERT INTO matches (match_id, home_team_id, away_team_id) VALUES (7, 1, 1)")
+    quarantine(db)
+    rid = _journal_id(db)
+    db.con.execute("INSERT INTO matches (match_id, home_team_id, away_team_id) VALUES (7, 1, 2)")
+    state = table_digests(db)
+    with pytest.raises(RepairConflict, match="collides"):
+        rollback_repair(db, rid)
+    assert table_digests(db) == state
+    db.con.execute("DELETE FROM matches WHERE match_id = 7")
+    rollback_repair(db, rid)
+    with pytest.raises(RepairConflict, match="no journalled change"):
+        rollback_repair(db, rid)
+
+
+def test_an_interrupted_merge_changes_nothing(monkeypatch):
+    from fpl_agent.db import quality
+
+    db, _, _ = _split_club()
+    before = table_digests(db)
+    calls = {"n": 0}
+    real = quality.Journal.move
+
+    def failing(self, *a, **k):
+        calls["n"] += 1
+        if calls["n"] == 4:
+            raise RuntimeError("power cut")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(quality.Journal, "move", failing)
+    with pytest.raises(RuntimeError):
+        quality.merge_split_teams(db)
+    assert table_digests(db) == before  # neither the change nor its journal
+
+
+def test_the_dry_probe_reports_the_rows_it_would_change(db):
+    db.con.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = 1")
+    before = table_digests(db)
+    out = blocked_writes(db, quarantine, "quarantine")
+    assert "matches removed 1" in out[0].detail and "rows:" in out[0].detail
+    assert table_digests(db) == before
+
+
+def test_repair_undo_command_lists_then_undoes_once(tmp_path, capsys):
+    from fpl_agent.cli import main
+
+    path = tmp_path / "f.duckdb"
+    db = FootballDB(path)
+    db.con.execute("INSERT INTO teams VALUES (1, 'A', 'a')")
+    db.con.execute("INSERT INTO matches (match_id, home_team_id, away_team_id) VALUES (7, 1, 1)")
+    quarantine(db)
+    rid = _journal_id(db)
+    db.close()
+    assert main(["repair-undo", "--db", str(path)]) == 0
+    assert f"{rid}  matches removed 1" in capsys.readouterr().out
+    assert main(["repair-undo", "--db", str(path), rid]) == 0
+    assert main(["repair-undo", "--db", str(path), rid]) == 1  # already undone: nothing written
+    db = FootballDB(path)
+    assert db.con.execute("SELECT count(*) FROM matches").fetchone()[0] == 1
+    db.close()
+
+
+def test_rollback_keeps_json_text_exactly():
+    """A JSON column comes back as the text that was stored (spacing and escapes included)."""
+    from fpl_agent.db.quality import rollback_repair
+
+    db = FootballDB()
+    raw = '{"second_name":  "Raya Martín", "x": [1, 2.50]}'
+    db.con.execute("INSERT INTO fpl_players_gw (season, gw, snapshot_at, fpl_id, now_cost, raw) "
+                   "VALUES (2026, 1, '2026-08-01 10:00:00.123456', 1, 7, ?)", [raw])  # fmt: skip
+    before = table_digests(db)
+    quarantine(db)
+    rollback_repair(db, _journal_id(db))
+    assert db.con.execute("SELECT raw::VARCHAR FROM fpl_players_gw").fetchone()[0] == raw
+    assert {t: d for t, d in table_digests(db).items() if t != "repair_log"} == {
+        t: d for t, d in before.items() if t != "repair_log"}  # fmt: skip

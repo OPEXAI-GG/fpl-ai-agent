@@ -1,0 +1,254 @@
+{
+  "mode": "dry",
+  "decision": {
+    "gw": 8,
+    "action": "roll the free transfer",
+    "chip": null,
+    "transfers_in": [],
+    "transfers_out": [],
+    "hits": 0,
+    "captain": 8,
+    "vice": 492,
+    "xi": [
+      137,
+      88,
+      128,
+      177,
+      8,
+      545,
+      519,
+      371,
+      492,
+      1,
+      652
+    ],
+    "bench": [
+      70,
+      221,
+      273,
+      293
+    ],
+    "xp": 50.534,
+    "xp_no_transfers": 50.796,
+    "bank_after": 2,
+    "held": {
+      "freehit": "won only 54% of simulated worlds",
+      "bboost": "best gain +10.6 below the 14-point threshold"
+    },
+    "warnings": [
+      "kept for ownership (popular players are not sold without your OK): Erling Haaland 100%, Riccardo Calafiori 97%, Pascal Gro\u00df 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Mart\u00edn 58%",
+      "held Adrien Truffert -> Ezri Konsa Ngoyo: it beat rolling the transfer in only 45% of simulated worlds (+0.9 pts over the horizon)"
+    ],
+    "field_view": [
+      "value watch: Diego G\u00f3mez Amarilla; GBP5.0m, 4.0% overall ownership; 17.5 predicted points/4 GWs, +4.7 vs same-position peers at this price or cheaper; 78 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost.",
+      "value watch: Tarik Muharemovi\u0107; GBP5.0m, 5.3% overall ownership; 16.3 predicted points/4 GWs, +3.6 vs same-position peers at this price or cheaper; 77 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost.",
+      "value watch: Enzo Le F\u00e9e; GBP5.7m, 2.9% overall ownership; 16.4 predicted points/4 GWs, +3.4 vs same-position peers at this price or cheaper; 76 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost.",
+      "value watch: Luka Vu\u0161kovi\u0107; GBP5.1m, 6.1% overall ownership; 16.2 predicted points/4 GWs, +3.4 vs same-position peers at this price or cheaper; 76 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost.",
+      "value watch: James Hill; GBP5.5m, 0.8% overall ownership; 16.0 predicted points/4 GWs, +3.2 vs same-position peers at this price or cheaper; 77 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost.",
+      "captain xP tradeoff: 0.00 below the highest-xP starter; ownership/rotation policy may prefer this captain",
+      "popular players you don't own (risk if they haul): Jo\u00e3o Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%",
+      "your differentials (under 5% owned, upside): Enzo Le F\u00e9e 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%"
+    ],
+    "checks": [],
+    "chip_timing": {
+      "freehit": {
+        "expires_gw": 19,
+        "best_gw": 8,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      },
+      "bboost": {
+        "expires_gw": 19,
+        "best_gw": 8,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      }
+    },
+    "captain_options": [
+      {
+        "player_id": 8,
+        "xpts": 5.07
+      },
+      {
+        "player_id": 492,
+        "xpts": 4.71
+      },
+      {
+        "player_id": 177,
+        "xpts": 4.38
+      },
+      {
+        "player_id": 519,
+        "xpts": 4.36
+      }
+    ],
+    "plan": [
+      {
+        "gw": 9,
+        "in": [
+          27,
+          162
+        ],
+        "out": [
+          70,
+          519
+        ]
+      },
+      {
+        "gw": 10,
+        "in": [
+          140
+        ],
+        "out": [
+          545
+        ]
+      }
+    ]
+  },
+  "outcome": {
+    "mode": "dry",
+    "done": [
+      "would set captain Riccardo Calafiori, vice Erling Haaland"
+    ],
+    "blocked": [],
+    "errors": [],
+    "verified": null,
+    "unverified": []
+  },
+  "chips": {
+    "held": {
+      "freehit": "won only 54% of simulated worlds",
+      "bboost": "best gain +10.6 below the 14-point threshold"
+    },
+    "play_now": null,
+    "scenarios": [
+      {
+        "chip": "freehit",
+        "gw": 8,
+        "gain": 4.52,
+        "win_share": 0.54,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 9,
+        "gain": 4.43,
+        "win_share": 0.54,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 10,
+        "gain": 3.42,
+        "win_share": 0.55,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 11,
+        "gain": 1.93,
+        "win_share": 0.53,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 12,
+        "gain": 2.18,
+        "win_share": 0.51,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 13,
+        "gain": 3.29,
+        "win_share": 0.56,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 14,
+        "gain": 3.21,
+        "win_share": 0.55,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 15,
+        "gain": 2.24,
+        "win_share": 0.56,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 8,
+        "gain": 10.62,
+        "win_share": 0.99,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 9,
+        "gain": 8.65,
+        "win_share": 0.98,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 10,
+        "gain": 7.47,
+        "win_share": 0.97,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 11,
+        "gain": 6.38,
+        "win_share": 0.95,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 12,
+        "gain": 5.67,
+        "win_share": 0.79,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 13,
+        "gain": 4.99,
+        "win_share": 0.89,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 14,
+        "gain": 4.39,
+        "win_share": 0.89,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 15,
+        "gain": 3.7,
+        "win_share": 0.83,
+        "ok": true
+      }
+    ],
+    "timing": {
+      "freehit": {
+        "expires_gw": 19,
+        "best_gw": 8,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      },
+      "bboost": {
+        "expires_gw": 19,
+        "best_gw": 8,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      }
+    }
+  },
+  "run_id": "31f9f2931aaf4cb6"
+}

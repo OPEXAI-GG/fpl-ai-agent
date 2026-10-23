@@ -1,0 +1,7 @@
+fpl:bootstrap: ok
+fpl:fixtures: ok
+fpl:players: ok rows=668
+understat:league: ok
+football-data:E0: ok rows=70
+quality: no issues
+exit 0

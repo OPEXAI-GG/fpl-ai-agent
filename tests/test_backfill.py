@@ -178,3 +178,22 @@ def test_backfill_stops_on_its_time_budget_and_still_saves(tmp_path, monkeypatch
     assert res.exit_code == OK and any(out.iterdir())  # what it has is saved
     _, again = backfill(db=db)  # the next run carries on without redoing finished steps
     assert not any(r.name == "time budget" for r in again.report.results)
+
+
+def test_backfill_without_repairs_blocks_a_needed_quarantine_and_writes_nothing():
+    from fpl_agent.db.quality import table_digests
+    from fpl_agent.pipeline import BAD_DATA
+
+    db, _ = backfill(sources=("football-data",))
+    db.con.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = 1")
+    before = table_digests(db)
+    _, res = backfill(db=db, sources=("football-data",), start=2024, end=2025, repairs=False)
+    assert res.exit_code == BAD_DATA and "quarantine_blocked" in res.message(), res.message()
+    after = table_digests(db)
+    assert after["matches"] == before["matches"]  # the bad match is still there, not deleted
+    assert after["repair_log"] == before["repair_log"]
+
+
+def test_backfill_without_repairs_on_clean_data_is_normal():
+    _, res = backfill(sources=("football-data",), repairs=False)
+    assert res.exit_code == OK, res.message()

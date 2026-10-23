@@ -1,0 +1,1194 @@
+{
+ "version": 1,
+ "created_at": "2026-10-23T14:37:43.672323Z",
+ "tables": {
+  "competitions": {
+   "rows": 6,
+   "columns": [
+    [
+     "competition_id",
+     "VARCHAR"
+    ],
+    [
+     "name",
+     "VARCHAR"
+    ],
+    [
+     "country",
+     "VARCHAR"
+    ],
+    [
+     "tier",
+     "INTEGER"
+    ]
+   ],
+   "sha256": "d980bd66427607d9b28aa6885cf1da90dd8cad716563af8f8d46a5ff84a54635"
+  },
+  "teams": {
+   "rows": 119,
+   "columns": [
+    [
+     "team_id",
+     "INTEGER"
+    ],
+    [
+     "name",
+     "VARCHAR"
+    ],
+    [
+     "key",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "9335a505370df50b18d99f54e2837567d4fdfbe6b6f682275a83d83a325c4d91"
+  },
+  "team_ids": {
+   "rows": 179,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "source_id",
+     "VARCHAR"
+    ],
+    [
+     "team_id",
+     "INTEGER"
+    ],
+    [
+     "source_name",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "ad7a9282868f31bcc6d281998daee4b052db2fe884dd25f7d15d0795fec64f54"
+  },
+  "players": {
+   "rows": 3180,
+   "columns": [
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "name",
+     "VARCHAR"
+    ],
+    [
+     "birth_date",
+     "DATE"
+    ],
+    [
+     "position",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "88c22dc78d4e86e449ff4d7cbb26b06fc357e1689a6ec49c7d921630aac6de2e"
+  },
+  "player_ids": {
+   "rows": 3538,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "source_id",
+     "VARCHAR"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "source_name",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "41173d9c1887f74be2f35bc73793a7de85c8aa240f803521d0ef2bf4f5b9e251"
+  },
+  "matches": {
+   "rows": 776,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "competition_id",
+     "VARCHAR"
+    ],
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "matchday",
+     "INTEGER"
+    ],
+    [
+     "kickoff",
+     "TIMESTAMP"
+    ],
+    [
+     "match_date",
+     "DATE"
+    ],
+    [
+     "home_team_id",
+     "INTEGER"
+    ],
+    [
+     "away_team_id",
+     "INTEGER"
+    ],
+    [
+     "home_goals",
+     "INTEGER"
+    ],
+    [
+     "away_goals",
+     "INTEGER"
+    ],
+    [
+     "finished",
+     "BOOLEAN"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "0665e693a9c2c9fab9ea3805a9486cf04511c8c06d64ae65de0da1905133d1c4"
+  },
+  "match_ids": {
+   "rows": 1536,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "source_id",
+     "VARCHAR"
+    ],
+    [
+     "match_id",
+     "INTEGER"
+    ]
+   ],
+   "sha256": "2ecda3fe749676eee521a83fa36bb5e0c693241fbe38b156df242389b87ee795"
+  },
+  "team_match": {
+   "rows": 604,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "team_id",
+     "INTEGER"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "is_home",
+     "BOOLEAN"
+    ],
+    [
+     "goals_for",
+     "INTEGER"
+    ],
+    [
+     "goals_against",
+     "INTEGER"
+    ],
+    [
+     "xg_for",
+     "DOUBLE"
+    ],
+    [
+     "xg_against",
+     "DOUBLE"
+    ],
+    [
+     "shots",
+     "INTEGER"
+    ],
+    [
+     "shots_on_target",
+     "INTEGER"
+    ],
+    [
+     "corners",
+     "INTEGER"
+    ],
+    [
+     "fouls",
+     "INTEGER"
+    ],
+    [
+     "yellows",
+     "INTEGER"
+    ],
+    [
+     "reds",
+     "INTEGER"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "91a2dadde4fa55e50cb83914d671debbff11e96954bad74cc2a47dbacb8777ad"
+  },
+  "match_odds": {
+   "rows": 280,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "bookmaker",
+     "VARCHAR"
+    ],
+    [
+     "closing",
+     "BOOLEAN"
+    ],
+    [
+     "home",
+     "DOUBLE"
+    ],
+    [
+     "draw",
+     "DOUBLE"
+    ],
+    [
+     "away",
+     "DOUBLE"
+    ],
+    [
+     "over25",
+     "DOUBLE"
+    ],
+    [
+     "under25",
+     "DOUBLE"
+    ],
+    [
+     "ah_line",
+     "DOUBLE"
+    ],
+    [
+     "ah_home",
+     "DOUBLE"
+    ],
+    [
+     "ah_away",
+     "DOUBLE"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "e2e43a92a07ef9f135cbb922e49c9e2067d0a9994599713e9475a544020745e5"
+  },
+  "appearances": {
+   "rows": 6862,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "team_id",
+     "INTEGER"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "started",
+     "BOOLEAN"
+    ],
+    [
+     "minutes",
+     "INTEGER"
+    ],
+    [
+     "position",
+     "VARCHAR"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "da9ea04989209c614f404ef6341f97f8071a25bde1b9b76f834ff43c9d08496c"
+  },
+  "player_match_stats": {
+   "rows": 101072,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "stat",
+     "VARCHAR"
+    ],
+    [
+     "value",
+     "DOUBLE"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "998fc8815daf5c4f58c6baed57430415b901a67fed1abc683087d57cf798fb40"
+  },
+  "shots": {
+   "rows": 4603,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "shot_id",
+     "VARCHAR"
+    ],
+    [
+     "source_match_id",
+     "VARCHAR"
+    ],
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "minute",
+     "INTEGER"
+    ],
+    [
+     "xg",
+     "DOUBLE"
+    ],
+    [
+     "result",
+     "VARCHAR"
+    ],
+    [
+     "situation",
+     "VARCHAR"
+    ],
+    [
+     "shot_type",
+     "VARCHAR"
+    ],
+    [
+     "x",
+     "DOUBLE"
+    ],
+    [
+     "y",
+     "DOUBLE"
+    ],
+    [
+     "assisted_by",
+     "VARCHAR"
+    ],
+    [
+     "last_action",
+     "VARCHAR"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "3354c3c5cadef3c41dcfab4e3183004bad13e692dc31ef4b42625f154ce0b04d"
+  },
+  "transfers": {
+   "rows": 0,
+   "columns": [
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "from_team_id",
+     "INTEGER"
+    ],
+    [
+     "to_team_id",
+     "INTEGER"
+    ],
+    [
+     "date",
+     "DATE"
+    ],
+    [
+     "fee",
+     "VARCHAR"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "268cf30b0003ade4ee3425b08e09294ca6de1c8cfd30fa3ca2341936e6c71172"
+  },
+  "fpl_players_gw": {
+   "rows": 1336,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "snapshot_at",
+     "TIMESTAMP"
+    ],
+    [
+     "fpl_id",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "team_id",
+     "INTEGER"
+    ],
+    [
+     "position",
+     "VARCHAR"
+    ],
+    [
+     "now_cost",
+     "INTEGER"
+    ],
+    [
+     "selected_by_percent",
+     "DOUBLE"
+    ],
+    [
+     "status",
+     "VARCHAR"
+    ],
+    [
+     "chance_next",
+     "INTEGER"
+    ],
+    [
+     "news",
+     "VARCHAR"
+    ],
+    [
+     "transfers_in_event",
+     "INTEGER"
+    ],
+    [
+     "transfers_out_event",
+     "INTEGER"
+    ],
+    [
+     "total_points",
+     "INTEGER"
+    ],
+    [
+     "minutes",
+     "INTEGER"
+    ],
+    [
+     "raw",
+     "JSON"
+    ]
+   ],
+   "sha256": "955ac2f37f216fbc7abc7a35284753fb593d763e1e7f93982fadd1e898b747ed"
+  },
+  "fpl_points_gw": {
+   "rows": 4551,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "fpl_id",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "fixture_id",
+     "INTEGER"
+    ],
+    [
+     "minutes",
+     "INTEGER"
+    ],
+    [
+     "total_points",
+     "INTEGER"
+    ],
+    [
+     "bps",
+     "INTEGER"
+    ],
+    [
+     "bonus",
+     "INTEGER"
+    ],
+    [
+     "stats",
+     "JSON"
+    ],
+    [
+     "explain",
+     "JSON"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ],
+    [
+     "kickoff",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "f3f978e31c27dce2a767b97183d5adb353d2fa36ce1f3191801abfd6c93c1280"
+  },
+  "projections": {
+   "rows": 26720,
+   "columns": [
+    [
+     "run_id",
+     "VARCHAR"
+    ],
+    [
+     "model",
+     "VARCHAR"
+    ],
+    [
+     "created_at",
+     "TIMESTAMP"
+    ],
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "xpts",
+     "DOUBLE"
+    ],
+    [
+     "detail",
+     "JSON"
+    ]
+   ],
+   "sha256": "28ccffc0bbf8ffd039b2204e9c42e0cf3bda16fa06a4a570bf1b7f913829b1ca"
+  },
+  "field_ownership": {
+   "rows": 156,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "fpl_id",
+     "INTEGER"
+    ],
+    [
+     "owned",
+     "DOUBLE"
+    ],
+    [
+     "eo",
+     "DOUBLE"
+    ],
+    [
+     "sample",
+     "INTEGER"
+    ],
+    [
+     "fetched_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "49cebe5a3e5175cca8c312c67ae6f15a2dbc52fcb02bd28dc1d26594358ef13f"
+  },
+  "decisions": {
+   "rows": 4,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "created_at",
+     "TIMESTAMP"
+    ],
+    [
+     "mode",
+     "VARCHAR"
+    ],
+    [
+     "payload",
+     "JSON"
+    ]
+   ],
+   "sha256": "1252e41bed325e0bd3e70cecb1e72f471eb71eb2d1878c9452b3dbeca2999fa6"
+  },
+  "reviews": {
+   "rows": 0,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "created_at",
+     "TIMESTAMP"
+    ],
+    [
+     "kind",
+     "VARCHAR"
+    ],
+    [
+     "payload",
+     "JSON"
+    ]
+   ],
+   "sha256": "d1c63bd7e731943ada793d8502eb2846c9d91867443846c93f14ecbc5d4dd7cf"
+  },
+  "ingest_log": {
+   "rows": 180,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "run_at",
+     "TIMESTAMP"
+    ],
+    [
+     "table_name",
+     "VARCHAR"
+    ],
+    [
+     "rows",
+     "INTEGER"
+    ],
+    [
+     "note",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "3ca92249c362553046138fcfe3cca4b5b3e176fedb46f769c86cbed83f4c46c3"
+  },
+  "ingest_state": {
+   "rows": 349,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "key",
+     "VARCHAR"
+    ],
+    [
+     "status",
+     "VARCHAR"
+    ],
+    [
+     "detail",
+     "VARCHAR"
+    ],
+    [
+     "updated_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "22c9f0d5e180a6905f647df1f5db34005f3157c32b758e5f5f4fb83f2183769e"
+  },
+  "league_translation": {
+   "rows": 0,
+   "columns": [
+    [
+     "from_comp",
+     "VARCHAR"
+    ],
+    [
+     "to_comp",
+     "VARCHAR"
+    ],
+    [
+     "stat",
+     "VARCHAR"
+    ],
+    [
+     "factor",
+     "DOUBLE"
+    ],
+    [
+     "n_players",
+     "INTEGER"
+    ],
+    [
+     "minutes",
+     "DOUBLE"
+    ],
+    [
+     "updated_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "ad54efcd3f0e6fe0708577328a612c7d7b957193bd03fffdb9cee12fb442b35a"
+  },
+  "match_odds_log": {
+   "rows": 0,
+   "columns": [
+    [
+     "match_id",
+     "INTEGER"
+    ],
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "bookmaker",
+     "VARCHAR"
+    ],
+    [
+     "closing",
+     "BOOLEAN"
+    ],
+    [
+     "home",
+     "DOUBLE"
+    ],
+    [
+     "draw",
+     "DOUBLE"
+    ],
+    [
+     "away",
+     "DOUBLE"
+    ],
+    [
+     "over25",
+     "DOUBLE"
+    ],
+    [
+     "under25",
+     "DOUBLE"
+    ],
+    [
+     "ah_line",
+     "DOUBLE"
+    ],
+    [
+     "ah_home",
+     "DOUBLE"
+    ],
+    [
+     "ah_away",
+     "DOUBLE"
+    ],
+    [
+     "ingested_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "d454c13f5795cfba2e496d68b61eebb5d828899caacd3a0972a56a562b79889e"
+  },
+  "scout_cache": {
+   "rows": 0,
+   "columns": [
+    [
+     "key",
+     "VARCHAR"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "p_play",
+     "DOUBLE"
+    ],
+    [
+     "reason",
+     "VARCHAR"
+    ],
+    [
+     "created_at",
+     "TIMESTAMP"
+    ],
+    [
+     "expires_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "4af260680fb9c717e535fbc76e186ea56cf208a7a3e73fa7a69955bf0e674e1d"
+  },
+  "scout_calls": {
+   "rows": 0,
+   "columns": [
+    [
+     "called_at",
+     "TIMESTAMP"
+    ],
+    [
+     "model",
+     "VARCHAR"
+    ],
+    [
+     "prompt_version",
+     "INTEGER"
+    ],
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "eligible",
+     "INTEGER"
+    ],
+    [
+     "cached",
+     "INTEGER"
+    ],
+    [
+     "sent",
+     "INTEGER"
+    ],
+    [
+     "accepted",
+     "INTEGER"
+    ],
+    [
+     "rejected",
+     "INTEGER"
+    ],
+    [
+     "input_bytes",
+     "INTEGER"
+    ],
+    [
+     "input_tokens",
+     "INTEGER"
+    ],
+    [
+     "output_tokens",
+     "INTEGER"
+    ],
+    [
+     "stop_reason",
+     "VARCHAR"
+    ],
+    [
+     "latency_ms",
+     "INTEGER"
+    ],
+    [
+     "outcome",
+     "VARCHAR"
+    ]
+   ],
+   "sha256": "f1984e81efb9fbb75d4632625a6cb6dcdf4dad3e86bcdd1f07535c36fb148a11"
+  },
+  "runs": {
+   "rows": 5,
+   "columns": [
+    [
+     "run_id",
+     "VARCHAR"
+    ],
+    [
+     "version",
+     "INTEGER"
+    ],
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "entry_id",
+     "INTEGER"
+    ],
+    [
+     "mode",
+     "VARCHAR"
+    ],
+    [
+     "started_at",
+     "TIMESTAMP"
+    ],
+    [
+     "ended_at",
+     "TIMESTAMP"
+    ],
+    [
+     "status",
+     "VARCHAR"
+    ],
+    [
+     "state",
+     "VARCHAR"
+    ],
+    [
+     "exit_code",
+     "INTEGER"
+    ],
+    [
+     "snapshot_at",
+     "TIMESTAMP"
+    ],
+    [
+     "projection_run",
+     "VARCHAR"
+    ],
+    [
+     "decision_at",
+     "TIMESTAMP"
+    ],
+    [
+     "stages",
+     "JSON"
+    ],
+    [
+     "reasons",
+     "JSON"
+    ],
+    [
+     "report_key",
+     "VARCHAR"
+    ],
+    [
+     "delivered",
+     "BOOLEAN"
+    ],
+    [
+     "delivered_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "e49708a24536bf7de748d606fe5e5f02825e3ff4d3e61fdeab6a560de1effe0e"
+  },
+  "lessons": {
+   "rows": 0,
+   "columns": [
+    [
+     "season",
+     "INTEGER"
+    ],
+    [
+     "gw",
+     "INTEGER"
+    ],
+    [
+     "kind",
+     "VARCHAR"
+    ],
+    [
+     "points",
+     "DOUBLE"
+    ],
+    [
+     "what",
+     "VARCHAR"
+    ],
+    [
+     "lesson",
+     "VARCHAR"
+    ],
+    [
+     "rule",
+     "VARCHAR"
+    ],
+    [
+     "created_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "4c187e689a8afdbb0f8f61cf47067452974bebfd2a87f4733ca87bc445c83060"
+  },
+  "news_evidence": {
+   "rows": 89,
+   "columns": [
+    [
+     "observation_id",
+     "VARCHAR"
+    ],
+    [
+     "observed_at",
+     "TIMESTAMP"
+    ],
+    [
+     "url",
+     "VARCHAR"
+    ],
+    [
+     "payload",
+     "JSON"
+    ]
+   ],
+   "sha256": "16c3f3aec052b17c4608e2b849f670f491f07e02c34dcb36c1c57a22c3a58599"
+  },
+  "player_codes": {
+   "rows": 0,
+   "columns": [
+    [
+     "source",
+     "VARCHAR"
+    ],
+    [
+     "code",
+     "VARCHAR"
+    ],
+    [
+     "player_id",
+     "INTEGER"
+    ],
+    [
+     "evidence",
+     "VARCHAR"
+    ],
+    [
+     "first_season",
+     "INTEGER"
+    ],
+    [
+     "recorded_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "a6036bb53cea3e01df68ee34b4bd035cdc9d554d7c603d7218da408c78f393b2"
+  },
+  "migration_log": {
+   "rows": 0,
+   "columns": [
+    [
+     "migration_id",
+     "VARCHAR"
+    ],
+    [
+     "table_name",
+     "VARCHAR"
+    ],
+    [
+     "source_id",
+     "VARCHAR"
+    ],
+    [
+     "canonical_id",
+     "INTEGER"
+    ],
+    [
+     "source_name",
+     "VARCHAR"
+    ],
+    [
+     "old_source",
+     "VARCHAR"
+    ],
+    [
+     "new_source",
+     "VARCHAR"
+    ],
+    [
+     "applied_at",
+     "TIMESTAMP"
+    ],
+    [
+     "rolled_back_at",
+     "TIMESTAMP"
+    ]
+   ],
+   "sha256": "c086780dd4935bf2a8edf406d0d530a4e1b814b141271739737f8ec4d80d6539"
+  }
+ }
+}

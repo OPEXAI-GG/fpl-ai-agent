@@ -142,3 +142,93 @@ def test_a_missing_chance_of_playing_may_be_pandas_na():
     assert availability_factor("a", pd.NA, 1) == 1.0
     assert availability_factor("d", pd.NA, 1) == 1.0
     assert availability_factor("i", pd.NA, 2) < 1.0
+
+
+def test_history_without_its_own_snapshot_keeps_price_status_team_unknown(world):
+    """F-17: a gameweek with no snapshot of its own gets only the season's agreed position;
+    price, status, team and chance stay unknown, and a later snapshot never fills them."""
+    db = world.db
+    season = 2024
+    full = features.player_gw_frame(db)
+    keep = db.query(f"SELECT * FROM fpl_players_gw WHERE season = {season}")
+    try:
+        db.con.execute(f"DELETE FROM fpl_players_gw WHERE season = {season} AND gw <= 5")
+        f = features.player_gw_frame(db)
+        early = f[(f["season"] == season) & (f["gw"] <= 5)]
+        assert len(early) and early["position_source"].eq("season").all()
+        assert early[["price", "status", "team_id", "chance"]].isna().all().all()
+        ref = full.set_index(["player_id", "season", "gw", "fixture_id"])["position"]
+        got = early.set_index(["player_id", "season", "gw", "fixture_id"])["position"]
+        assert got.equals(ref.loc[got.index])  # the season's position is the one it had
+        later = f[(f["season"] == season) & (f["gw"] > 5)]
+        assert later["position_source"].eq("snapshot").all()
+        # a season whose snapshots disagree on a player's position gives him none
+        pid = int(early["player_id"].iloc[0])
+        db.con.execute(
+            f"UPDATE fpl_players_gw SET position = 'GKP' WHERE season = {season} AND gw = 6 "
+            f"AND player_id = {pid} AND position <> 'GKP'"
+        )
+        if db.con.execute(f"SELECT count(DISTINCT position) FROM fpl_players_gw WHERE "
+                          f"season = {season} AND player_id = {pid}").fetchone()[0] > 1:  # fmt: skip
+            g = features.player_gw_frame(db)
+            mine = g[(g["season"] == season) & (g["gw"] <= 5) & (g["player_id"] == pid)]
+            assert mine["position"].isna().all() and mine["position_source"].isna().all()
+    finally:
+        db.con.execute(f"DELETE FROM fpl_players_gw WHERE season = {season}")
+        db.con.register("_keep", keep)
+        db.con.execute("INSERT INTO fpl_players_gw SELECT * FROM _keep")
+        db.con.unregister("_keep")
+
+
+def test_season_position_fill_is_cutoff_invariant(world):
+    """A later snapshot (here: one that disagrees on a player's position) cannot change, add or
+    remove the season fill an earlier cutoff sees; before any snapshot there is no fill."""
+    db = world.db
+    season = 2024
+    keep = db.query(f"SELECT * FROM fpl_players_gw WHERE season = {season}")
+    try:
+        db.con.execute(f"DELETE FROM fpl_players_gw WHERE season = {season} AND gw <= 5")
+        first, last = db.con.execute(
+            f"SELECT min(snapshot_at), max(snapshot_at) FROM fpl_players_gw WHERE season = {season}"
+        ).fetchone()
+        frame = features.player_gw_frame(db)
+        early = frame[(frame["season"] == season) & (frame["gw"] <= 5)]
+        at_cut = features.positions_as_of(early, db, last)
+        assert at_cut["position"].equals(early["position"])  # same evidence, same answer
+        none_yet = features.positions_as_of(early, db, first - pd.Timedelta(seconds=1))
+        assert none_yet["position"].isna().all() and none_yet["position_source"].isna().all()
+        pid = int(early["player_id"].iloc[0])
+        later = last + pd.Timedelta(days=30)
+        db.con.execute(
+            f"INSERT INTO fpl_players_gw (season, gw, snapshot_at, fpl_id, player_id, position) "
+            f"SELECT season, 38, ?, fpl_id, player_id, CASE WHEN position = 'GKP' THEN 'FWD' "
+            f"ELSE 'GKP' END FROM fpl_players_gw WHERE season = {season} AND player_id = {pid} "
+            "LIMIT 1",
+            [later],
+        )
+        whole = features.player_gw_frame(db)  # the whole database now disagrees for pid
+        mine = whole[(whole["season"] == season) & (whole["gw"] <= 5) & (whole["player_id"] == pid)]
+        assert mine["position"].isna().all()
+        again = features.positions_as_of(early, db, last)
+        assert again["position"].equals(at_cut["position"])  # the earlier cutoff is unchanged
+        # a frame rebuilt after the disagreement must give the earlier cutoff the same answer,
+        # for the changed player and the others alike, however often the cutoff is applied
+        rebuilt = whole[(whole["season"] == season) & (whole["gw"] <= 5)]
+        for cut in (last, later, last):
+            got = features.positions_as_of(rebuilt, db, cut)
+            if cut == last:
+                assert got["position"].tolist() == at_cut["position"].tolist()
+            else:  # at the later cutoff pid's season disagrees: unknown, others unchanged
+                assert got.loc[got["player_id"] == pid, "position"].isna().all()
+                others = got["player_id"] != pid
+                assert got.loc[others, "position"].tolist() == at_cut.loc[
+                    at_cut["player_id"] != pid, "position"].tolist()  # fmt: skip
+            twice = features.positions_as_of(got, db, cut)
+            assert twice["position"].tolist() == got["position"].tolist()
+        assert features.positions_as_of(rebuilt, db, first - pd.Timedelta(seconds=1))[
+            "position"].isna().all()  # fmt: skip
+    finally:
+        db.con.execute(f"DELETE FROM fpl_players_gw WHERE season = {season}")
+        db.con.register("_keep", keep)
+        db.con.execute("INSERT INTO fpl_players_gw SELECT * FROM _keep")
+        db.con.unregister("_keep")

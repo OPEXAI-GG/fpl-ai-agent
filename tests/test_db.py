@@ -103,7 +103,7 @@ def test_understat_player_links_and_shots():
     ingest_fpl.load_bootstrap(db, boot, 2026, 7)
     data = load("understat_player.json")
     haaland = int(
-        db.query("SELECT player_id FROM player_ids WHERE source = 'fpl' LIMIT 1").iloc[0, 0]
+        db.query("SELECT player_id FROM player_ids WHERE source = 'fpl-2026' LIMIT 1").iloc[0, 0]
     )
     ingest_understat.load_player(db, data, fpl_player_id=haaland)
     assert db.query("SELECT count(*) n FROM shots").loc[0, "n"] == 8

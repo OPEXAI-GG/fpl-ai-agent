@@ -186,3 +186,34 @@ def test_prediction_review_uses_one_run_from_before_the_deadline():
 
 def _teams(db):
     return db.team_id("fpl", 1, "Arsenal"), db.team_id("fpl", 2, "Chelsea")
+
+
+def test_official_deadlines_are_versioned_observations():
+    """A deadline is stored once per value; a moved deadline is a new version, and an as-of
+    reader sees the version known at that time (none before the first observation)."""
+    from copy import deepcopy
+    from datetime import datetime
+
+    from fpl_agent.db import ingest_fpl
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.db.gameweeks import official_deadline
+    from fpl_agent.review import _cutoff
+    from tests.helpers import fixture
+
+    db = FootballDB()
+    boot = fixture("bootstrap-static.json")
+    t1, t2, t3 = datetime(2026, 8, 1), datetime(2026, 8, 2), datetime(2026, 8, 3)
+    ingest_fpl.load_bootstrap(db, boot, 2026, 1, snapshot_at=t1)
+    ingest_fpl.load_bootstrap(db, boot, 2026, 1, snapshot_at=t2)
+    events = len([e for e in boot["events"] if e.get("deadline_time")])
+    assert db.con.execute("SELECT count(*) FROM fpl_deadlines").fetchone()[0] == events
+    moved = deepcopy(boot)
+    moved["events"][0]["deadline_time"] = "2026-08-22T10:00:00Z"
+    ingest_fpl.load_bootstrap(db, moved, 2026, 1, snapshot_at=t3)
+    assert db.con.execute("SELECT count(*) FROM fpl_deadlines").fetchone()[0] == events + 1
+    gw1 = boot["events"][0]["id"]
+    first = datetime.fromisoformat(boot["events"][0]["deadline_time"].replace("Z", ""))
+    assert official_deadline(db, 2026, gw1, as_of=datetime(2026, 7, 1)) is None
+    assert official_deadline(db, 2026, gw1, as_of=t2) == first
+    assert official_deadline(db, 2026, gw1, as_of=t3) == datetime(2026, 8, 22, 10)
+    assert _cutoff(db, 2026, gw1) == datetime(2026, 8, 22, 10)  # reviews use the official one

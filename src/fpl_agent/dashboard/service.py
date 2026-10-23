@@ -23,6 +23,7 @@ from typing import Any
 import duckdb
 
 from fpl_agent.config import kill_switch_enabled
+from fpl_agent.db.fpl_identity import reader_sources
 
 STALE_SNAPSHOT_HOURS = 6.0  # an FPL snapshot older than this is shown as stale
 LIMIT = 50  # rows per history list
@@ -239,9 +240,9 @@ class Reader:
         snap = self._snapshot_at()
         age = _hours_since(snap, self.now)
         kick = self.one(
-            "SELECT min(m.kickoff) AS first FROM matches m JOIN match_ids i USING (match_id) "
-            "WHERE i.source = 'fpl' AND m.season = ? AND m.matchday = ?",
-            [self.season, self.gw],
+            "SELECT min(m.kickoff) AS first FROM matches m WHERE m.match_id IN (SELECT match_id "
+            "FROM match_ids WHERE source IN (?, ?)) AND m.season = ? AND m.matchday = ?",
+            [*reader_sources(self.season), self.season, self.gw],
             need=("matches", "match_ids"),
         ).get("first") if self.season is not None else None  # fmt: skip
         last = self.one("SELECT max(run_at) AS at FROM ingest_log", need=("ingest_log",))
@@ -366,10 +367,10 @@ class Reader:
             return {"weeks": [], "unscheduled": [], "projection": []}
         fx = self.rows(
             "SELECT m.matchday AS gw, m.kickoff, m.home_team_id, m.away_team_id, m.finished, "
-            "m.home_goals, m.away_goals FROM matches m JOIN match_ids i USING (match_id) "
-            "WHERE i.source = 'fpl' AND m.season = ? AND (m.matchday IS NULL OR "
-            "m.matchday BETWEEN ? AND ?) ORDER BY m.matchday NULLS LAST, m.kickoff",
-            [self.season, self.gw, self.gw + 7],
+            "m.home_goals, m.away_goals FROM matches m WHERE m.match_id IN (SELECT match_id "
+            "FROM match_ids WHERE source IN (?, ?)) AND m.season = ? AND (m.matchday IS NULL OR "
+            "m.matchday BETWEEN ? AND ?) ORDER BY m.matchday NULLS LAST, m.kickoff, m.match_id",
+            [*reader_sources(self.season), self.season, self.gw, self.gw + 7],
             need=("matches", "match_ids"),
         )
         weeks: dict[int, list] = {}

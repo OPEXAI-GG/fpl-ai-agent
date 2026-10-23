@@ -84,6 +84,7 @@ def db_update(args: argparse.Namespace) -> int:
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
+        repairs=not args.no_repairs,
     )
     db = _open_db(args)
     result = run_update(db, opts)
@@ -106,6 +107,7 @@ def backfill(args: argparse.Namespace) -> int:
         sources=tuple(s for s in args.sources.split(",") if s),
         export=Path(args.export) if args.export else None,
         max_minutes=args.max_minutes,
+        repairs=not args.no_repairs,
     )
     db = _open_db(args)
     result = run_backfill(db, opts)
@@ -448,6 +450,43 @@ def verify_export_cmd(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def repair_undo_cmd(args: argparse.Namespace) -> int:
+    """Without an id: the journal of automatic repairs (read only). With one: undo that repair
+    exactly, or change nothing and exit 1 when the data changed since."""
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.db.quality import RepairConflict, rollback_repair
+
+    if not args.repair_id:
+        import duckdb
+
+        con = duckdb.connect(args.db, read_only=True)
+        try:
+            rows = con.execute(
+                "SELECT repair_id, table_name, action, count(*), any_value(reason), "
+                "max(rolled_back_at) FROM repair_log GROUP BY ALL ORDER BY ALL"
+            ).fetchall()
+        except duckdb.CatalogException:
+            rows = []
+        finally:
+            con.close()
+        for rid, table, action, n, why, back in rows:
+            state = f"rolled back {back}" if back else "active"
+            print(f"{rid}  {table} {action} {n}  ({why}; {state})")
+        if not rows:
+            print("no journalled repairs")
+        return 0
+    db = FootballDB(args.db)
+    try:
+        restored = rollback_repair(db, args.repair_id)
+    except RepairConflict as e:
+        print(f"not undone: {e}")
+        return 1
+    finally:
+        db.close()
+    print(f"undone {args.repair_id}: restored {restored}")
+    return 0
+
+
 def dashboard_cmd(args: argparse.Namespace) -> int:
     """The local dashboard on 127.0.0.1 (read-only views plus dry-only jobs)."""
     from pathlib import Path
@@ -490,6 +529,11 @@ def main(argv: list[str] | None = None) -> int:
         help="comma list of finished GWs to reload "
         "with --points (repairs history stored by older code; back up first)",
     )
+    d.add_argument(
+        "--no-repairs",
+        action="store_true",
+        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
+    )
     d.add_argument("--players", action="store_true", help="also load Understat player histories")
     d.add_argument("--limit", type=int, default=25, help="max players for --players")
     d.add_argument("--export", default=None, help="write parquet files to this directory")
@@ -512,6 +556,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     b.add_argument("--export", default=None)
     b.add_argument("--import-dir", default=None)
+    b.add_argument(
+        "--no-repairs",
+        action="store_true",
+        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
+    )
     pl = sub.add_parser(
         "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
     )
@@ -610,6 +659,11 @@ def main(argv: list[str] | None = None) -> int:
     ft.add_argument("--validate", action="store_true", help="also print the leave-one-out check")
     ve = sub.add_parser("verify-export", help="check an export folder against its manifest")
     ve.add_argument("dir")
+    ru = sub.add_parser(
+        "repair-undo", help="list journalled repairs, or undo one exactly (back up first)"
+    )
+    ru.add_argument("--db", default="data_cache/football.duckdb")
+    ru.add_argument("repair_id", nargs="?", help="omit to list the journal")
     args = parser.parse_args(argv)
     try:
         return _dispatch(args)
@@ -650,6 +704,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return 0 if any(r["state"] != "failed" for r in rows) else 2
     if args.cmd == "verify-export":
         return verify_export_cmd(args)
+    if args.cmd == "repair-undo":
+        return repair_undo_cmd(args)
     settings = Settings.from_env()
     if args.cmd == "dashboard":
         return dashboard_cmd(args)

@@ -1,0 +1,29 @@
+# Scheduled database review — 2026-10-23, 20:30 Dubai
+
+**Verdict: Changes needed. DB08 remains open.** Claude may continue the authorized U00-U09 queue; no development freeze or team action is requested.
+
+## Independently confirmed findings
+
+1. **High — historical position fill is not cutoff-invariant (U06).** `src/fpl_agent/model/features.py:46-54` only repairs rows already tagged `position_source == 'season'`. After a future disagreeing snapshot, the whole-history aggregate rejects the position and removes that tag. Rebuilding the frame and applying the original cutoff therefore changes MID to NULL. The existing regression in `tests/test_minutes.py:209-213` builds the new frame but applies the cutoff to the old frame, missing this case. Derive eligibility independently of a future-dependent tag and test a freshly rebuilt frame before/after later agreeing and disagreeing observations, including mixed players and repeated cutoff application. Retain unknown values before the first eligible observation.
+
+2. **High — manifest verification does not bound what import loads (U03/U04).** `db/database.py:117` verifies only listed files, while `:537` imports every declared table file it finds. Removing the teams entry from an otherwise valid manifest leaves verification clean, yet `import_parquet(require_manifest=True)` imports its unverified rows. For manifested imports, make the verified table set authoritative; reject unexpected files or otherwise ensure they cannot be loaded. Test removal, addition and tampering of unlisted files and atomic refusal. Keep explicitly supported legacy import behavior distinct.
+
+Both reproduced twice on synthetic in-memory databases and disposable export folders; no production records were read or changed by the probes. Reproducer: `.venv/Scripts/python.exe artifacts/scheduled-review-20261023/checkpoint-1633/reproduce.py`. The saved run uses a fresh destination and deliberately refuses reuse. Results are in `reproducer-results.json`; expected invariance fails and one unverified row imports.
+
+## Verification and checkpoint
+
+- Stable source/test/rules copy captured under `checkpoint-1633/repo`; pre-copy, post-copy and copied hashes matched. HEAD `b8f05e90bede53b0560257881032bb74906e9eec`, dirty-code fingerprint `d18e63b2931b62ac23d32cf92d35751f8b7f644d1b627d91332fa10598715ee0`. Original captured files remained unchanged at end. Individual hashes: `checkpoint.json`; final comparison: `end-stability.json`.
+- Independently ran copied `tests/test_quality.py tests/test_persistence.py tests/test_point_in_time.py` using pytest, `-q -p no:cacheprovider`, isolated `--basetemp`, and copied-source PYTHONPATH: **71 passed, 4 skipped, 55.60 s, exit 0**. Exact command and output: `focused-result.json`, `focused-tests.log`. No full-suite rerun.
+- Independently executed `checkpoint-1633/dry_smoke.py`: **passed**, synthetic in-memory DB, explicit isolated snapshot/output directories, `Settings.is_live=False`, enabled dry planning, persisted decisions all dry. Network sockets, auth exchange and notification sending were forbidden. Result: `dry-smoke.json`. Fake FPL lacks ownership league standings; this expected degraded input was logged. This validates bounded integration, not real-data recommendations, forecast quality or full feed coverage.
+- Inspected Claude's `artifacts/db-hardening-20261023T143050Z/summary.md`, `status.json`, `chain.json`, threat register and full-suite tail. The reported 32-table chain/zero restore differences are inspected evidence, not independently rerun. The full-suite log ends before completion; coverage threshold remains unverified. Earlier weekly 712-pass results do not validate this newer batch.
+- Production file SHA256 independently read as `9bc925c102c1bc108948de1ba9acd153d07f09550a02a7b7ec8780fa66305e1d`, matching the reported baseline. No production database connection, migration, refresh, account action or application-code edit was performed.
+
+## Continuation instructions for Claude
+
+Fix the two reproduced defects first and add meaningful regressions. Continue feasible U work without waiting for another opinion. Current `pipeline.py:57,319` still defaults to applying repairs; reversible journals do not satisfy U02's explicit safe unattended contract. Implement an explicit repair opt-in and fail-closed default in code/CLI with compatibility documentation and tests; do not edit persistent configuration or deploy it. This default-change work was already authorized in U02.
+
+For failed-source health, preserve the data transaction's untouched-on-failure contract. Specify and test a separate operational outcome record with clear ownership, timestamps and privacy; distinguish data rollback from recording that a failed attempt occurred. An existing test is not itself an approval blocker: adjust its scope deliberately while preserving its data-integrity assertion. Continue independent work if an unavailable runtime blocks one verification.
+
+Keep U03/U04/U05/U06/U08 partial where their acceptance evidence is missing. Journal rollback idempotence, constructor schema writes, complete coverage/value contracts and source health still need criterion-by-criterion reconciliation; this review does not certify them. Do not claim the security register or advisory findings independently verified here. Linux-dependent checks, independent F-16 evidence and dependency changes requiring approval remain explicitly open. Run the final coverage gate only when resources allow and after fixes, not in a retry loop. No model promotion or live mode is authorized.
+
+Review appended to TASK.md after confirming its hash was unchanged since capture; original completion statuses were retained. `git diff --check -- TASK.md` passed. The existing `notify.ps1` helper exited 0 and reported **Desktop popup requested** (fallback path). Receipt by the user cannot be confirmed.

@@ -1,0 +1,4 @@
+All checks passed!
+ruff check src tests exit=0
+127 files already formatted
+ruff format --check src tests exit=0

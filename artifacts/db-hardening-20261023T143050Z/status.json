@@ -1,0 +1,36 @@
+{
+ "evidence_root": "artifacts/db-hardening-20261023T143050Z",
+ "started_utc": "2026-10-23T14:30:50Z",
+ "head": "b8f05e90bede53b0560257881032bb74906e9eec",
+ "production": {
+  "path": "data_cache/football.duckdb",
+  "sha256": "9bc925c102c1bc108948de1ba9acd153d07f09550a02a7b7ec8780fa66305e1d",
+  "bytes": 31993856,
+  "tables": 28
+ },
+ "weekly_work": {
+  "path": "artifacts/deadline-20261023/work.duckdb",
+  "sha256": "0ae2527a6cb027977ecfeaf40a6f11df5a82f14e0573a4ee82dbfbb1d1328d08",
+  "tables": 30
+ },
+ "snapshots": {
+  "prod-snapshot.duckdb": "b453b7c932db03e613d54853520edc8f577d11e15cb780bde8b2895907bbcbd9",
+  "work-snapshot.duckdb": "92ce9f1a7023407ca95ee033841abfaa11437d504cea357216151ee20548adf2"
+ },
+ "code_fingerprint_file_sha256": "6947635bfe651025a4d227989945ab12a997721d6035f493ab3389d01cbcd91c",
+ "disk_free": "375G of 952G",
+ "duckdb": "1.5.6",
+ "items": {
+  "U00": "done",
+  "U01": "verified",
+  "U02": "verified",
+  "U03": "verified-partial",
+  "U04": "register",
+  "U05": "verified-partial",
+  "U06": "verified-partial",
+  "U07": "measured-no-change",
+  "U08": "partial: full gate killed (low memory)",
+  "U09": "spec"
+ },
+ "next": "Codex review; rerun full coverage gate when memory allows"
+}

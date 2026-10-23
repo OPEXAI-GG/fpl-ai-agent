@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import time
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -37,22 +39,85 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def verify_export(directory: str | Path) -> list[str]:
-    """Problems with an export folder (empty = it is complete and matches its manifest): every
-    table file present, unchanged (sha256) and holding the recorded number of rows."""
-    d = Path(directory)
+@cache
+def declared_columns() -> dict[str, list[str]]:
+    """{table: column names in declared order}, from the DDL in schema.TABLES."""
+    con = duckdb.connect()
+    try:
+        out = {}
+        for name, ddl in TABLES.items():
+            con.execute(f"CREATE TABLE {name} ({ddl})")
+            out[name] = [c[0] for c in con.execute(f"DESCRIBE {name}").fetchall()]
+        return out
+    finally:
+        con.close()
+
+
+def _file_columns(con: duckdb.DuckDBPyConnection, f: Path) -> list[list[str]]:
+    return [[c[0], c[1]] for c in con.execute("DESCRIBE FROM read_parquet(?)", [str(f)]).fetchall()]
+
+
+def _undeclared(name: str, cols: list[list[str]]) -> list[str]:
+    declared = set(declared_columns()[name])
+    return [c for c, _ in cols if c not in declared]
+
+
+def _manifest_tables(d: Path) -> tuple[dict[str, dict] | None, list[str]]:
+    """(the manifest's tables, problems): the shape is checked before anything is trusted, and
+    only declared table names are accepted (a name is also a file path)."""
     try:
         manifest = json.loads((d / MANIFEST).read_text(encoding="utf-8"))
     except FileNotFoundError:
-        return [f"no {MANIFEST} (missing or legacy export)"]
+        return None, [f"no {MANIFEST} (missing or legacy export)"]
     except ValueError:
-        return [f"{MANIFEST} is not valid JSON"]
+        return None, [f"{MANIFEST} is not valid JSON"]
+    if not isinstance(manifest, dict):
+        return None, [f"{MANIFEST} is not an object"]
     if manifest.get("version") != EXPORT_VERSION:
-        return [f"unknown export version {manifest.get('version')!r}"]
-    problems = []
+        return None, [f"unknown export version {manifest.get('version')!r}"]
+    tables = manifest.get("tables")
+    if not isinstance(tables, dict) or not tables:
+        return None, ["manifest lists no tables"]
+    problems = [f"{n!r}: not a declared table" for n in tables if n not in TABLES]
+    problems += [f"{n}: entry is not an object" for n, m in tables.items()
+                 if n in TABLES and not isinstance(m, dict)]  # fmt: skip
+    return (None if problems else tables), problems
+
+
+def missing_tables(directory: str | Path) -> list[str]:
+    """Declared tables an export does not contain (an export older than the schema)."""
+    tables, _ = _manifest_tables(Path(directory))
+    return sorted(set(TABLES) - set(tables or {}))
+
+
+def _rename(src: Path, dst: Path, tries: int = 5, wait: float = 0.2) -> None:
+    """Path.rename, retried briefly on Windows "access denied": a sync client (OneDrive) or a
+    virus scanner can hold a folder that was renamed a moment ago."""
+    for i in range(tries):
+        try:
+            src.rename(dst)
+            return
+        except PermissionError:
+            if i == tries - 1:
+                raise
+            time.sleep(wait * (i + 1))
+
+
+def verify_export(directory: str | Path) -> list[str]:
+    """Problems with an export folder (empty = it is complete and matches its manifest): every
+    listed table declared, its file present, unchanged (sha256), holding the recorded number of
+    rows and the recorded columns, none of them undeclared, and no table file the manifest does
+    not list (it would be unverified). Declared tables the export does not list are not problems
+    (see `missing_tables`): an older export is still a valid one."""
+    d = Path(directory)
+    tables, problems = _manifest_tables(d)
+    if tables is None:
+        return problems
+    problems += [f"{f.name}: file not listed in the manifest"
+                 for f in sorted(d.glob("*.parquet")) if f.stem not in tables]  # fmt: skip
     con = duckdb.connect()
     try:
-        for name, meta in (manifest.get("tables") or {}).items():
+        for name, meta in tables.items():
             f = d / f"{name}.parquet"
             if not f.exists():
                 problems.append(f"{name}: file missing")
@@ -63,10 +128,14 @@ def verify_export(directory: str | Path) -> list[str]:
             n = con.execute("SELECT count(*) FROM read_parquet(?)", [str(f)]).fetchone()[0]
             if n != meta.get("rows"):
                 problems.append(f"{name}: {n} rows, manifest says {meta.get('rows')}")
+            cols = _file_columns(con, f)
+            if "columns" in meta and meta["columns"] != cols:
+                problems.append(f"{name}: columns differ from the manifest")
+            extra = _undeclared(name, cols)
+            if extra:
+                problems.append(f"{name}: undeclared columns {extra}")
     finally:
         con.close()
-    if not manifest.get("tables"):
-        problems.append("manifest lists no tables")
     return problems
 
 
@@ -152,6 +221,12 @@ class FootballDB:
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(path))
+        have = {r[0] for r in self.con.execute(
+            "SELECT table_name FROM duckdb_tables() WHERE database_name = current_database() "
+            "AND schema_name = 'main'").fetchall()}  # fmt: skip
+        # opening a file older than the schema adds the missing (empty) tables; this is the
+        # only schema change an open makes, and it is named here rather than done silently
+        self.created_tables = [n for n in TABLES if n not in have]
         for name, ddl in TABLES.items():
             self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
 
@@ -319,6 +394,7 @@ class FootballDB:
         home_team_id: int,
         away_team_id: int,
         allow_repeat: bool = False,
+        provenance: str | None = None,
         **fields: Any,
     ) -> int:
         """Find or create a league match by (competition, season, home, away).
@@ -326,6 +402,7 @@ class FootballDB:
         Dates move (postponements, TV picks), so they are updated, never used as the key. A
         cup competition can repeat a pairing (two legs, knockout rounds), so with `allow_repeat`
         the date is part of the key and a new source id never merges into an earlier leg.
+        `source` names the id namespace; `provenance` (default: `source`) is `matches.source`.
         """
         if source_id is not None:
             row = self.con.execute(
@@ -357,7 +434,7 @@ class FootballDB:
                 "match_date": match_date,
                 "home_team_id": home_team_id,
                 "away_team_id": away_team_id,
-                "source": source,
+                "source": provenance or source,
                 "ingested_at": now(),
                 **fields,
             }
@@ -400,22 +477,28 @@ class FootballDB:
         stage.mkdir()
         try:
             counts, tables = {}, {}
-            for name in TABLES:
-                counts[name] = self.con.execute(f"SELECT count(*) FROM {name}").fetchone()[0]
-                target = stage / f"{name}.parquet"
-                self.con.execute(f"COPY (SELECT * FROM {name}) TO {_sql_path(target)} "
-                                 "(FORMAT parquet, COMPRESSION zstd)")  # fmt: skip
-                cols = [[c[0], c[1]] for c in self.con.execute(f"DESCRIBE {name}").fetchall()]
-                tables[name] = {"rows": counts[name], "columns": cols, "sha256": _sha256(target)}
+            # one read transaction: every table from the same moment, even while another
+            # connection to this file commits during the export
+            self.con.execute("BEGIN TRANSACTION")
+            try:
+                self._copy_tables(stage, counts, tables)
+            finally:
+                self.con.execute("ROLLBACK")  # it only read
             manifest = {"version": EXPORT_VERSION, "created_at": now().isoformat() + "Z",
                         "tables": tables}  # fmt: skip
             (stage / MANIFEST).write_text(json.dumps(manifest, indent=1), encoding="utf-8")
             problems = verify_export(stage)
             if problems:
                 raise ExportError("; ".join(problems))
+            prev = out.with_name(f"{out.name}.prev-{stamp}")
             if out.exists():
-                out.rename(out.with_name(f"{out.name}.prev-{stamp}"))
-            stage.rename(out)
+                _rename(out, prev)
+            try:
+                _rename(stage, out)
+            except BaseException:
+                if prev.exists() and not out.exists():
+                    prev.rename(out)  # the last good export stays where readers look for it
+                raise
         except BaseException:
             shutil.rmtree(stage, ignore_errors=True)
             raise
@@ -423,6 +506,15 @@ class FootballDB:
         for gone in old[: max(0, len(old) - keep)]:
             shutil.rmtree(gone, ignore_errors=True)
         return counts
+
+    def _copy_tables(self, stage: Path, counts: dict, tables: dict) -> None:
+        for name in TABLES:
+            counts[name] = self.con.execute(f"SELECT count(*) FROM {name}").fetchone()[0]
+            target = stage / f"{name}.parquet"
+            self.con.execute(f"COPY (SELECT * FROM {name}) TO {_sql_path(target)} "
+                             "(FORMAT parquet, COMPRESSION zstd)")  # fmt: skip
+            cols = [[c[0], c[1]] for c in self.con.execute(f"DESCRIBE {name}").fetchall()]
+            tables[name] = {"rows": counts[name], "columns": cols, "sha256": _sha256(target)}
 
     def import_parquet(self, directory: str | Path, require_manifest: bool = False) -> int:
         """Load an export. One with a manifest must match it exactly or nothing is loaded; a
@@ -432,11 +524,13 @@ class FootballDB:
         An export already imported (same manifest) is skipped. Returns the tables loaded."""
         d = Path(directory)
         key = None
+        listed: dict | None = None  # with a manifest, only the tables it verified are loaded
         if (d / MANIFEST).exists():
             problems = verify_export(d)
             if problems:
                 raise ExportError(f"{d.name}: " + "; ".join(problems))
             key = _sha256(d / MANIFEST)
+            listed, _ = _manifest_tables(d)
             if self.con.execute(
                 "SELECT 1 FROM ingest_state WHERE source = 'import' AND key = ?", [key]
             ).fetchone():
@@ -447,15 +541,24 @@ class FootballDB:
         with self.transaction():
             for name, ddl in TABLES.items():
                 f = d / f"{name}.parquet"
-                if not f.exists():
+                if not f.exists() or (listed is not None and name not in listed):
                     continue
+                # by name, never by position: a reordered or older file cannot shift values
+                # into the wrong column; a column the schema does not declare refuses it all
+                file_cols = _file_columns(self.con, f)
+                extra = _undeclared(name, file_cols)
+                if extra:
+                    raise ExportError(f"{d.name}: {name}: undeclared columns {extra}")
+                cols = ", ".join(f'"{c}"' for c, _ in file_cols)
                 if "PRIMARY KEY" in ddl:
-                    self.con.execute(
-                        f"INSERT OR REPLACE INTO {name} SELECT * FROM read_parquet(?)", [str(f)]
-                    )
+                    self.con.execute(f"INSERT OR REPLACE INTO {name} ({cols}) "
+                                     f"SELECT {cols} FROM read_parquet(?)", [str(f)])  # fmt: skip
                 else:
-                    self.con.execute(f"INSERT INTO {name} SELECT * FROM read_parquet(?) "
-                                     f"EXCEPT SELECT * FROM {name}", [str(f)])  # fmt: skip
+                    # a multiset difference: equal rows are separate events, so a first import
+                    # keeps all of them and a repeated one adds none
+                    self.con.execute(f"INSERT INTO {name} ({cols}) SELECT {cols} FROM "
+                                     f"read_parquet(?) EXCEPT ALL SELECT {cols} FROM {name}",
+                                     [str(f)])  # fmt: skip
                 loaded += 1
             if key:
                 self.con.execute(

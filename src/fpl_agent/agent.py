@@ -319,6 +319,18 @@ def _run(db, settings, opts, rec, fpl, scout, odds, now, exchange, http) -> RunR
                 if prior
                 else "player-rate coverage: all projected players have detailed history"
             )
+        h = proj.inputs
+        if h and h["own_snapshot"] < h["rows"]:
+            res.notes.append(
+                f"history inputs: {h['rows'] - h['own_snapshot']}/{h['rows']} official rows have "
+                f"no snapshot of their own gameweek, so no price, status or team "
+                f"({h['season_position']} use the season's position, {h['no_position']} none)"
+                + (
+                    "; the minutes model trains without price features"
+                    if h["no_price"] == h["rows"]
+                    else ""
+                )  # fmt: skip
+            )
         fac = calibration.factors(db, opts.season, ev.id)
         if fac:
             calibration.apply(proj, fac)

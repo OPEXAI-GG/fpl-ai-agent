@@ -1,0 +1,12 @@
+{
+ "synthetic": true,
+ "fpl_points_gw_rows": 45510,
+ "player_gw_frame": {
+  "cold_s": 0.457,
+  "warm_median_s": 0.421
+ },
+ "minutes_features": {
+  "cold_s": 0.971,
+  "warm_median_s": 0.962
+ }
+}

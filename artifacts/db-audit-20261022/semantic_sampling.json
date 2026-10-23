@@ -1,0 +1,493 @@
+{
+ "seed": 20261022,
+ "evidence_retained": {
+  "fpl": "fpl_players_gw.raw (full element JSON), fpl_points_gw.stats/explain",
+  "fotmob": "NOT retained: only normalised rows (appearances, stats, shots, team_match)",
+  "understat": "NOT retained",
+  "football_data": "NOT retained",
+  "news": "news_evidence.payload (metadata and flags, no article text checked here)"
+ },
+ "external_truth_note": "Nothing here is verified against a match report; agreement between retained sources is corroboration only.",
+ "linked_midfielder_sample": [
+  {
+   "fpl_id": 375,
+   "fpl_name": "Trey Nyoni",
+   "fotmob_name": "Trey Nyoni",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  },
+  {
+   "fpl_id": 212,
+   "fpl_name": "Will Hughes",
+   "fotmob_name": "Will Hughes",
+   "same_club": true,
+   "shared_matches": 6,
+   "minutes_within_5": 6
+  },
+  {
+   "fpl_id": 310,
+   "fpl_name": "Azor Matusiwa",
+   "fotmob_name": "Azor Matusiwa",
+   "same_club": true,
+   "shared_matches": 2,
+   "minutes_within_5": 2
+  },
+  {
+   "fpl_id": 104,
+   "fpl_name": "Frank Onyeka",
+   "fotmob_name": "Frank Onyeka",
+   "same_club": true,
+   "shared_matches": 6,
+   "minutes_within_5": 6
+  },
+  {
+   "fpl_id": 558,
+   "fpl_name": "Xaver Schlager",
+   "fotmob_name": "Xaver Schlager",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  },
+  {
+   "fpl_id": 97,
+   "fpl_name": "Mathias Jensen",
+   "fotmob_name": "Mathias Jensen",
+   "same_club": true,
+   "shared_matches": 3,
+   "minutes_within_5": 3
+  },
+  {
+   "fpl_id": 35,
+   "fpl_name": "Lamare Bogarde",
+   "fotmob_name": "Lamare Bogarde",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  },
+  {
+   "fpl_id": 542,
+   "fpl_name": "Enzo Le F\u00e9e",
+   "fotmob_name": "Enzo Le F\u00e9e",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  },
+  {
+   "fpl_id": 486,
+   "fpl_name": "James McAtee",
+   "fotmob_name": "James McAtee",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  },
+  {
+   "fpl_id": 40,
+   "fpl_name": "Morgan Rogers",
+   "fotmob_name": "Morgan Rogers",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7
+  }
+ ],
+ "linked_population_agreement": {
+  "pairs_with_shared_matches": 345,
+  "same_club_all": 345,
+  "all_shared_minutes_within_5": 343,
+  "n_linked_fpl_players_with_fotmob_pl_appearance": 345
+ },
+ "refused_position_pairs": {
+  "pairs_with_pl_fotmob_appearances": 92,
+  "corroborated_same_club_and_minutes": 92,
+  "contradicted": 0,
+  "no_overlapping_match": 0
+ },
+ "refused_midfielder_sample": [
+  {
+   "name": "callum hudson odoi",
+   "fpl_id": 482,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "luca netz",
+   "fpl_id": 478,
+   "fpl_pos": "DEF",
+   "fotmob_pos": "MID",
+   "reason": "position MID differs from DEF",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "mohammed kudus",
+   "fpl_id": 512,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 6,
+   "minutes_within_5": 6,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "borna sosa",
+   "fpl_id": 205,
+   "fpl_pos": "DEF",
+   "fotmob_pos": "MID",
+   "reason": "position MID differs from DEF",
+   "same_club": true,
+   "shared_matches": 1,
+   "minutes_within_5": 1,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "federico chiesa",
+   "fpl_id": 370,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 1,
+   "minutes_within_5": 1,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "malick fofana",
+   "fpl_id": 646,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 5,
+   "minutes_within_5": 5,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "tyrick mitchell",
+   "fpl_id": 204,
+   "fpl_pos": "DEF",
+   "fotmob_pos": "MID",
+   "reason": "position MID differs from DEF",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "harry amass",
+   "fpl_id": 424,
+   "fpl_pos": "DEF",
+   "fotmob_pos": "MID",
+   "reason": "position MID differs from DEF",
+   "same_club": true,
+   "shared_matches": 1,
+   "minutes_within_5": 1,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "bryan mbeumo",
+   "fpl_id": 427,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7,
+   "verdict": "corroborated"
+  },
+  {
+   "name": "jack clarke",
+   "fpl_id": 313,
+   "fpl_pos": "MID",
+   "fotmob_pos": "FWD",
+   "reason": "position FWD differs from MID",
+   "same_club": true,
+   "shared_matches": 7,
+   "minutes_within_5": 7,
+   "verdict": "corroborated"
+  }
+ ],
+ "unlinked_signature_probe": {
+  "fotmob_unlinked_pl_players": 137,
+  "unique_signature_match": 126,
+  "multiple_signature_matches": 11,
+  "none": 0,
+  "note": "corroboration by club and per-match minutes only; NOT applied, NOT external truth",
+  "examples": [
+   {
+    "fotmob_name": "Chema Andr\u00e9s",
+    "fotmob_pos": "MID",
+    "fpl_name": "Jos\u00e9 Mar\u00eda Andr\u00e9s Baixauli",
+    "fpl_pos": "MID",
+    "matches": 4
+   },
+   {
+    "fotmob_name": "Tatsuhiro Sakamoto",
+    "fotmob_pos": "FWD",
+    "fpl_name": "Tatsuhiro Sakamoto",
+    "fpl_pos": "MID",
+    "matches": 3
+   },
+   {
+    "fotmob_name": "Dominic Solanke",
+    "fotmob_pos": "FWD",
+    "fpl_name": "Dominic Solanke-Mitchell",
+    "fpl_pos": "FWD",
+    "matches": 7
+   },
+   {
+    "fotmob_name": "Mohammed Kudus",
+    "fotmob_pos": "FWD",
+    "fpl_name": "Mohammed Kudus",
+    "fpl_pos": "MID",
+    "matches": 6
+   },
+   {
+    "fotmob_name": "Jefferson Lerma",
+    "fotmob_pos": "MID",
+    "fpl_name": "Jefferson Lerma Sol\u00eds",
+    "fpl_pos": "MID",
+    "matches": 4
+   },
+   {
+    "fotmob_name": "Marcos Senesi",
+    "fotmob_pos": "DEF",
+    "fpl_name": "Marcos Senesi Bar\u00f3n",
+    "fpl_pos": "DEF",
+    "matches": 2
+   }
+  ]
+ },
+ "cup_match_trace": {
+  "sample": [
+   {
+    "match_id": 388,
+    "comp": "UCL",
+    "hg": 3,
+    "ag": 1,
+    "matchday": null,
+    "fm_id": "6106400",
+    "team_match_goals": [
+     3,
+     1
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 4,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   },
+   {
+    "match_id": 394,
+    "comp": "UCL",
+    "hg": 1,
+    "ag": 1,
+    "matchday": null,
+    "fm_id": "6106304",
+    "team_match_goals": [
+     1,
+     1
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 2,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   },
+   {
+    "match_id": 553,
+    "comp": "UEL",
+    "hg": 1,
+    "ag": 2,
+    "matchday": null,
+    "fm_id": "6112346",
+    "team_match_goals": [
+     1,
+     2
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 3,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   },
+   {
+    "match_id": 525,
+    "comp": "UEL",
+    "hg": 1,
+    "ag": 4,
+    "matchday": null,
+    "fm_id": "6112383",
+    "team_match_goals": [
+     1,
+     4
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 5,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   },
+   {
+    "match_id": 672,
+    "comp": "UECL",
+    "hg": 2,
+    "ag": 1,
+    "matchday": null,
+    "fm_id": "6112523",
+    "team_match_goals": [
+     2,
+     1
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 3,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   },
+   {
+    "match_id": 680,
+    "comp": "UECL",
+    "hg": 2,
+    "ag": 1,
+    "matchday": null,
+    "fm_id": "6112493",
+    "team_match_goals": [
+     2,
+     1
+    ],
+    "starters_per_team": [
+     11,
+     11
+    ],
+    "shot_goals": 3,
+    "shot_goals_null_xg_own_goal_proxy": 0,
+    "clubs_map_to_distinct_canonical": true
+   }
+  ],
+  "matchday_null_by_design": "ingest_fotmob.py: matchday=int(rnd) if rnd.isdigit() and not league.cup else None"
+ },
+ "goal_discrepancy": {
+  "match_id": 40,
+  "score": "4-1 (matches table)",
+  "fpl_scorers_home_team": "three players with 1 goal each (ids 404, 410, 419) plus one opposing own goal",
+  "fotmob_scorers_home_team": "player 709 (1) and player 419 (2) plus the same opposing own goal (shot with NULL xG)",
+  "reading": "team totals agree (4 each way); the sources attribute one goal to different players. Players 404 and 410 have no FotMob goals, 709 has no FPL id. Retained evidence cannot say which attribution is right; FPL may have reallocated a goal after the match. UNRESOLVED: needs an independent match report."
+ },
+ "minutes_diff": {
+  "n_compared": 1876,
+  "histogram_fotmob_minus_fpl": {
+   "-7": 2,
+   "-1": 13,
+   "0": 1531,
+   "1": 330
+  },
+  "negative_differences": 15,
+  "fotmob_exceeds_fpl_by_1_to_5": 330,
+  "gt_5": [
+   {
+    "d": -7,
+    "started": true,
+    "position": "MID",
+    "fpl_minutes": 52,
+    "fotmob_minutes": 45,
+    "match_id": 62,
+    "player_id": 113
+   },
+   {
+    "d": -7,
+    "started": true,
+    "position": "DEF",
+    "fpl_minutes": 90,
+    "fotmob_minutes": 83,
+    "match_id": 31,
+    "player_id": 36
+   }
+  ],
+  "reading": "FotMob is usually 1 minute above FPL (330 of 1876), equal in 1531, 1 minute below in 13, and 7 minutes below in 2 (listed in gt_5). FotMob adds stoppage time; the negative cases are not explained by that and are unresolved (no retained FotMob raw to check substitution times)."
+ },
+ "own_goal_explanation": {
+  "mismatching_team_matches": 15,
+  "with_null_xg_goal_shot_in_match": 15
+ },
+ "null_xg_shots": [
+  {
+   "result": "Goal",
+   "n": 15
+  }
+ ],
+ "shots_xg_vs_team_xg": {
+  "matches": 162,
+  "differ": 31,
+  "differ_without_null_xg": 26
+ },
+ "null_position_appearance": [
+  {
+   "comp": "UEL",
+   "minutes": 0,
+   "started": false
+  }
+ ],
+ "failed_check_dispositions": [
+  {
+   "id": "null.matches.matchday",
+   "n": "396/776",
+   "disposition": "valid by design",
+   "why": "cup matches have no round number (ingest_fotmob.py sets matchday only for league rounds). Consumers must key cups by date; not a production failure."
+  },
+  {
+   "id": "null.runs.gw",
+   "n": "1/5",
+   "disposition": "valid",
+   "why": "the run failed at bootstrap (SourceUnavailable) before a gameweek was known."
+  },
+  {
+   "id": "null.appearances.position",
+   "n": "1/6862",
+   "disposition": "benign data gap",
+   "why": "an unused UEL substitute (0 minutes, no stats) whose position FotMob did not give."
+  },
+  {
+   "id": "null.shots.xg",
+   "n": "15/4603",
+   "disposition": "proxy-explained (unconfirmed), needs contract",
+   "why": "all 15 are result='Goal' and each sits in a match whose team goals exceed player goals: an own-goal PROXY, not independent proof of attribution. NULL means 'no xG supplied', so xG sums exclude them; the contract for own goals must be explicit."
+  },
+  {
+   "id": "domain.matches.stale_unfinished_past_kickoff",
+   "n": "16/776",
+   "disposition": "stale-state observation, not corruption",
+   "why": "16 UCL matches kicked off 2026-10-20 19:00Z; the last fetch (20:09Z) preceded full time. Reflects data age, not a wrong value."
+  },
+  {
+   "id": "recon.fpl_vs_fotmob.goals",
+   "n": "1/1324",
+   "disposition": "UNRESOLVED",
+   "why": "see goal_discrepancy; attribution conflict between sources, external truth needed."
+  }
+ ],
+ "ownership_semantics": {
+  "eo_below_owned": 114,
+  "formula": "ownership.py:39 eo counts pick multipliers (bench 0, captain 2), so eo < owned is expected for benched players",
+  "temporal": "the row labelled GW g holds the picks for GW g-1 (ownership.py:85-100, last deadline's picks); it is a sample of 200 from the top 10,000, not population ownership",
+  "absent_rows": "512 of 668 players have no row = not in the sample (unknown), not 0%",
+  "bench_check": "no per-pick data retained, so the bench explanation is not verified here"
+ }
+}

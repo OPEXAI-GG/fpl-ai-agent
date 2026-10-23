@@ -1,0 +1,76 @@
+{
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\prod-snapshot.duckdb",
+ "copy_sha256": "b453b7c932db03e613d54853520edc8f577d11e15cb780bde8b2895907bbcbd9",
+ "migrate": {
+  "created_tables": [
+   "player_codes",
+   "migration_log",
+   "repair_log",
+   "fpl_deadlines"
+  ],
+  "preflight_problems": [],
+  "migrate": {
+   "status": "migrated",
+   "migration_id": "fpl-season-labels-v1:20261023T150946139643",
+   "rows": 1068,
+   "counts": {
+    "player_ids": 668,
+    "team_ids": 20,
+    "match_ids": 380
+   }
+  },
+  "noop": {
+   "status": "noop-verified",
+   "rows": 1068
+  },
+  "seed": {
+   "recorded": 668,
+   "flagged": 0
+  }
+ },
+ "seconds": {
+  "migrate": 4.34,
+  "refresh": 9.44,
+  "export": 0.51,
+  "restore": 1.12,
+  "rollback": 1.75
+ },
+ "refresh": {
+  "exit": 0,
+  "stdout_tail": "fpl:bootstrap: ok\nfpl:fixtures: ok\nfpl:players: ok rows=668\nunderstat:league: ok\nfootball-data:E0: ok rows=70\nquality: no issues\n",
+  "stderr_tail": ""
+ },
+ "refresh_changed_tables": [
+  "fpl_deadlines",
+  "fpl_players_gw",
+  "ingest_log",
+  "match_odds",
+  "match_odds_log",
+  "matches",
+  "team_match"
+ ],
+ "export": {
+  "counts_total": 158871,
+  "verify": []
+ },
+ "restore": {
+  "tables_loaded": 32
+ },
+ "restore_differences": [],
+ "rollback": {
+  "status": "rolled-back",
+  "migration_id": "fpl-season-labels-v1:20261023T150946139643",
+  "rows": 1068
+ },
+ "identity_labels_after_rollback": [
+  [
+   "fpl",
+   668
+  ]
+ ],
+ "pre_tables": 28,
+ "after_tables": 32,
+ "snapshot_unchanged": true,
+ "total_seconds": 17.6,
+ "ok": true
+}

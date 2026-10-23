@@ -1,0 +1,15 @@
+{
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\prod-snapshot.duckdb",
+ "copy": "artifacts\\db-hardening-20261023T143050Z\\repair-rehearsal-prod.duckdb",
+ "dry": {
+  "repair": [],
+  "quarantine": []
+ },
+ "dry_wrote_nothing": true,
+ "applied": [],
+ "changed_tables": [],
+ "journal": [],
+ "rolled_back": {},
+ "rollback_exact": true,
+ "ok": true
+}

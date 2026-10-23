@@ -1,0 +1,14 @@
+{
+ "columns": 237,
+ "checked_pass": 150,
+ "finding": 17,
+ "measured_only": 1,
+ "not_applicable": 6,
+ "not_testable_empty_table": 62,
+ "untested_gap": 1,
+ "unclassified_checks": 0,
+ "untested_gap_columns": [
+  "appearances.codex_uncovered_column_probe"
+ ],
+ "unclassified": []
+}

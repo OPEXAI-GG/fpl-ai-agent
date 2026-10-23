@@ -10,6 +10,8 @@ import pandas as pd
 
 from fpl_agent.data.players import POSITIONS
 from fpl_agent.db.database import FootballDB, now
+from fpl_agent.db.fpl_identity import FplIdentity, reader_sources, season_map
+from fpl_agent.db.gameweeks import log_deadlines
 
 COMPETITION = "ENG1"
 
@@ -38,11 +40,13 @@ def load_bootstrap(
     """Teams, players and one fpl_players_gw row per player for this snapshot."""
     ensure_competitions(db)
     snapshot_at = snapshot_at or now()
-    team_ids = {t["id"]: db.team_id("fpl", t["id"], t["name"]) for t in raw["teams"]}
+    ident = FplIdentity(db, season)
+    ident.seed_codes()
+    team_ids = {t["id"]: ident.team_id(t["id"], t["name"]) for t in raw["teams"]}
     rows = []
     for e in raw["elements"]:
         name = f"{e['first_name']} {e['second_name']}".strip()
-        pid = db.player_id("fpl", e["id"], name, POSITIONS.get(e["element_type"]))
+        pid = ident.player_id(e["id"], name, POSITIONS.get(e["element_type"]), e.get("code"))
         rows.append(
             {
                 "season": season,
@@ -65,6 +69,7 @@ def load_bootstrap(
             }
         )
     n = db.upsert("fpl_players_gw", pd.DataFrame(rows))
+    log_deadlines(db, raw.get("events") or [], season, snapshot_at)
     db.log("fpl", "fpl_players_gw", n, f"gw{gw}")
     return n
 
@@ -72,15 +77,15 @@ def load_bootstrap(
 def load_fixtures(db: FootballDB, fixtures: list[dict[str, Any]], raw: dict[str, Any], season: int):
     ensure_competitions(db)
     names = {t["id"]: t["name"] for t in raw["teams"]}
+    ident = FplIdentity(db, season)
     count = 0
     for f in fixtures:
         if not f.get("kickoff_time"):
             continue
         ko = _parse_ts(f["kickoff_time"])
-        h = db.team_id("fpl", f["team_h"], names[f["team_h"]])
-        a = db.team_id("fpl", f["team_a"], names[f["team_a"]])
-        db.match_id(
-            "fpl",
+        h = ident.team_id(f["team_h"], names[f["team_h"]])
+        a = ident.team_id(f["team_a"], names[f["team_a"]])
+        ident.match_id(
             f["id"],
             COMPETITION,
             season,
@@ -153,18 +158,20 @@ def load_live(db: FootballDB, live: dict[str, Any], season: int, gw: int) -> int
     placeholder fixture 0, which is not a match and is kept out of training. Reloading a
     gameweek replaces its rows."""
     rows = []
+    sources = reader_sources(season)
     kickoffs = dict(
         db.con.execute(
             "SELECT i.source_id::INTEGER, m.kickoff FROM match_ids i JOIN matches m USING "
-            "(match_id) WHERE i.source = 'fpl'"
+            "(match_id) WHERE i.source IN (?, ?) AND m.season = ?",
+            [*sources, season],
         ).fetchall()
     )
     team_fixtures: dict[int, list[int]] = {}
     for fx, home, away in db.con.execute(
         "SELECT i.source_id::INTEGER, m.home_team_id, m.away_team_id FROM match_ids i "
-        "JOIN matches m USING (match_id) WHERE i.source = 'fpl' AND m.season = ? "
+        "JOIN matches m USING (match_id) WHERE i.source IN (?, ?) AND m.season = ? "
         "AND m.matchday = ?",
-        [season, gw],
+        [*sources, season, gw],
     ).fetchall():
         team_fixtures.setdefault(home, []).append(fx)
         team_fixtures.setdefault(away, []).append(fx)
@@ -175,11 +182,7 @@ def load_live(db: FootballDB, live: dict[str, Any], season: int, gw: int) -> int
             [season, gw],
         ).fetchall()
     )
-    pids = dict(
-        db.con.execute(
-            "SELECT source_id::INTEGER, player_id FROM player_ids WHERE source = 'fpl'"
-        ).fetchall()
-    )
+    pids = season_map(db.con, "player", season)
     unknown = placeholders = 0
     for el in live["elements"]:
         stats = el["stats"]

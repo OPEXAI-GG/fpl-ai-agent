@@ -67,6 +67,13 @@ def test_hand_moves_that_lost_change_nothing():
     assert m.points < 0 and m.rule is None and "hold was right" in m.lesson
 
 
+def test_break_even_hand_moves_change_nothing():
+    """C03: a zero-gain manual move is no evidence and must not lower the bar for moves."""
+    pts = {**PTS, 9: 3, 4: 4, 2: 4}  # each hand move scores what the player it replaced did
+    m = kinds(lessons.find_mistakes(week(pts=pts)))["hand_transfers"]
+    assert m.points == 0 and m.rule is None and "broke even" in m.lesson
+
+
 def test_moves_the_bot_made_are_not_hand_moves():
     ms = kinds(lessons.find_mistakes(week(bot_ins={2, 4, 9})))
     assert "hand_transfers" not in ms

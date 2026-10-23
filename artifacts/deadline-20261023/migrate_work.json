@@ -1,0 +1,36 @@
+{
+ "preflight_problems": [],
+ "counts": {
+  "player_ids": 668,
+  "team_ids": 20,
+  "match_ids": 380
+ },
+ "migrate": {
+  "status": "migrated",
+  "migration_id": "fpl-season-labels-v1:20261023T120538756755",
+  "rows": 1068,
+  "counts": {
+   "player_ids": 668,
+   "team_ids": 20,
+   "match_ids": 380
+  }
+ },
+ "noop": {
+  "status": "noop-verified",
+  "rows": 1068
+ },
+ "seed": {
+  "recorded": 668,
+  "flagged": 0
+ },
+ "labels": [
+  [
+   "fotmob",
+   2870
+  ],
+  [
+   "fpl-2026",
+   668
+  ]
+ ]
+}

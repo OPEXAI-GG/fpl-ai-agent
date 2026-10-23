@@ -1,0 +1,27 @@
+player           pos club GW8 opp   own%     £ | xP8 base xP8 cand   4GW  min    p0  q10-q90 src
+*Raya            G   ARS  EVE(H)    45.0   6.1 |     4.39     4.35  15.5   83  0.04 1-8      prior
+*Calafiori       D   ARS  EVE(H)    54.4   6.0 |     5.14     5.04  18.1   73  0.12 0-11      pl
+*Truffert        D   BOU  MUN(A)     2.7   5.4 |     3.60     3.15  14.2   77  0.17 0-8      pl
+*De Cuyper       D   BHA  LIV(A)    41.7   5.3 |     3.50     3.40  15.0   67  0.25 0-8      pl
+*Tarkowski       D   EVE  ARS(A)    18.2   6.2 |     3.20     3.16  14.2   81  0.14 0-8      pl
+*Mbeumo          M   MUN  BOU(H)    21.2   7.9 |     4.32     4.27  15.9   81  0.04 1-10      prior
+*Groß            M   BHA  LIV(A)    45.9   6.2 |     3.84     3.61  15.9   77  0.05 1-9      pl
+*Barnes          M   NEW  CRY(A)     7.6   6.1 |     3.75     3.91  14.0   81  0.04 1-9      prior
+*Palmer          M   CHE  TOT(H)    27.6   9.8 |     4.08     4.14  15.5   79  0.04 1-9      pl
+*Haaland         F   MCI  AVL(A)    77.1  15.7 |     4.74     4.59  18.1   80  0.06 1-11      pl
+*Evanilson       F   BOU  MUN(A)     5.1   6.1 |     3.64     3.46  14.5   81  0.05 1-8      prior
+*Leno            G   FUL  COV(A)     4.4   4.5 |     3.66     3.64  12.7   84  0.04 1-8      pl
+*E.Le Fée        M   SUN  LEE(H)     2.9   5.7 |     4.12     4.10  16.3   79  0.06 1-10      pl
+*Thomas-Asante   F   COV  FUL(H)     1.0   5.0 |     3.16     3.32  12.2   79  0.05 1-8      pl
+*Davis           D   IPS  NFO(H)     7.4   4.0 |     3.97     3.78  13.7   80  0.14 0-8      pl
+ Gabriel         D   ARS  EVE(H)    21.1   7.9 |     5.19     5.13  18.3   79  0.10 1-10      prior
+ Saka            M   ARS  EVE(H)    13.5   9.6 |     2.20     2.21  11.8   41  0.42 0-7      prior
+ Konsa           D   ARS  EVE(H)    18.3   4.6 |     4.48     4.40  15.7   69  0.09 1-9      prior
+ Lindelöf        D   AVL  MCI(H)     0.4   4.5 |     3.57     3.56  15.4   81  0.14 0-8      prior
+ Hill            D   BOU  MUN(A)     0.8   5.5 |     4.05     3.93  16.4   81  0.10 0-8      pl
+ Rogers          M   CHE  TOT(H)    48.9   8.0 |     4.85     4.89  17.2   80  0.05 1-11      pl
+ João Pedro      F   CHE  TOT(H)    73.3   7.9 |     3.42     3.48  12.7   65  0.18 0-9      prior
+ Muharemović     D   LEE  SUN(A)     5.2   5.0 |     4.08     3.88  15.6   81  0.10 0-8      pl
+ Rúben           D   MCI  AVL(A)     2.0   5.5 |     3.93     3.88  15.8   81  0.11 0-8      prior
+ Semenyo         M   MCI  AVL(A)    10.3   8.3 |     0.00     0.00   1.9    0  1.00 0-0      prior
+run d693110409504f3e projection 8d56afb14b87 baseline projection bd14fb90b82d

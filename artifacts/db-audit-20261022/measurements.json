@@ -1,0 +1,662 @@
+{
+ "audit_time_utc": "2026-10-22T12:24:51.602767",
+ "seasons_in_matches": [
+  {
+   "season": 2026,
+   "n": 776
+  }
+ ],
+ "seasons_in_fpl_players_gw": [
+  {
+   "season": 2026,
+   "n": 1336,
+   "snapshots": 2
+  }
+ ],
+ "coverage_by_competition": [
+  {
+   "comp": "ENG1",
+   "season": 2026,
+   "matches": 380,
+   "finished": 70,
+   "with_team_match": 70,
+   "with_appearances": 70,
+   "with_shots": 70,
+   "with_odds": 70,
+   "unfinished_with_odds": 0
+  },
+  {
+   "comp": "UCL",
+   "season": 2026,
+   "matches": 144,
+   "finished": 38,
+   "with_team_match": 38,
+   "with_appearances": 38,
+   "with_shots": 38,
+   "with_odds": 0,
+   "unfinished_with_odds": 0
+  },
+  {
+   "comp": "UECL",
+   "season": 2026,
+   "matches": 108,
+   "finished": 18,
+   "with_team_match": 18,
+   "with_appearances": 18,
+   "with_shots": 18,
+   "with_odds": 0,
+   "unfinished_with_odds": 0
+  },
+  {
+   "comp": "UEL",
+   "season": 2026,
+   "matches": 144,
+   "finished": 36,
+   "with_team_match": 36,
+   "with_appearances": 36,
+   "with_shots": 36,
+   "with_odds": 0,
+   "unfinished_with_odds": 0
+  }
+ ],
+ "stat_coverage_per_stat": [
+  {
+   "stat": "assists",
+   "n_rows": 4724,
+   "players": 2097,
+   "share_of_played_appearances": 0.936
+  },
+  {
+   "stat": "blocks",
+   "n_rows": 4721,
+   "players": 2094,
+   "share_of_played_appearances": 0.935
+  },
+  {
+   "stat": "cbirt",
+   "n_rows": 4721,
+   "players": 2094,
+   "share_of_played_appearances": 0.935
+  },
+  {
+   "stat": "cbit",
+   "n_rows": 4721,
+   "players": 2094,
+   "share_of_played_appearances": 0.935
+  },
+  {
+   "stat": "clearances",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "defensive_actions",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "fouls",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "goals",
+   "n_rows": 4721,
+   "players": 2094,
+   "share_of_played_appearances": 0.935
+  },
+  {
+   "stat": "goals_conceded",
+   "n_rows": 327,
+   "players": 136,
+   "share_of_played_appearances": 0.065
+  },
+  {
+   "stat": "goals_prevented",
+   "n_rows": 313,
+   "players": 132,
+   "share_of_played_appearances": 0.062
+  },
+  {
+   "stat": "interceptions",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "key_passes",
+   "n_rows": 4740,
+   "players": 2111,
+   "share_of_played_appearances": 0.939
+  },
+  {
+   "stat": "npxG",
+   "n_rows": 2419,
+   "players": 1322,
+   "share_of_played_appearances": 0.479
+  },
+  {
+   "stat": "rating",
+   "n_rows": 4675,
+   "players": 2104,
+   "share_of_played_appearances": 0.926
+  },
+  {
+   "stat": "recoveries",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "red_cards",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "saves",
+   "n_rows": 327,
+   "players": 136,
+   "share_of_played_appearances": 0.065
+  },
+  {
+   "stat": "shots",
+   "n_rows": 2426,
+   "players": 1325,
+   "share_of_played_appearances": 0.481
+  },
+  {
+   "stat": "shots_on_target",
+   "n_rows": 2426,
+   "players": 1325,
+   "share_of_played_appearances": 0.481
+  },
+  {
+   "stat": "tackles",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "touches",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  },
+  {
+   "stat": "touches_opp_box",
+   "n_rows": 4721,
+   "players": 2094,
+   "share_of_played_appearances": 0.935
+  },
+  {
+   "stat": "was_fouled",
+   "n_rows": 2276,
+   "players": 1317,
+   "share_of_played_appearances": 0.451
+  },
+  {
+   "stat": "xA",
+   "n_rows": 3499,
+   "players": 1719,
+   "share_of_played_appearances": 0.693
+  },
+  {
+   "stat": "xG",
+   "n_rows": 2425,
+   "players": 1324,
+   "share_of_played_appearances": 0.48
+  },
+  {
+   "stat": "xGOT",
+   "n_rows": 1145,
+   "players": 761,
+   "share_of_played_appearances": 0.227
+  },
+  {
+   "stat": "xGOT_faced",
+   "n_rows": 313,
+   "players": 132,
+   "share_of_played_appearances": 0.062
+  },
+  {
+   "stat": "yellow_cards",
+   "n_rows": 5048,
+   "players": 2230,
+   "share_of_played_appearances": 1.0
+  }
+ ],
+ "stat_coverage_by_position": [
+  {
+   "position": "DEF",
+   "stat": "npxG",
+   "n_rows": 580,
+   "share_of_played": 0.367
+  },
+  {
+   "position": "DEF",
+   "stat": "rating",
+   "n_rows": 1492,
+   "share_of_played": 0.943
+  },
+  {
+   "position": "DEF",
+   "stat": "shots",
+   "n_rows": 580,
+   "share_of_played": 0.367
+  },
+  {
+   "position": "DEF",
+   "stat": "xA",
+   "n_rows": 1092,
+   "share_of_played": 0.69
+  },
+  {
+   "position": "DEF",
+   "stat": "xG",
+   "n_rows": 580,
+   "share_of_played": 0.367
+  },
+  {
+   "position": "DEF",
+   "stat": "xGOT",
+   "n_rows": 210,
+   "share_of_played": 0.133
+  },
+  {
+   "position": "FWD",
+   "stat": "npxG",
+   "n_rows": 963,
+   "share_of_played": 0.666
+  },
+  {
+   "position": "FWD",
+   "stat": "rating",
+   "n_rows": 1302,
+   "share_of_played": 0.9
+  },
+  {
+   "position": "FWD",
+   "stat": "shots",
+   "n_rows": 966,
+   "share_of_played": 0.668
+  },
+  {
+   "position": "FWD",
+   "stat": "xA",
+   "n_rows": 1036,
+   "share_of_played": 0.716
+  },
+  {
+   "position": "FWD",
+   "stat": "xG",
+   "n_rows": 966,
+   "share_of_played": 0.668
+  },
+  {
+   "position": "FWD",
+   "stat": "xGOT",
+   "n_rows": 537,
+   "share_of_played": 0.371
+  },
+  {
+   "position": "GKP",
+   "stat": "rating",
+   "n_rows": 327,
+   "share_of_played": 1.0
+  },
+  {
+   "position": "GKP",
+   "stat": "saves",
+   "n_rows": 327,
+   "share_of_played": 1.0
+  },
+  {
+   "position": "GKP",
+   "stat": "xA",
+   "n_rows": 34,
+   "share_of_played": 0.104
+  },
+  {
+   "position": "MID",
+   "stat": "npxG",
+   "n_rows": 876,
+   "share_of_played": 0.518
+  },
+  {
+   "position": "MID",
+   "stat": "rating",
+   "n_rows": 1554,
+   "share_of_played": 0.918
+  },
+  {
+   "position": "MID",
+   "stat": "shots",
+   "n_rows": 880,
+   "share_of_played": 0.52
+  },
+  {
+   "position": "MID",
+   "stat": "xA",
+   "n_rows": 1337,
+   "share_of_played": 0.79
+  },
+  {
+   "position": "MID",
+   "stat": "xG",
+   "n_rows": 879,
+   "share_of_played": 0.52
+  },
+  {
+   "position": "MID",
+   "stat": "xGOT",
+   "n_rows": 398,
+   "share_of_played": 0.235
+  }
+ ],
+ "fotmob_link_coverage_by_position": [
+  {
+   "position": "DEF",
+   "played_players": 159,
+   "linked": 125
+  },
+  {
+   "position": "FWD",
+   "played_players": 51,
+   "linked": 38
+  },
+  {
+   "position": "GKP",
+   "played_players": 25,
+   "linked": 21
+  },
+  {
+   "position": "MID",
+   "played_players": 214,
+   "linked": 109
+  }
+ ],
+ "fotmob_link_coverage_by_club": [
+  {
+   "club": "arsenal",
+   "played_players": 21,
+   "linked": 11
+  },
+  {
+   "club": "aston villa",
+   "played_players": 23,
+   "linked": 17
+  },
+  {
+   "club": "bournemouth",
+   "played_players": 22,
+   "linked": 14
+  },
+  {
+   "club": "brentford",
+   "played_players": 21,
+   "linked": 14
+  },
+  {
+   "club": "brighton",
+   "played_players": 23,
+   "linked": 16
+  },
+  {
+   "club": "chelsea",
+   "played_players": 24,
+   "linked": 15
+  },
+  {
+   "club": "coventry",
+   "played_players": 22,
+   "linked": 18
+  },
+  {
+   "club": "crystal palace",
+   "played_players": 26,
+   "linked": 17
+  },
+  {
+   "club": "everton",
+   "played_players": 20,
+   "linked": 12
+  },
+  {
+   "club": "fulham",
+   "played_players": 22,
+   "linked": 15
+  },
+  {
+   "club": "hull",
+   "played_players": 25,
+   "linked": 20
+  },
+  {
+   "club": "ipswich",
+   "played_players": 23,
+   "linked": 15
+  },
+  {
+   "club": "leeds",
+   "played_players": 20,
+   "linked": 13
+  },
+  {
+   "club": "liverpool",
+   "played_players": 20,
+   "linked": 11
+  },
+  {
+   "club": "man city",
+   "played_players": 22,
+   "linked": 15
+  },
+  {
+   "club": "man utd",
+   "played_players": 22,
+   "linked": 13
+  },
+  {
+   "club": "newcastle",
+   "played_players": 23,
+   "linked": 14
+  },
+  {
+   "club": "nott m forest",
+   "played_players": 20,
+   "linked": 12
+  },
+  {
+   "club": "spurs",
+   "played_players": 25,
+   "linked": 16
+  },
+  {
+   "club": "sunderland",
+   "played_players": 25,
+   "linked": 15
+  }
+ ],
+ "link_refusal_reasons": [
+  {
+   "reason": "position disagrees",
+   "n": 97
+  },
+  {
+   "reason": "single-word name",
+   "n": 82
+  }
+ ],
+ "field_ownership_coverage": [
+  {
+   "n_rows": 156,
+   "players": 668,
+   "sample_min": 200,
+   "sample_max": 200,
+   "eo_below_owned": 114
+  }
+ ],
+ "freshness": [
+  {
+   "obj": "fpl_players_gw",
+   "latest": "2026-10-20 18:08:49.456263"
+  },
+  {
+   "obj": "fpl_points_gw",
+   "latest": "2026-10-20 18:08:50.216358"
+  },
+  {
+   "obj": "matches",
+   "latest": "2026-10-20 20:08:44.488719"
+  },
+  {
+   "obj": "appearances",
+   "latest": "2026-10-20 20:09:02.481929"
+  },
+  {
+   "obj": "match_odds",
+   "latest": "2026-10-20 14:48:57.99881"
+  },
+  {
+   "obj": "projections",
+   "latest": "2026-10-20 20:10:08.785436"
+  },
+  {
+   "obj": "field_ownership",
+   "latest": "2026-10-20 15:13:51.584901"
+  },
+  {
+   "obj": "news_evidence",
+   "latest": "2026-10-20 20:22:15.380942"
+  },
+  {
+   "obj": "ingest_log",
+   "latest": "2026-10-20 20:09:02.722895"
+  }
+ ],
+ "stale_unfinished_matches": [
+  {
+   "comp": "UCL",
+   "n": 16,
+   "first_kickoff": "2026-10-20 19:00:00"
+  }
+ ],
+ "ingestion_time_vs_event_time": [
+  {
+   "tbl": "appearances",
+   "first_ingest": "2026-10-20 20:06:08.866472",
+   "last_ingest": "2026-10-20 20:09:02.481929",
+   "first_kickoff": "2026-08-21 19:00:00",
+   "last_kickoff": "2026-10-20 16:45:00",
+   "mean_lag_hours": 585.7
+  }
+ ],
+ "projection_runs": [
+  {
+   "run_id": "28f1c3fc454e",
+   "created_at": "2026-10-20 15:13:56.029679",
+   "gws": 8,
+   "n_rows": 5344,
+   "in_runs": false
+  },
+  {
+   "run_id": "fb8af00ee3bd",
+   "created_at": "2026-10-20 18:12:48.125469",
+   "gws": 8,
+   "n_rows": 5344,
+   "in_runs": true
+  },
+  {
+   "run_id": "afe90cebfee3",
+   "created_at": "2026-10-20 18:23:53.545739",
+   "gws": 8,
+   "n_rows": 5344,
+   "in_runs": true
+  },
+  {
+   "run_id": "8e40bab6d7f2",
+   "created_at": "2026-10-20 19:57:33.909735",
+   "gws": 8,
+   "n_rows": 5344,
+   "in_runs": true
+  },
+  {
+   "run_id": "aa41fa953903",
+   "created_at": "2026-10-20 20:10:08.785436",
+   "gws": 8,
+   "n_rows": 5344,
+   "in_runs": true
+  }
+ ],
+ "news_state": [
+  {
+   "state": "fresh",
+   "src": "sports news",
+   "n": 80
+  },
+  {
+   "state": "failed",
+   "src": "official club",
+   "n": 7
+  },
+  {
+   "state": "failed",
+   "src": "sports news",
+   "n": 1
+  },
+  {
+   "state": "undated",
+   "src": "sports news",
+   "n": 1
+  }
+ ],
+ "ingest_state_by_source": [
+  {
+   "source": "fotmob",
+   "status": "done",
+   "n": 162
+  },
+  {
+   "source": "fpl_points",
+   "status": "final",
+   "n": 7
+  },
+  {
+   "source": "link",
+   "status": "unlinked",
+   "n": 179
+  },
+  {
+   "source": "repair",
+   "status": "done",
+   "n": 1
+  }
+ ],
+ "tables_never_written": [
+  {
+   "t": "transfers"
+  },
+  {
+   "t": "reviews"
+  },
+  {
+   "t": "lessons"
+  },
+  {
+   "t": "league_translation"
+  },
+  {
+   "t": "match_odds_log"
+  },
+  {
+   "t": "scout_cache"
+  },
+  {
+   "t": "scout_calls"
+  }
+ ]
+}

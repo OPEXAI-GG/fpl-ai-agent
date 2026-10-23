@@ -166,6 +166,25 @@ def test_overview_team_planning_activity_health(app, seeded):
         s["source"] == "fpl" for s in health["sources"])  # fmt: skip
 
 
+def test_a_match_under_both_fpl_labels_is_listed_once(seeded, tmp_path):
+    """A fixture reachable through the legacy `fpl` label and its season's own label (an
+    unmigrated row next to a new one) is one match: planning and the first kickoff never
+    count it twice."""
+    path = tmp_path / "both.duckdb"
+    path.write_bytes(seeded[0].read_bytes())
+    db = FootballDB(path)
+    db.con.execute("UPDATE matches SET matchday = ? WHERE match_id IN (SELECT match_id FROM "
+                   "match_ids WHERE source = 'fpl-2026')", [seeded[3]])  # fmt: skip
+    db.close()
+    before = call(App(path, tmp_path / "state", PORT), "/api/planning")[1]["data"]["weeks"]
+    db = FootballDB(path)
+    db.con.execute("INSERT INTO match_ids SELECT 'fpl', 'legacy-' || source_id, match_id "
+                   "FROM match_ids WHERE source = 'fpl-2026'")  # fmt: skip
+    db.close()
+    after = call(App(path, tmp_path / "state2", PORT), "/api/planning")[1]["data"]["weeks"]
+    assert len(before[0]["fixtures"]) == 20 and after == before
+
+
 def test_players_search_filter_sort_and_pages(app):
     body = call(app, "/api/players?position=DEF&limit=10&sort=price")[1]["data"]
     assert body["limit"] == 10 and len(body["items"]) <= 10

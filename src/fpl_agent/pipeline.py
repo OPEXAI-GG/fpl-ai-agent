@@ -26,7 +26,16 @@ from fpl_agent.db import (
     ingest_vaastav,
 )
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, repair, run_checks
+from fpl_agent.db.fpl_identity import season_map
+from fpl_agent.db.quality import (
+    Issue,
+    blocked_writes,
+    errors,
+    format_issues,
+    quarantine,
+    repair,
+    run_checks,
+)
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from fpl_agent.health import HealthReport, SourceResult, guard
 
@@ -45,6 +54,7 @@ class UpdateOptions:
     fotmob_matches: int = 60  # match pages per competition per run (the rest wait for next run)
     understat_leagues: tuple[str, ...] = ("EPL",)
     reload_gws: tuple[int, ...] = ()  # finished GWs to reload even if already stored (repair)
+    repairs: bool = True  # False: automatic repair/quarantine only probed; any change blocks
 
 
 @dataclass
@@ -100,7 +110,9 @@ def run_update(
         return _finish(db, report, [], CRITICAL_SOURCE_FAILED, opts, alert)
     nxt = next_event(Bootstrap.model_validate(raw))
     gw = nxt.id if nxt else 38
-    fixed = repair(db)
+    fixed = repair(db) if opts.repairs else blocked_writes(db, repair, "repair")
+    if not opts.repairs and errors(fixed):  # a repair is needed but disabled: load nothing
+        return _finish(db, report, fixed, BAD_DATA, opts, alert)
 
     def load_fpl():
         with db.transaction():  # players and fixtures together, or neither
@@ -126,11 +138,7 @@ def run_update(
         if code == "EPL":
             league = got
     if league and opts.players:
-        canon = dict(
-            db.con.execute(
-                "SELECT source_id::INTEGER, player_id FROM player_ids WHERE source = 'fpl'"
-            ).fetchall()
-        )
+        canon = season_map(db.con, "player", season)
         id_map = build_id_map(raw, league["players"])
         todo = id_map.dropna(subset=["fpl_id"]).head(opts.player_limit)
         failed = 0
@@ -175,7 +183,8 @@ def run_update(
             )
 
     # 5. Quality gate. Errors mean the data must not be used or exported.
-    issues = fixed + quarantine(db) + run_checks(db)
+    held = quarantine(db) if opts.repairs else blocked_writes(db, quarantine, "quarantine")
+    issues = fixed + held + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, opts, alert)
 
@@ -307,6 +316,7 @@ class BackfillOptions:
     sources: tuple[str, ...] = ("football-data", "understat", "fotmob", "vaastav")
     export: Path | None = None
     max_minutes: float | None = None  # stop starting new steps after this, and save the progress
+    repairs: bool = True  # False: repair/quarantine only probed; any needed change blocks the run
 
 
 _clock = time.monotonic  # the backfill's time budget (replaced in tests)
@@ -345,7 +355,10 @@ def run_backfill(
     otherwise hit the job's time limit never loses its work."""
     fm, us, http = fm or FotMobClient(), us or UnderstatClient(), http or http_client()
     report = HealthReport()
-    fixed = repair(db)
+    fixed = repair(db) if opts.repairs else blocked_writes(db, repair, "repair")
+    if not opts.repairs and errors(fixed):  # a repair is needed but disabled: load nothing
+        return _finish(db, report, fixed, BAD_DATA, UpdateOptions(export=opts.export), alert,
+                       "backfill")  # fmt: skip
     ing = ingest_fotmob.FotMobIngestor(db)
     current = opts.end
     t0 = _clock()
@@ -398,7 +411,8 @@ def run_backfill(
         report.results.append(SourceResult(
             "time budget", True, error=f"stopped after {opts.max_minutes:.0f} min with "
             f"{len(stopped)} steps left (next: {stopped[0]}); the next run continues"))  # fmt: skip
-    issues = fixed + quarantine(db) + run_checks(db)
+    held = quarantine(db) if opts.repairs else blocked_writes(db, quarantine, "quarantine")
+    issues = fixed + held + run_checks(db)
     code = BAD_DATA if errors(issues) else OK
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
 

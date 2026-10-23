@@ -6,6 +6,8 @@ rolling window), so a feature never contains information from the match it is us
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
@@ -26,23 +28,70 @@ def _json(name: str) -> str:
     return f"TRY_CAST(json_extract_string(f.stats, '$.{name}') AS DOUBLE)"
 
 
+_SEASON_POSITION = """
+    SELECT season, {key}, any_value(position) AS position FROM fpl_players_gw
+    WHERE position IS NOT NULL {cutoff} GROUP BY ALL HAVING count(DISTINCT position) = 1"""
+
+
+def season_positions(db: FootballDB, as_of: datetime | None = None) -> dict[tuple[int, int], str]:
+    """{(season, player_id): position} where every snapshot of that season taken at or before
+    `as_of` (all of them when None) agrees. Point in time: a later snapshot cannot add, change
+    or remove an earlier cutoff's answer."""
+    sql = _SEASON_POSITION.format(key="player_id",
+                                  cutoff="AND snapshot_at <= ?" if as_of else "")  # fmt: skip
+    rows = db.con.execute(sql, [as_of] if as_of else []).fetchall()
+    return {(s, p): pos for s, p, pos in rows if p is not None}
+
+
+def positions_as_of(frame: pd.DataFrame, db: FootballDB, as_of: datetime) -> pd.DataFrame:
+    """`frame` with every position not taken from the row's own snapshot re-derived from
+    snapshots taken at or before `as_of`, so one frame built from the whole database can serve
+    any cutoff (replay, backtest) without a later observation leaking into an earlier one.
+    Rows the whole-database fill left unknown are re-derived too: a later disagreeing snapshot
+    must not remove the answer an earlier cutoff had."""
+    if "position_source" not in frame:
+        return frame
+    rows = frame["position_source"].ne("snapshot") | frame["position_source"].isna()
+    if not rows.any():
+        return frame
+    known = season_positions(db, as_of)
+    out = frame.copy()
+    pos = [known.get((s, p)) for s, p in zip(out.loc[rows, "season"], out.loc[rows, "player_id"],
+                                                strict=True)]  # fmt: skip
+    out.loc[rows, "position"] = pos
+    out.loc[rows, "position_source"] = ["season" if p is not None else None for p in pos]
+    return out
+
+
 def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFrame:
     """One row per player per fixture: minutes, event counts, official points, price, status.
     Blank-gameweek placeholders (fixture 0) are not matches and are left out.
 
     Sorted chronologically per player. Squad snapshots supply team, position and price; for the
     current season several snapshots exist per gameweek and the last one is used.
+
+    A gameweek without its own snapshot keeps team, price, status and chance unknown (NULL):
+    those change during a season and a later snapshot is not evidence of the earlier value.
+    Only position is filled, because an FPL position is fixed for the whole season, and only
+    when every snapshot of that season agrees; `position_source` says which rows were filled
+    ("snapshot" = this gameweek's own, "season" = the season's agreed position, NULL = unknown).
+    The season fill uses every stored snapshot; a caller with a cutoff applies `positions_as_of`.
     """
     fields = ", ".join(f"{_json(src)} AS {col}" for col, src in STAT_FIELDS.items())
     sql = f"""
         SELECT f.player_id, f.season, f.gw, f.fixture_id, f.kickoff, f.minutes,
                f.total_points AS points, f.bps, f.bonus, {fields},
-               s.team_id, s.position, s.now_cost AS price, s.status, s.chance_next AS chance
+               s.team_id, coalesce(s.position, sp.position) AS position,
+               s.now_cost AS price, s.status, s.chance_next AS chance,
+               CASE WHEN s.position IS NOT NULL THEN 'snapshot'
+                    WHEN sp.position IS NOT NULL THEN 'season' END AS position_source
         FROM fpl_points_gw f
         LEFT JOIN (
             SELECT * FROM fpl_players_gw
             QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY season, gw, fpl_id)
         ) s ON s.season = f.season AND s.gw = f.gw AND s.fpl_id = f.fpl_id
+        LEFT JOIN ({_SEASON_POSITION.format(key="fpl_id", cutoff="")}
+        ) sp ON sp.season = f.season AND sp.fpl_id = f.fpl_id
         WHERE f.player_id IS NOT NULL
           AND f.fixture_id <> 0 AND f.minutes IS NOT NULL  -- blank-GW placeholder, unknown split
     """

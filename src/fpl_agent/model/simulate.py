@@ -89,12 +89,17 @@ def _minutes(rng, specs: list[PlayerSpec], n: int, cfg: SimConfig) -> np.ndarray
     if out_sum > 10:
         p_start = np.where(is_gk, p_start, p_start * 10 / out_sum)
     start = rng.random((n, p)) < p_start
-    if is_gk.any():  # exactly one goalkeeper starts, drawn among them
+    if is_gk.any():  # at most one goalkeeper starts, drawn among them
+        # Probabilities summing above one are scaled down to one. Below one, the rest is an
+        # unknown replacement outside the modelled pool, so a doubtful or unavailable keeper is
+        # never promoted (and two near-zero backups never become 50/50 starters).
         gk_p = p_start[is_gk]
-        gk_p = gk_p / gk_p.sum() if gk_p.sum() > 0 else np.full(gk_p.shape, 1 / len(gk_p))
-        pick = rng.choice(is_gk.nonzero()[0], size=n, p=gk_p)
+        gk_p = gk_p / gk_p.sum() if gk_p.sum() > 1 else gk_p
+        keepers = is_gk.nonzero()[0]
+        pick = rng.choice(len(keepers) + 1, size=n, p=[*gk_p, max(0.0, 1.0 - gk_p.sum())])
         start[:, is_gk] = False
-        start[np.arange(n), pick] = True
+        chosen = pick < len(keepers)
+        start[np.arange(n)[chosen], keepers[pick[chosen]]] = True
     long = rng.random((n, p)) < np.array([s.p_long for s in specs])
     full = rng.random((n, p)) < 0.72
     sub_off = rng.integers(60, 90, size=(n, p))

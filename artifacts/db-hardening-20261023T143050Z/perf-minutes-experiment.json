@@ -1,0 +1,7 @@
+{
+ "rows": 4551,
+ "identical": true,
+ "baseline_rolling_cols_s": 0.172,
+ "fast_rolling_cols_s": 0.084,
+ "baseline_full_s": 0.531
+}
