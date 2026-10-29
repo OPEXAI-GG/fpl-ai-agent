@@ -1,0 +1,27 @@
+== GW6
+PASS  5 determinism
+PASS  4 NULL semantics (unlinked/suspect NULL, trusted counts non-NULL)
+PASS  1 future/in-buffer events change nothing
+PASS  3 other-club rows change nothing
+PASS  6 suspect link is NULL, not rest
+SKIP  7 repair after C drops from obs only (skipped: no observed 7-day row)
+SKIP  2 late ingest drops from obs only (skipped: no observed 7-day row)
+exit 0
+== GW7
+PASS  5 determinism
+PASS  4 NULL semantics (unlinked/suspect NULL, trusted counts non-NULL)
+PASS  1 future/in-buffer events change nothing
+PASS  3 other-club rows change nothing
+PASS  6 suspect link is NULL, not rest
+PASS  7 repair after C drops from obs only
+PASS  2 late ingest drops from obs only
+exit 0
+== GW8
+PASS  5 determinism
+PASS  4 NULL semantics (unlinked/suspect NULL, trusted counts non-NULL)
+PASS  1 future/in-buffer events change nothing
+PASS  3 other-club rows change nothing
+PASS  6 suspect link is NULL, not rest
+PASS  7 repair after C drops from obs only
+PASS  2 late ingest drops from obs only
+exit 0
