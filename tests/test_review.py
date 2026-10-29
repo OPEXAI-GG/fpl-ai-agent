@@ -1,11 +1,12 @@
 """Review loop: prediction error by position/component and decision quality vs hindsight."""
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from fpl_agent import review
+from fpl_agent.db import gameweeks
 from fpl_agent.model import project
 from fpl_agent.model.simulate import SimConfig
 from tests.synth import build_world
@@ -102,3 +103,33 @@ def test_prediction_review_scores_the_field_core_separately(stored):
     finally:
         w.db.con.execute("DELETE FROM field_ownership")
     assert rep["template"]["n"] == len(core) and rep["template"]["mean_pred"] > 0
+
+
+def test_only_a_pre_deadline_forecast_is_eligible_and_missing_results_are_not_zero():
+    """Audit cases: a forecast saved after the deadline must not feed calibration, and a
+    projected player without an official result must not be scored as 0 points."""
+    w = build_world(n_teams=8, seasons=(2023, 2024), seed=33)
+    proj = project.build_projection(
+        w.db, 2024, [10], as_of=date(2024, 10, 20), cfg=SimConfig(n=200, seed=1), pool_gw=9
+    )
+    project.save_projection(w.db, proj)  # saved now: long after the 2024 deadline
+    first = w.db.con.execute(
+        "SELECT min(kickoff) FROM matches WHERE season = 2024 AND matchday = 10"
+    ).fetchone()[0]
+    cut = first - timedelta(minutes=90)
+    gameweeks.log_deadlines(w.db, [{"id": 10, "deadline_time": cut.isoformat() + "Z"}], 2024, cut)
+    rep = review.prediction_review(w.db, 2024, 10)
+    assert rep["available"] and rep["pre_deadline"] is False
+    assert rep["eligible_for_calibration"] is False and rep["n_missing_outcome"] == 0
+    # the same forecast stamped before the deadline is the one judged, and is eligible
+    w.db.con.execute("UPDATE projections SET created_at = ? - INTERVAL 1 HOUR WHERE run_id = ?",
+                     [cut, proj.run_id])  # fmt: skip
+    assert review.prediction_review(w.db, 2024, 10)["eligible_for_calibration"] is True
+    # results missing for some projected players: they leave the sample, they are not zeros
+    gone = [int(p) for p in proj.meta["player_id"][:5]]
+    w.db.con.execute(
+        f"DELETE FROM fpl_points_gw WHERE season = 2024 AND gw = 10 "
+        f"AND player_id IN ({', '.join(map(str, gone))})"
+    )
+    after = review.prediction_review(w.db, 2024, 10)
+    assert after["n_missing_outcome"] == 5 and after["n"] == rep["n"] - 5

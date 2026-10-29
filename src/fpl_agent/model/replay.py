@@ -148,11 +148,25 @@ def actual_week(db: FootballDB, season: int, gw: int) -> tuple[dict[int, int], d
             dict(zip(ids, df["mins"].astype(int), strict=True)))  # fmt: skip
 
 
+def actual_cards(db: FootballDB, season: int, gw: int) -> dict[int, int]:
+    """Cards (yellow + red) per player in the gameweek, from the official per-fixture stats:
+    a card without minutes still counts as taking part (`rules.engine.participated`)."""
+    df = db.query(
+        "SELECT player_id, sum(coalesce(TRY_CAST(json_extract(stats, '$.yellow_cards') AS INT), 0)"
+        " + coalesce(TRY_CAST(json_extract(stats, '$.red_cards') AS INT), 0)) AS cards "
+        "FROM fpl_points_gw WHERE season = ? AND gw = ? AND player_id IS NOT NULL "
+        "GROUP BY player_id",
+        [season, gw],
+    )
+    return {int(p): int(c) for p, c in zip(df["player_id"], df["cards"], strict=True) if c}
+
+
 def score_week(wk: WeekPlan, pts: dict[int, int], mins: dict[int, int], pos: dict[int, str],
-               rules: Rules) -> tuple[int, int, int]:  # fmt: skip
+               rules: Rules,
+               cards: dict[int, int] | None = None) -> tuple[int, int, int]:  # fmt: skip
     """(points before hits, captain's points, bench points left) for one week."""
-    final = auto_sub(wk.xi, wk.bench, mins, pos, rules)
-    cap = effective_captain(wk.captain, wk.vice, mins)
+    final = auto_sub(wk.xi, wk.bench, mins, pos, rules, cards)
+    cap = effective_captain(wk.captain, wk.vice, mins, cards)
     total = sum(pts.get(p, 0) for p in final)
     cap_pts = pts.get(cap, 0) if cap is not None else 0
     total += (2 if wk.chip == "3xc" else 1) * cap_pts
@@ -263,7 +277,9 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                 ft = min(cfg.planner.max_free, ft - min(n_in, ft) + 1)
         pts, mins = actual_week(db, season, gw)
         week_pos = {**{p.player_id: p.position for p in squad}, **pos}
-        got, cap_pts, bench = score_week(wk, pts, mins, week_pos, rules)
+        got, cap_pts, bench = score_week(
+            wk, pts, mins, week_pos, rules, actual_cards(db, season, gw)
+        )
         res = ReplayWeek(gw, got - HIT * wk.hits, wk.hits, wk.chip, n_in, wk.captain, cap_pts,
                          bench, round(wk.xp, 1),
                          {"plan": wk, "ins": ins, "outs": outs,

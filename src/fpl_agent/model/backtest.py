@@ -117,15 +117,44 @@ def summarize(results: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def beats_baselines(summary: pd.DataFrame, metric: str = "rmse") -> dict[str, bool]:
-    """Per position: does the simulator beat each baseline on `metric` (lower is better)?"""
-    verdict = {}
-    for pos, g in summary.groupby("position"):
-        sim = g[g.predictor == "sim"]
-        if sim.empty:
-            continue
+def _error(pred: pd.Series, actual: pd.Series, metric: str) -> float:
+    err = pred - actual
+    if metric == "mae":
+        return float(err.abs().mean())
+    if metric == "rmse":
+        return float(np.sqrt((err**2).mean()))
+    raise ValueError(f"unknown metric {metric!r}")
+
+
+def paired_comparison(results: pd.DataFrame, metric: str = "rmse") -> pd.DataFrame:
+    """The simulator against each baseline on the rows both scored (same player and
+    gameweek), per position and overall, with how many rows each side had to drop: a predictor
+    that is missing on hard rows cannot look better by skipping them."""
+    out = []
+    for pos, g in [*results.groupby("position"), ("ALL", results)]:
         for base in ("last5", "fpl_xp"):
-            b = g[g.predictor == base]
-            if not b.empty:
-                verdict[f"{pos}:{base}"] = bool(sim[metric].iloc[0] < b[metric].iloc[0])
+            both = g.dropna(subset=["sim", base, "actual"])
+            out.append({"position": pos, "baseline": base, "n_common": len(both),
+                        "n_sim_only": int((g["sim"].notna() & g[base].isna()).sum()),
+                        "n_baseline_only": int((g["sim"].isna() & g[base].notna()).sum()),
+                        "metric": metric,
+                        "sim": _error(both["sim"], both["actual"], metric) if len(both) else None,
+                        "baseline_value": _error(both[base], both["actual"], metric)
+                        if len(both) else None})  # fmt: skip
+    return pd.DataFrame(out)
+
+
+def beats_baselines(
+    results: pd.DataFrame, metric: str = "rmse", min_rows: int = 20
+) -> dict[str, bool]:
+    """Per position: does the simulator beat each baseline on `metric` (lower is better),
+    judged only on the rows both predicted? Comparisons with fewer than `min_rows` common rows
+    are left out. Takes the per-row `results`, not `summarize`'s aggregates, which are computed
+    on different rows for each predictor."""
+    if "predictor" in results:
+        raise TypeError("beats_baselines needs the per-row results, not summarize()'s output")
+    verdict = {}
+    for r in paired_comparison(results, metric).itertuples():
+        if r.n_common >= min_rows:
+            verdict[f"{r.position}:{r.baseline}"] = bool(r.sim < r.baseline_value)
     return verdict

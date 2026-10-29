@@ -355,7 +355,8 @@ def backtest_cmd(args: argparse.Namespace) -> int:
         return 2
     summary = backtest.summarize(res)
     print(summary.round(3).to_string(index=False))
-    print(json.dumps(backtest.beats_baselines(summary), indent=2))
+    print(backtest.paired_comparison(res).round(3).to_string(index=False))
+    print(json.dumps(backtest.beats_baselines(res), indent=2))
     if args.out:
         res.to_csv(args.out, index=False)
     return 0

@@ -68,7 +68,10 @@ def test_score_thresholds():
     assert score({"minutes": 60, "clean_sheets": 1}, "DEF", R)["total"] == 6
     assert score({"minutes": 90, "saves": 5}, "GKP", R).get("saves") == 1
     assert score({"minutes": 90, "saves": 6}, "GKP", R).get("saves") == 2
-    assert score({"minutes": 0, "yellow_cards": 1}, "MID", R)["total"] == 0
+    # a card from the bench costs its points with 0 minutes, as in FPL's official results
+    assert score({"minutes": 0, "yellow_cards": 1}, "MID", R)["total"] == -1
+    assert score({"minutes": 0, "red_cards": 1}, "DEF", R)["total"] == -3
+    assert score({"minutes": 0, "goals_scored": 1}, "FWD", R)["total"] == 0
     assert score({"minutes": 90, "defensive_contribution": 12}, "MID", R)["total"] == 4
     assert "defensive_contribution" not in score(
         {"minutes": 90, "defensive_contribution": 30}, "GKP", R
@@ -134,3 +137,19 @@ def test_captaincy_and_prices():
 def test_missing_rules_file():
     with pytest.raises(FileNotFoundError):
         Rules.load(1999)
+
+
+def test_a_card_from_the_bench_counts_as_taking_part():
+    """Audit case: a starter shown a card without playing is not substituted, a bench player
+    shown a card can come on, and a carded captain keeps the armband. Without card data only
+    minutes count, as before."""
+    mins = {p: 90 for p in POS}
+    mins.update({"m2": 0, "m4": 0})
+    cards = {"m2": 1}
+    assert "m2" in auto_sub(XI, BENCH, mins, POS, R, cards)
+    assert "m2" not in auto_sub(XI, BENCH, mins, POS, R)
+    mins["m2"], mins["m1"] = 90, 0
+    final = auto_sub(XI, BENCH, mins, POS, R, {"m4": 1})
+    assert "m4" in final and "m1" not in final
+    assert effective_captain("a", "b", {"a": 0, "b": 90}, {"a": 1}) == "a"
+    assert effective_captain("a", "b", {"a": 0, "b": 90}) == "b"

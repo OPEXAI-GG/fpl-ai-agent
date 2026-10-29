@@ -95,6 +95,9 @@ def _cutoff(db: FootballDB, season: int, gw: int):
     return approx_deadline(first) if first is not None else None
 
 
+PRE_DEADLINE = "newest run before the deadline (first kickoff - 90 min)"
+
+
 def projection_run(db: FootballDB, season: int, gw: int) -> tuple[str | None, str]:
     """(run id, how it was chosen): the newest single projection run saved before the
     gameweek's cutoff, so every player is judged on the same forecast the decision saw."""
@@ -106,7 +109,7 @@ def projection_run(db: FootballDB, season: int, gw: int) -> tuple[str | None, st
             [season, gw, cut],
         ).fetchone()
         if row:
-            return row[0], "newest run before the deadline (first kickoff - 90 min)"
+            return row[0], PRE_DEADLINE
     row = db.con.execute(
         "SELECT run_id FROM projections WHERE season = ? AND gw = ? ORDER BY created_at LIMIT 1",
         [season, gw],
@@ -123,7 +126,12 @@ def _explain_components(blob: str | None) -> dict[str, float]:
 
 
 def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
+    """Projection error for a finished gameweek. Only players with an official result are
+    scored: a projected player with no result row is counted in `n_missing_outcome`, never
+    scored as zero. `eligible_for_calibration` is true only for a forecast made before the
+    deadline; `calibration.factors` ignores every other review."""
     run, chosen = projection_run(db, season, gw)
+    pre_deadline = chosen == PRE_DEADLINE
     proj = db.query(
         "SELECT player_id, xpts, detail FROM projections WHERE run_id = ? AND gw = ?", [run, gw]
     )
@@ -132,7 +140,10 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
         return {"gw": gw, "available": False}
     pos = _positions(db, season, gw)
     df = proj.merge(act, on="player_id", how="left").merge(pos, on="player_id", how="left")
-    df["actual"] = df["actual"].fillna(0.0)
+    missing = int(df["actual"].isna().sum())
+    df = df[df["actual"].notna()].copy()
+    if df.empty:
+        return {"gw": gw, "available": False, "n_missing_outcome": missing}
     df["err"] = df["xpts"] - df["actual"]
     by_pos = {}
     for p, g in df.groupby("position"):
@@ -162,7 +173,8 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     top = df.nlargest(20, "xpts")
     core = df[df["player_id"].isin(_field_core(db, season, gw))]
     report = {"gw": gw, "available": True, "n": len(df), "projection_run": run,
-              "projection_choice": chosen,
+              "projection_choice": chosen, "pre_deadline": pre_deadline,
+              "eligible_for_calibration": pre_deadline, "n_missing_outcome": missing,
               "rmse": round(float(np.sqrt((df["err"] ** 2).mean())), 3),
               "bias": round(float(df["err"].mean()), 3), "by_position": by_pos,
               "components": components, "flags": flags,

@@ -80,15 +80,40 @@ class FixtureSim:
     events: dict[str, np.ndarray] | None = None
 
 
+OUTFIELD_STARTERS = 10
+MAX_SUBS = 5
+
+
+def _keep_at_most(rng, chosen: np.ndarray, weight: np.ndarray, k: int) -> np.ndarray:
+    """`chosen` (n, p) with every row cut to at most `k` players. Where a row has more, the
+    ones kept are a weighted draw without replacement (keys u ** (1 / w)) with w the odds
+    p / (1 - p) of each player's probability `weight`, so a near-certain player is (almost)
+    never the one dropped and the excess falls on the least likely."""
+    over = chosen.sum(1) > k
+    if not over.any():
+        return chosen
+    p = np.clip(weight, 1e-9, 1 - 1e-9)
+    w = p / (1 - p)
+    keys = np.where(chosen[over], rng.random((int(over.sum()), chosen.shape[1])) ** (1 / w), -1.0)
+    rank = (-keys).argsort(1).argsort(1)
+    out = chosen.copy()
+    out[over] = chosen[over] & (rank < k)
+    return out
+
+
 def _minutes(rng, specs: list[PlayerSpec], n: int, cfg: SimConfig) -> np.ndarray:
+    """Minutes per world (n, players) for one side, as a legal team sheet: at most one keeper
+    and ten outfield starters, at most five substitutes coming on. Missing places (a keeper or
+    starters the modelled pool cannot supply) are an unknown replacement outside the pool, not
+    filled by promoting an unlikely player."""
     p = len(specs)
     p_start = np.array([s.p_start for s in specs])
     is_gk = np.array([s.position == "GKP" for s in specs])
-    # no more than 11 starters: scale the outfield probabilities down if they sum above 10
-    out_sum = p_start[~is_gk].sum()
-    if out_sum > 10:
-        p_start = np.where(is_gk, p_start, p_start * 10 / out_sum)
+    # draw the starters, then cut every world that drew more than ten outfielders; the cut
+    # falls on the least likely, so a certain starter keeps his place (scaling every
+    # probability down instead made a sure starter start only ~80% of the time)
     start = rng.random((n, p)) < p_start
+    start[:, ~is_gk] = _keep_at_most(rng, start[:, ~is_gk], p_start[~is_gk], OUTFIELD_STARTERS)
     if is_gk.any():  # at most one goalkeeper starts, drawn among them
         # Probabilities summing above one are scaled down to one. Below one, the rest is an
         # unknown replacement outside the modelled pool, so a doubtful or unavailable keeper is
@@ -107,7 +132,9 @@ def _minutes(rng, specs: list[PlayerSpec], n: int, cfg: SimConfig) -> np.ndarray
     started_min = np.where(long, np.where(full, 90, sub_off), short)
     cam_mean = np.array([s.cameo_minutes for s in specs])
     cam_min = np.clip(np.rint(rng.exponential(cam_mean, size=(n, p))), 1, 45).astype(int)
-    cameo = rng.random((n, p)) < np.array([s.p_cameo for s in specs])
+    p_cameo = np.array([s.p_cameo for s in specs])
+    cameo = (rng.random((n, p)) < p_cameo) & ~start
+    cameo = _keep_at_most(rng, cameo, p_cameo, MAX_SUBS)
     minutes = np.where(start, started_min, np.where(cameo, cam_min, 0))
     return minutes.astype(np.int16)
 
