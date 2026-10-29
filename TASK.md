@@ -1,6 +1,111 @@
+# CURRENT COMPANY ORDER ? 2026-10-29
+
+Follow [docs/quality-first-roadmap.md](docs/quality-first-roadmap.md). Database Gate 0 is the only active product gate. Existing M00/M01/M02 work is evidence already produced, not permission to continue model changes before the data gate. M02 promotion is rejected and its switch stays off. API implementation, website expansion, outreach and monetization are deferred until their roadmap gates. User's quality-first sequence supersedes any older conflicting work queue text below; retain older sections as evidence/history.
+
+> CURRENT AUTHORITY ? 2026-10-28 19:53 UTC: Human explicitly instructed move forward and confirmed 7amo has no Codex settings issue. The previous permission STOP is lifted; FAA-16 is closed by user confirmation, not a claimed config repair. Permanent Claude employees own creation, implementation, technical review and releases. 7amo coordinates. Local scoped work resumes; no deployment, publication, paid services or live payments implied.
+
 # FPL Agent: corrective work and local dashboard
 
-## ACTIVE: continuous database hardening while the user is away (2026-10-23)
+## ACTIVE: model phase on the approved local database foundation (2026-10-26)
+
+**Codex verdict: Approved for local model development on isolated copies.** The scoped DB08
+transition gate is accepted on fingerprint
+`875fa1a59859dbfce6fc8fb4dfac0b382df602f3392ae4c9689a791291c1e33e`.
+This supersedes the earlier model-start holds and the database queue as the controlling work
+order. Keep all earlier findings and evidence below as history; do not mark unverified platform,
+production or external-truth items complete. Continuous-work, safety and role rules still apply.
+
+Review: `artifacts/codex-r5-review-20261026/review.md`. Independent focused tests **27 passed**;
+both r4 reproducers now pass; network/auth-blocked synthetic dry integration passed. Inspected
+full gate: **814 passed, 5 skipped**; saved coverage independently recalculated **93%, exit 0**.
+Current files match the reported fingerprint and stayed stable during review. Production hash
+unchanged. Codex did not run the full suite again or reapply migrations to production.
+
+### Next bounded model batch — temporary Codex staffing (2026-10-27)
+
+- [x] **M00 — Freeze baseline and inputs.** Use a new isolated experiment directory and a
+  consistent copy of the preserved work dataset; explicitly initialize/reconcile its schema
+  and run quality/eligibility checks. Record source/data/config/rules/seed identities, source
+  health, exclusions and feature coverage. Produce two reproducible baseline runs; compare
+  scientific outputs while separating run IDs/timestamps from numerical results. Retain the
+  baseline unchanged. Do not refresh/migrate production or overwrite weekly evidence.
+
+  **M00 record (2026-10-27):** experiment `artifacts/model-deadline-20261027T1634Z/` uses a
+  byte-identical copy of preserved `artifacts/db-links-20261026/work.duckdb` (SHA-256
+  `94f68833c13ad005c998be6b6f94233312cebbebb7fd70f59bc08547f659a813`); the shared source and
+  `data_cache/football.duckdb` were not changed. Schema was already current; no tables were
+  added. Quality: 0 errors, 1 warning. Source health is blocked by a stale FPL snapshot; three
+  critical FPL attempt records are `never`. Season 2026 has 0 eligible GWs and GWs 1–7 unavailable;
+  there are 3 excluded matches. The preserved copy has 131 evidence links and 97.40% linked
+  minutes. FPL expected-goal/assist fields are present on 100% of 4,551 rows; detailed-history
+  coverage differs by stat and is in `m00-data-quality-eligibility.json`. Two rate-baseline runs
+  (668 players, deterministic fit at a fixed cutoff) are byte-identical
+  (`ff69d7b01c83ad5178507facb29458c89d79a0613f2c2a45b0befcfb7f0213f5`). Full historical
+  projection backtests were attempted twice but cannot build a target player pool for old GWs
+  (`KeyError: team_id`); no eligible validation is available. Latest official FPL bootstrap was
+  requested at 2026-10-27 16:33:46 UTC (20:33:46 Dubai); network failed and the browser view had
+  no event payload. Exact next deadline remains unverified; do not infer one from fixture dates.
+  GW8 deadline in the official Premier League article (23 Oct) has passed; GW9 schedule context
+  mentions 31 Oct. This does not establish a deadline.
+- [x] **M01 — Data-to-decision matrix.** Inventory validated inputs actually used, unused or
+  missing for minutes, attacking returns, defensive contributions, team strength, availability
+  and ownership. Report exposure, freshness, uncertainty and fallback reasons. Keep popularity
+  separate from performance estimation. Define a strong expected-points core and candidate
+  differentials with an explicit expected-points cost, uncertainty and ownership estimate;
+  do not reward obscurity alone or promise weekly gains.
+
+  **M00 reconciliation and M01 record (Nabil, 2026-10-28):** M00 reconciled without rerun.
+  The work copy hash still matches (94f68833…), and the baseline CSVs still match (ff69d7b0…).
+  Since M00, only `model/features.py` and `model/players.py` (an unreviewed partial M02 left at
+  2026-10-27 16:46 UTC) and this file changed. Matrix:
+  `artifacts/model-deadline-20261027T1634Z/m01-data-decision-matrix.md`. Findings:
+  - 233/668 players use the pure position prior for attack.
+  - FPL per-fixture xG/xA (100% present) is unused by the baseline.
+  - `match_odds_log` and `fpl_deadlines` are empty.
+  - The copy has no prior seasons.
+  - Ownership feeds the solver only.
+  - All 2026 FPL per-fixture rows were ingested 2026-10-20 (after GW7), so strict past cutoffs
+    cannot use them.
+- [x] **M02 — First controlled improvement.** Implement an isolated FPL xG/xA-rate fallback
+  candidate for players lacking usable detailed appearance history, using exposure-aware
+  shrinkage and avoiding double counting overlapping sources. Keep existing scoring-rule and
+  minutes semantics. Before running comparisons, record primary calibration/error metrics,
+  cohort coverage, minimum sample requirements and regression limits. Compare identical rows,
+  seeds and rules against M00, including affected players and unchanged cohorts. Report both
+  improvements and regressions; do not promote a candidate just because more players have
+  non-prior forecasts. Preserve an easy switch back to the baseline.
+
+  **M02 record (Nabil, 2026-10-29):** the candidate is in `fit_player_rates(...,
+  fpl_xg_fallback=False)`. It is off by default and no caller enables it, and with the switch off
+  it reproduces M00 byte for byte. Metrics were predeclared in `m02-predeclared-evaluation.json`.
+  - **Live cutoff:** 118/668 players change; the prior-only count falls from 233 to 208; all
+    detailed-history players are identical.
+  - **EXPLORATORY reconstruction, GWs 5–7:** 890 rows, 84 goals, 79 assists. Goal deviance is
+    0.56% lower, assist deviance 0.13% higher, against the required 2% improvement on both. There
+    are 0 eligible GWs.
+  - **Verdict:** not promotable.
+  - **Tests:** 66 focused tests passed, including new `tests/test_players_fpl_fallback.py`
+    (cutoff invariance). The full suite was not run.
+  - **Evidence:** `artifacts/model-deadline-20261027T1634Z/m02/`.
+- [ ] **M03 — Reviewable model handoff.** _Handoff supplied for review (Nabil, 2026-10-29):
+  `artifacts/model-deadline-20261027T1634Z/m02/m02-handoff.md`, recommending keep-off or
+  reject. Independent review by Wegz (FAA-15) is pending._ Supply exact diff, focused tests, cutoff-invariance
+  checks, paired metrics, uncertainty/sample limitations and a recommendation to keep/reject
+  the candidate. Use validated evaluation only on eligible data and enforce match exclusions.
+  Reconstructed/unavailable historical replay is exploratory, not proof of decision performance.
+  No broad policy, captain, ownership-memory or simulation redesign in this first batch; propose
+  the next experiment with evidence after M00-M02. Codex independently reviews before promotion.
+
+Continue feasible steps without routine approval questions; document blockers and advance
+independent work. No new dependencies, production apply, release publication, paid services,
+persistent config changes or live/account actions. Linux archive execution remains outside this
+local approval pending evidence; F-16 stays excluded/uncertain, and the reported dependency
+advisory remains separately open. Do not restart the storage audit without a demonstrated defect.
+
+## ARCHIVED: continuous database hardening while the user is away (2026-10-23)
+
+Superseded by the approved local model-phase queue above. Instructions and statuses below
+describe the earlier database batch; unresolved limitations remain recorded, not silently closed.
 
 **Controlling instruction:** the user says this week's team changes are complete and requests
 continued database work without routine back-and-forth. This is now Claude's sole execution
@@ -203,14 +308,14 @@ limits and honor server backoff; do not repeatedly scan/download large archives 
 |---|---|---|---|
 | U00 baseline | Done | `artifacts/db-hardening-20261023T143050Z/` (`status.json`, `summary.md`); prod sha unchanged | Not reviewed |
 | U01 R1 integration | Implemented+verified | dual-label fixture duplication fixed; `created_tables` exposed; schema deltas listed | Not reviewed |
-| U02 reversible repair | Implemented+verified | `repair_log` journal, exact `rollback_repair`, registry, odds-log orphans fixed, backfill `--no-repairs`, `repair-undo` | Not reviewed |
-| U03 persistence/recovery | Implemented+verified (partial) | manifest/column validation, by-name import, EXCEPT ALL, snapshot-consistent export, swap recovery; shell scripts not runnable here | Not reviewed |
+| U02 reversible repair | Implemented+verified | journal, exact rollback, registry, opt-in `--repairs`; r3: repeated rollback is a no-op (unknown id refused), `repair-undo` opens with `schema="require"` (never migrates) | Awaiting Codex (r3, 2026-10-24) |
+| U03 persistence/recovery | Implemented+verified (Linux archive path open) | r3: explicit schema modes (`init`/`require`/`read`), `db-schema` preflight, column drift refused by every open; import verifies+loads a private copy (TOCTOU); interrupted import leaves nothing; exact restore of all 33 tables incl. journals/attempts; `scripts/data_*.sh` unverified here (no zstd) | Awaiting Codex (r3, 2026-10-24) |
 | U04 security | Register written | `threat-model.md`; certifi advisory needs approval; restore-script gaps open | Not reviewed |
-| U05 ingestion/concurrency | Implemented+verified (partial) | mid-write crash tests; export isolation; run-outcome ledger deferred (contract conflict) | Not reviewed |
-| U06 integrity/provenance | Implemented+verified (partial) | point-in-time position fill; versioned `fpl_deadlines`; F-16 blocked | Not reviewed |
+| U05 ingestion/concurrency | Implemented+verified | `source_attempts`; r3: `source-health` (failed/stale/ok_zero/ok/never, data checks, healthy/degraded/blocked, exit 0/1/2), plan notes; README/pipeline atomicity wording corrected | Awaiting Codex (r3, 2026-10-24) |
+| U06 integrity/provenance | Implemented+verified (F-16 retained) | `snapshot_as_of` (own-GW cutoff, Codex-verified); r3: 18 new error checks + 2 warn checks in `run_checks`, ledger reconciled to 276 current columns with model-input gate (`r3-closure/ledger_current.py`, exit 0); F-16 retained as warn + excluded matches; `snapshot_kind` provenance; `db-eligibility` manifest | Awaiting Codex (r3, 2026-10-24) |
 | U07 performance | Measured; no change | all workloads ≤0.65 s; vectorised minutes experiment identical but < 2x → baseline kept | Not reviewed |
-| U08 final validation | Partial | chain rehearsal + dry smoke + lint pass; full coverage gate killed at ~78% (low memory), not rerun | Not reviewed |
-| U09 model handoff | Spec written | `model-handoff-spec.md` | Not reviewed |
+| U08 final validation | Implemented+verified | r5: full gate on final fingerprint 875fa1a5: 814 passed, 5 skipped, coverage 93% (report exit 0); r3 chain rehearsal and dry smoke (not rerun); lint/format ok | Awaiting Codex (r5, 2026-10-26) |
+| U09 model handoff | Spec corrected | eligibility classes per GW; 2026 GW1–7 unavailable → exploratory only; no eligible GW yet; r5: validated backtest/replay fit, pool and price only on what was observed by the cutoff; conflicts/exclusions season-bound | Awaiting Codex (r5, 2026-10-26) |
 
 #### Claude DB-hardening handoff (2026-10-23, implemented and verified by Claude, awaiting Codex)
 
@@ -2367,3 +2472,421 @@ record's ownership, timestamps and privacy. Continue all other feasible items in
 Keep incomplete criteria partial; after fixes rerun the final coverage gate when memory permits.
 Claude's recorded statuses above remain claims pending review; this entry does not self-approve
 any remaining gate or interrupt ongoing work.
+
+#### Claude response to the scheduled review (2026-10-24, implemented and verified by Claude, awaiting Codex)
+
+Evidence: `artifacts/db-hardening-20261023T143050Z/r1-codex-fixes/`. Production sha256 still
+`9bc925c1…305e1d`; `prod-snapshot.duckdb` still `b453b7c9…`. No persistent config, workflow, deployment
+or team change.
+
+1. **U06 position fill (fixed).** `features.positions_as_of` now re-derives every row whose
+   position is not from its own snapshot (`season` *and* NULL), so a future disagreeing snapshot
+   that removed the `season` tag cannot change an earlier cutoff. The regression in
+   `tests/test_minutes.py::test_season_position_fill_is_cutoff_invariant` now rebuilds the frame
+   after the disagreement and applies cutoffs last→later→last, checking the changed player, the
+   others, repeated application and unknown before the first snapshot.
+2. **U03/U04 manifest authority (fixed).** `verify_export` reports any `*.parquet` the manifest does
+   not list (`<file>: file not listed in the manifest`), so import refuses before writing;
+   `import_parquet` with a manifest also loads only listed tables (defence in depth). Legacy
+   manifest-less import is unchanged. Tests: `test_a_table_file_the_manifest_does_not_list_is_refused`
+   [unlisted|added|tampered] (atomic refusal, CLI exit 1) and
+   `test_only_the_tables_a_manifest_lists_are_loaded` (verification bypassed → unlisted not read).
+   Codex's reproducer, copied to `r1-codex-fixes/reproduce.py` and pointed at the working tree:
+   `cutoff_invariance` MID→MID pass; unlisted teams file → `ExportError`, 0 rows imported.
+3. **U02 repairs opt-in (done in code/CLI).** `UpdateOptions.repairs` and `BackfillOptions.repairs`
+   default False; `db-update`/`backfill` take `--repairs` to apply (journalled); without it the
+   probe runs on a copy and a needed change exits 3 (`*_blocked`, rows listed, hint "rerun with
+   --repairs"). `--no-repairs` is kept (now the default; it wins if both are given). Documented in
+   README and `runbook.md`. **Compatibility:** `.github/workflows/data.yml`, `plan.yml`,
+   `review.yml` and the dashboard refresh were not edited; once deployed they fail closed (exit 3)
+   instead of deleting when a repair is needed. Tests: `test_repairs_are_opt_in` (pipeline: default
+   blocks, journal empty; `repairs=True` applies and journals) and
+   `test_backfill_repairs_are_opt_in_from_the_cli` ([] / --repairs / --no-repairs / both).
+4. **U05 failed-source outcome record (implemented).** New table `source_attempts` (attempt_id,
+   seq, job, source, ok, critical, rows, error, started_at, finished_at, exit_code). Ownership:
+   only `pipeline.record_attempts`, called by `_finish` in its own transaction after the data work
+   committed or rolled back; a recording failure is reported, never changes the exit code. Times:
+   `guard` stamps each source's naive-UTC start/finish. Privacy: source name, counts and the
+   already-truncated error only; URL query strings are replaced with `?…`; no payloads, credentials
+   or team ids. Marked in `quality.DONE_MARKERS` (not data). Scoped tests deliberately:
+   `test_failed_bootstrap_leaves_database_untouched` now asserts every *other* table's digest is
+   unchanged (data and `ingest_state` markers) and exactly one attempt row (`fpl:bootstrap`, failed,
+   critical, exit 2); idempotence tests exclude it like `ingest_log`. New
+   `test_every_attempt_is_recorded_with_times_and_a_sanitised_error`. Not done: the dashboard does
+   not display it yet.
+
+Verification (Windows `.venv`; the default pytest temp dir gave PermissionError, so `--basetemp`
+under the evidence root was used):
+- `pytest tests/test_db.py tests/test_quality.py tests/test_persistence.py tests/test_point_in_time.py
+  tests/test_minutes.py tests/test_fpl_identity.py tests/test_fpl_identity_evidence.py
+  tests/test_dashboard.py tests/test_dashboard_controls.py tests/test_cli.py tests/test_run_history.py
+  tests/test_review.py tests/test_contracts.py tests/test_workflows.py -q -p no:cacheprovider` →
+  exit 0, **341 passed, 5 skipped, 167.7 s** (`broad-tests.log`).
+- `pytest tests/test_project.py tests/test_replay.py tests/test_backtest.py tests/test_pipeline.py
+  tests/test_backfill.py -q -p no:cacheprovider` → exit 0, **82 passed, 115.8 s**; after formatting,
+  `tests/test_pipeline.py` again 42 passed.
+- First runs after the U05 change: 3 expected failures (`test_rerun_is_idempotent`,
+  `test_failed_bootstrap_leaves_database_untouched`, `test_backfill_is_resumable_and_idempotent`:
+  `source_attempts` count grew), then scoped as above.
+- `ruff check src tests` → All checks passed; `ruff format --check src tests` → 127 files formatted
+  (one reformat of `tests/test_pipeline.py` first).
+- `fpl-agent db-update --help` / `backfill --help` → exit 0, show `--repairs`.
+- Real-data roundtrip on a copy of `prod-snapshot.duckdb` (`roundtrip.py`) → ok, 33 tables loaded,
+  0 differences, reimport 0, export 0.46 s, restore 1.07 s; `created_tables` includes `source_attempts`.
+- **Full coverage gate not run** (memory; per the harness rule it runs only when asked). Still unverified.
+
+Still open: full coverage gate; journal rollback idempotence and constructor schema writes
+reconciliation (named by Codex, not addressed in this batch); dashboard view of `source_attempts`;
+TOCTOU between verify and import (a file replaced after verification) is not guarded; F-16,
+certifi, shell scripts and production apply unchanged. U02/U03/U05/U06/U08 stay partial pending review.
+
+
+#### Codex review of scheduled-review fixes (2026-10-24)
+
+**Changes needed for U06; original two reproductions resolved. DB08 remains open.**
+Report and stable checkpoint: `artifacts/codex-followup-20261024/review.md`.
+Independently reran minutes/persistence/pipeline/backfill tests on the frozen source copy:
+**107 passed, 4 skipped, 107.85 s, exit 0**. Ruff passed. Exact commands/results and code
+fingerprint are in that evidence directory. Claude's broader logs/roundtrip were inspected,
+not independently rerun. Production SHA256 still matches the protected baseline.
+
+Accepted narrowly: original other-GW position disagreement is cutoff-invariant; unlisted
+manifest files refuse before import (zero rows imported); repair opt-in/default behavior and
+source-attempt recording have passing focused regression evidence. These do not approve the
+entire U02/U03/U05/U06 acceptance gates or production use.
+
+Continue without another approval pause:
+1. **U06 high:** latest own-GW metadata bypasses the cutoff. `features.py:91` selects the
+   newest snapshot, then `positions_as_of` at :54 excludes `snapshot` rows. Adding a late GW1
+   DEF snapshot changes GW1's earlier-cutoff MID to DEF. Reproducer: `probes.py` / `probes.json`
+   in the evidence directory (fresh output path required to rerun). Make own-GW selection and
+   season fallback use eligible observation times; preserve row identity/provenance. Test late
+   initial snapshots, corrections, mixed players, repeated cutoffs and projection history.
+   Keep other metadata unknown without eligible evidence; do not manufacture historical values.
+2. Correct README.md:39,100 and pipeline comments: failed source data rolls back, operational
+   attempts may be recorded, and quarantine failure occurs after successful source commits.
+   No export on bad data is not the same as whole-update rollback or zero writes.
+3. Continue the already-open recovery/schema/health/security criteria. Keep partial statuses
+   honest; dashboard source-attempt visibility remains unfinished. Do not treat inspected
+   logs or passing narrow tests as complete database approval.
+4. After final fixes, run the U08 full coverage gate once when resources permit. This is an
+   explicit request within the existing authorized plan; no further routine permission needed.
+   If resources still block it, retain failure evidence and continue independent work.
+
+No implementation, production migration, persistent configuration or team changes by Codex.
+
+
+#### Codex database-to-model readiness gate (2026-10-24; latest instruction)
+
+**Not ready to close the database phase yet.** Continue the existing U queue to its finite
+acceptance gates; do not restart discovery or broaden into speculative infrastructure.
+Report: `artifacts/codex-readiness-20261024/review.md`.
+
+The latest U06 own-GW correction is independently verified on a stable source copy: minutes and
+point-in-time suites **32 passed, exit 0**; both late-snapshot reproducers now preserve MID at the
+earlier cutoff, and the manifest probe refuses unverified rows. This supersedes the specific
+late-own-GW defect verdict above; U06 as a whole remains partial. No production change.
+
+Priority completion sequence (continue without another routine opinion request):
+1. Finish the running batched coverage gate. **Fix its exit-status evidence:**
+   `r2-own-gw-cutoff/coverage-batches.sh` pipes `coverage report --fail-under=85` into `tail`
+   without pipefail, so `$?` can falsely report success. Run the report directly against the
+   combined COVERAGE_FILE and capture its real status/percentage. No need to rerun completed
+   batches for this alone. Verify all intended modules and one consistent source fingerprint.
+2. Close remaining U02/U03 recovery/schema contracts: explicit schema initialization versus
+   opening, repeated rollback behavior, interrupted restore/import, immutable verified import
+   inputs or equivalent race protection, exact current-schema restore including journals and
+   attempts. Linux archive checks stay open until tested or the unverified path is explicitly
+   unsupported and blocked; do not silently pass platform skips.
+3. Reconcile the audit ledger to current schema and validate model-used value/relationship
+   contracts. Reference-only checks do not count. For F-16 and other unresolved external truth,
+   retain uncertainty and prove exclusions/degraded behavior instead of inventing corrections.
+4. Complete usable source health (attempt/success timestamps, missing/stale/failed/coverage,
+   consumer response). Machine-readable/CLI visibility is acceptable; UI polish can wait.
+5. Finish U08 final checks and freeze candidate/code/data identities for independent DB08 review.
+   Correct U09's input eligibility matrix: strict GW2-7 retrospective evaluation is not supported
+   merely by applying a cutoff to reconstructed/missing snapshots. Label exploratory replay
+   honestly; only eligible inputs support decision-performance claims.
+
+Model implementation stays gated on this closure. Model specification can continue under U09.
+Do not wait for universal player linkage, perfect public feeds, more unmeasured optimization or
+multi-user hosting. Explicitly excluded/unavailable data is acceptable when consumers fail or
+fall back honestly and evaluations do not claim unsupported coverage. Production migration and
+live execution remain separately gated; model experiments may use an approved isolated dataset.
+
+#### Claude r3 closure batch (2026-10-24, implemented and verified by Claude, awaiting Codex)
+
+Evidence: `artifacts/db-hardening-20261023T143050Z/r2-own-gw-cutoff/` (U06 fix, first coverage run) and
+`.../r3-closure/` (everything after). Production `data_cache/football.duckdb` sha256 still `9bc925c1…305e1d`
+(hash only; never opened). `prod-snapshot.duckdb` still `b453b7c9…` before/after every read-only use. No
+persistent config, workflow, deployment or team change. Candidate code fingerprint (src/tests/rules, 154 files,
+HEAD c6a0c5f + working tree): `4235a501e0b2a19bac278fe41cfb67833551e4df8486f6fd9ecf0c715ee188e2`
+(`r3-closure/fingerprint-before.json` = `fingerprint-after.json`).
+
+1. **Coverage gate exit status (Codex item 1).** Script fixed: `set -o pipefail`, report written to a file, its
+   own `$?` captured. The r2 run (fingerprint `654581dd…`, before the r3 changes) was rechecked by running
+   `COVERAGE_FILE=r2-own-gw-cutoff/.coverage coverage report --fail-under=85` directly: **exit 0, TOTAL 93%**;
+   all 46 test modules in 6 batches, every batch exit 0: 140+182+96+147+97+91 = **753 passed, 5 skipped**.
+   **The final gate on the r3 code did NOT complete**: Claude Code killed it during batch 1 (machine critically
+   low on memory); per the harness rule it was not restarted. `r3-closure/coverage-batches.sh` is ready; rerun
+   when memory allows. Until then the r3 code is covered only by the focused runs below.
+2. **Recovery/schema (U02/U03).** `FootballDB(path, schema=...)`: `init` (default; creates missing declared
+   tables, named in `created_tables`), `require` (refuses a missing table, writes nothing), `read` (read-only
+   connection; `missing_tables` named). Every mode refuses a table whose columns differ from the declaration
+   (no open alters a table; the prod snapshot copy has no drift, only the 5 additive tables). `schema_status` /
+   `fpl-agent db-schema` is a read-only preflight (exit 0 current, 3 needs init/migration, 1 no file;
+   byte-identical file after). `rollback_repair`: repeating a completed rollback returns {} and writes nothing;
+   an unknown id is RepairConflict (two existing tests changed from "second rollback refused/exit 1" to this
+   contract). `repair-undo` opens with `require`. Import copies an export that has a manifest into a private temp
+   folder and verifies+loads that copy (mutation check: without the copy, the swap test fails). Tests: exact full
+   restore of all 33 declared tables filled with synthetic rows incl. NULLs, journals and attempts (only the
+   import marker differs); interrupted import (failure at table 10) leaves 0 rows and no marker, retry succeeds;
+   a file swapped after verification is never imported; schema modes; db-schema read-only; CLI undo never
+   migrates. **Open:** `scripts/data_publish.sh`/`data_restore.sh` (4 tests skip: no zstd here); they run in
+   Linux CI (`ci.yml`), not verified by me. The runbook says to run the archive path only where CI's shell
+   tests passed.
+3. **Ledger + model-input contracts (U06).** `run_checks` gained 18 error checks (orphans of
+   fpl_points_gw.player_id, player_match_stats/shots/match_odds/match_odds_log.match_id,
+   appearances/team_match.team_id; bad_position, bad_fpl_minutes, fpl_points_without_kickoff,
+   duplicate_player_fixture (same season/gw/player/fixture under two FPL ids), duplicate_player_snapshot,
+   negative_match_stat (goals_prevented exempt), bad_translation, odds_log_below_one, bad_bps,
+   bad_appearance_position, finished_without_date; odds_below_one extended to totals/AH) and 2 warns
+   (scheduled_without_kickoff, fpl_fotmob_conflict). Each was measured first on both snapshot copies
+   (`r2-own-gw-cutoff/model_contract_probe.json`): all 0, so no real update is newly blocked; full `run_checks`
+   on both copies gives only the F-16 warn (`run-checks-copies.txt`). Each has a corruption test.
+   Defect found and fixed: `_points_consistency` crashed (KeyError) on an unknown position and double-joined a
+   player whose position changed mid-season; it now scores only players with one valid position.
+   `r3-closure/ledger_current.py` (exit 0, `ledger-current.json`, `coverage-current.csv`): 276 current declared
+   columns = 237 carried from DB01 + 39 classified new; 44 model-input columns: 37 validated by a check proven by
+   a corruption test, 4 by named temporal/provenance tests, 3 by verified consumer behaviour only
+   (competitions.tier NULL read as 1, matches.matchday NULL never selected, unknown player_match_stats.stat names
+   ignored). The gate first failed on 4 orphan checks with no corruption test; tests added. **F-16 retained**:
+   `quality.source_conflicts` lists them (copies: matches 31, 40, 62), warn only; `db-eligibility` excludes them.
+4. **Source health (U05/U06).** `db/source_health.py` + `fpl-agent source-health` (read-only; exit 0/1/2 =
+   healthy/degraded/blocked). Per source: last attempt/success/failure, failures since success, last rows/error,
+   state failed / stale (>26h) / ok_zero / ok / never; data checks: snapshot age (as of `at`), finished EPL GWs
+   without points, finished matches without FotMob detail; a file without `source_attempts` is degraded with
+   that reason. Consumer: `agent.run` adds `data health: ...` notes (no rail change; the existing stale-snapshot
+   rail still stops live runs). Prod snapshot copy: blocked (snapshot 4 days old) + degraded (no attempt
+   record). Chain refresh copy: degraded (fotmob_detail partial); the restored copy is identical (attempt
+   records survive restore).
+5. **Eligibility (U09).** `features` adds `snapshot_kind` (observed = FPL bootstrap element in `raw`;
+   reconstructed = vaastav archive, kickoff-stamped, status assumed); `history_inputs` reports
+   `reconstructed_snapshot`. `db/eligibility.py` + `fpl-agent db-eligibility`: eligible only with an official
+   deadline recorded before it passed AND an observed pre-deadline snapshot covering >=95% of scoring players.
+   2026 on both copies: **GW1-7 unavailable, none eligible**. `model-handoff-spec.md` corrected: GW2-7 replays
+   are exploratory; no decision-performance claim until eligible GWs accrue (prospectively from GW9).
+6. Docs: README (atomicity wording, new read-only commands), pipeline docstrings, runbook (preflight and
+   post-checks, undo/import semantics, Linux path unverified).
+
+Verification (Windows `.venv`, `--basetemp` under the evidence dirs):
+- Reproducer `r2-own-gw-cutoff/reproduce.py`: late_own_gw MID->MID, original MID->MID, manifest refused, 0 rows.
+- Mutation checks: own-GW cutoff ignored -> both new U06 tests fail; import without the private copy -> swap
+  test fails.
+- Focused, before r3: minutes/point_in_time/project/players/replay/backtest/pipeline/backfill/persistence
+  157 passed, 4 skipped. After r3: test_quality 65 passed; test_persistence 32 passed, 4 skipped;
+  test_source_health 7 passed; agent/cli/db/dashboard/dashboard_controls/run_history/workflows/fpl_identity/
+  minutes/point_in_time 208 passed + 2 failures, both fixed (snapshot_kind missing from a test's column list;
+  duplicate check narrowed to the same gw after the fake feed reused fixture 1 across GWs), then
+  cli/minutes/quality 101 passed. pipeline/backfill/project/replay/backtest were NOT rerun after r3 (only in the
+  killed gate).
+- `ruff check src tests` pass; `ruff format --check` 130 files clean (`r3-closure/lint.log`).
+- Chain rehearsal (`r3-closure/chain.json`): migrate -> refresh (exit 0, public feeds, no repairs) -> export ->
+  restore 33 tables, **0 differences** -> rollback 1,068 labels; snapshot unchanged; 17.9 s.
+- Dry consumer smoke on a copy (`r3-closure/plan-smoke/`): AGENT_MODE=dry, process-local AGENT_ENABLED=true,
+  no webhook/token, `is_live False`; exit 0, decisions all `dry`, run `planned`, health note present. The first
+  attempt exited 1 while printing the report (the cp1252 console cannot encode "ć" when stdout is redirected;
+  pre-existing, the plan itself completed); the rerun with PYTHONIOENCODING=utf-8 exited 0. Team content not
+  relayed.
+- Not run: final full coverage gate on the r3 code (killed, low memory); safety-rails-reviewer and
+  leakage-reviewer subagents (agent.py notes and features.py changed; recommended for Codex's review).
+
+Remaining blockers: final coverage gate on the r3 fingerprint; Linux archive scripts; F-16 adjudication (needs
+independent match reports); certifi advisory (approval); production apply (approval; runbook ready). Statuses
+are Claude's claims pending Codex review; nothing self-approved.
+
+
+#### Codex review of r3 closure (2026-10-24): Changes needed
+
+Database-to-model gate remains open. Report, stable copied code and independent probes:
+`artifacts/codex-r3-review-20261024/review.md`. Independent quality/persistence/source-health
+suite: **104 passed, 4 skipped, 147.49 s, exit 0**. Recovery changes have positive targeted
+regression evidence; the new defects below are not covered by those existing tests. Claude's
+33-table chain and 276-column ledger results were inspected, not independently rerun in full.
+
+Continue these concrete fixes without waiting for another routine opinion:
+1. **High, U09/U06:** eligibility divides total observed snapshot IDs by total scoring IDs,
+   without intersecting identities. Independent repro: scorers 1/2, snapshots only 3/4,
+   zero coverage but class=eligible. Join the correct season/GW/player population; expose
+   covered/required/missing counts; test extra players, zero/partial overlap and threshold
+   boundaries. Define coherent snapshot selection rather than silently pooling partial fetches.
+2. **Medium, U05:** source-health ignores `at` when selecting attempts and counting failures.
+   Independent repro: failure 11:00, recovery 13:00, report at 12:00 incorrectly says ok and
+   shows future timestamps. Bound all aggregates/row selection by the cutoff; define unfinished
+   timestamps and tie ordering; select last rows/error from the same latest attempt.
+3. **High, U05 consumer:** agent.py currently adds critical blocked-health reasons to notes
+   but continues normal planning; the safety Context only receives snapshot age, not failed
+   critical-source state. Enforce the contract for fresh snapshots with newer critical failures,
+   or explicitly validate/identify a permitted last-good snapshot. Any exploratory dry output
+   must be clearly diagnostic rather than a normal successful recommendation. Test end to end
+   with fake services; optional failure remains degraded. No real live/authenticated action.
+4. Finish the full gate on the corrected final fingerprint, using resource-bounded batches.
+   r2's 93% does not cover r3; r3 stops in batch 1. Exit-code masking is fixed. Do not repeatedly
+   restart the same memory-heavy batch. Preserve platform skips and exact results.
+5. Before validated model experiments, enforce manifest eligible-GW and excluded-match filters
+   in the evaluation path and prove affected rows do not reach model inputs. A printed exclusion
+   list is not filtering. Existing replay remains exploratory. Keep unverified Linux archive
+   execution blocked in unsupported environments, or provide actual passing CI evidence.
+
+These are closure items within the existing scope, not a new discovery audit. No production,
+configuration, application implementation or account changes by Codex. Do not mark DB08 approved.
+
+#### Claude r4 fixes for the Codex r3 review (2026-10-25, implemented and verified by Claude, awaiting Codex)
+
+Evidence: `artifacts/db-hardening-20261023T143050Z/r4-gate/` (gate) and `.../r3-closure/` (ledger, earlier
+rehearsals). Production sha256 still `9bc925c1…305e1d` (hash only). No config, workflow, deployment, account or
+team change. Final candidate fingerprint (src/tests/rules, 154 files, HEAD c6a0c5f + working tree):
+**`c305208f3b3549df36e8809fd724b41e0ade5abcca2910d0847d2d6cc61eeadd`**, identical before and after the gate
+(`r4-gate/fingerprint-before.json`, `fingerprint-after.json`).
+
+1. **Eligibility coverage by identity (High).** `eligibility.gameweek` now picks one coherent snapshot (the
+   latest observed pull of that GW by the cutoff; partial pulls are never pooled) and intersects it with the
+   GW's scoring FPL ids. Exposes `snapshot_used`, `required_players`, `covered_players`, `missing_players`,
+   `coverage`. Tests: Codex repro (scorers 1/2, snapshot 3/4) gives covered 0, class unavailable; extra players
+   still eligible; partial overlap reconstructed; boundary 19/20 eligible, 18/20 reconstructed; two partial pulls
+   use only the latest.
+2. **Source health as of `at` (Medium).** Only attempts finished by `at` count; an attempt with no
+   `finished_at` is `unfinished`, never an outcome; ties go to the later `attempt_id`, then `seq`; rows and error
+   come from the same latest row; failures since success are bounded too. `never` (no record) is now degraded,
+   not blocked: absence is not a failure. Tests: Codex repro (fail 11:00, recover 13:00, report 12:00 says
+   failed, nothing after 12:00 visible), unfinished, tie, same-row. Mutation check (bound removed) fails the
+   test. Data checks: snapshot age is as of `at`; missing points and FotMob detail reflect stored state (no
+   history; documented).
+3. **Consumer enforcement (High).** New rail `critical_source_failed` (`safety.Context.critical_source_failures`,
+   every mode): fed by `source_health.critical_failures_after(report, snapshot_at)`, meaning a critical FPL
+   source whose newest finished attempt failed after the snapshot the plan uses. A failure older than the
+   snapshot is permitted (a later pull succeeded). `RunResult.data_blocked` makes such a run exit 3, run
+   status `blocked`, and its report header reads "DIAGNOSTIC ONLY, NOT A RECOMMENDATION"; nothing is reported
+   as "would …". End-to-end tests with the fake FPL, dry only: critical failure after the snapshot is
+   diagnostic; before the snapshot is normal; optional failure is a note only, exit 0. Unit: the rail fires in
+   dry and live. No live or authenticated path run.
+4. **Full gate on the final fingerprint.** `r4-gate/gate-batch.sh`: 12 foreground batches of 4 files, each
+   appending to one coverage file, every exit code its own; then `coverage report --fail-under=85` run
+   directly: **exit 0, TOTAL 93%**. All 47 test modules: **802 passed, 5 skipped** (4 Linux shell tests in
+   test_persistence, 1 existing test_contracts skip), every batch exit 0 (`r4-gate/gate.log`, `batch-*.log`,
+   `coverage-report.txt`). `ruff check` / `ruff format --check src tests` clean.
+5. **Enforced evaluation filters + Linux scripts.** `eligibility.validated_inputs` raises NotEligible for any
+   non-eligible GW, removes every row of an excluded match (all seasons) from the official-points frame and
+   the per-match frame, and returns the official cutoffs. `projection_backtest(validated=True)` and
+   `replay_season(validated=True)` use it (backtest also skips scoring player-GWs that include an excluded
+   match); CLI `backtest|replay --validated`; output labelled VALIDATED or EXPLORATORY. Test (synthetic world):
+   a non-eligible GW is refused; with one GW made eligible and conflicts injected in GW4 and the scored GW, the
+   captured `build_projection` frame/pm hold no excluded match rows, and affected players are not scored
+   (they are without validation). Mutation check (filter removed) fails it. `scripts/data_restore.sh` and
+   `data_publish.sh` now refuse (exit 2, before touching the release) anywhere but Linux with zstd; a test runs
+   both here (MINGW): exit 2, the stand-in gh is never called. Linux execution itself is still verified only
+   by CI's shell tests, which I have not seen pass.
+
+Also: ledger gate rerun, exit 0 (276 columns, 44 model inputs, 38 corruption cases); README and handoff spec
+updated (`never` semantics, the rail, `--validated`).
+Not run: safety-rails-reviewer / leakage-reviewer subagents (agent.py, safety.py, features.py, backtest.py and
+replay.py changed; recommended for Codex's review). Remaining: Linux archive path (CI evidence), F-16
+adjudication, certifi advisory and production apply (approval). Nothing self-approved; DB08 not claimed.
+
+
+#### Codex r4 gate review (2026-10-25): two correctness blockers remain
+
+Report/probes: `artifacts/codex-r4-review-20261025/review.md`. Current code matches Claude's
+r4 fingerprint c305208f...eeadd exactly. Full gate logs account for **802 passed, 5 skipped**;
+Codex independently recalculated saved coverage: **93%, exit 0**. The final-coverage evidence
+blocker is CLOSED for this fingerprint, not for future untested edits.
+
+Independent targeted run: 17 passed, one shell-launch environment failure (Windows chose WSL
+bash, access denied). After preparing the scripts in the review copy and selecting installed
+Git Bash, the shell-refusal test passed. Both outputs retained. No Linux execution claim.
+Original r3 population, health-as-of and diagnostic-rail fixes have positive evidence.
+
+**Changes needed before validated model work / DB08 acceptance:**
+1. Backtest and replay fit MinutesModel from history before applying the snapshot cutoff;
+   passing that model to projection defeats its later correction. Independent validated-path
+   probes: adding post-cutoff historical snapshots changes 102 positions in 1,938 training rows
+   in BOTH entrypoints. Replay's pool also ignores snapshot time (102 late prices change while
+   GW stays eligible), and resets availability. Both leave unknown-observation odds enabled.
+   Apply cutoff/known-at contracts before all fits, baseline construction, pools and market
+   inputs; preserve eligible availability; test actual evaluation entrypoints and refit reuse,
+   late fixtures, historical corrections and target-week changes. No parameter optimization.
+2. source_conflicts and excluded_fixtures join numeric FPL fixture IDs without matching season.
+   Independent probe: fixture 11 reused in 2025/2026, FPL/FotMob agree within each season, yet
+   two false goal conflicts and both exclusions result. Resolve identities by season/canonical
+   match and deduplicate legacy+season aliases. Cover matching and genuinely conflicting reused
+   IDs, dual aliases and cross-season exclusions without unrelated history loss.
+
+Continue these exact closures without another routine approval pause. Do not restart the full
+storage audit. Recovery/manifest fixes retain their tested acceptance; a complete gate does not
+prove the two new evaluation defects absent. Run relevant regressions after fixes and refresh
+final gate evidence for the resulting fingerprint. Full model optimization and production/live
+changes remain gated. Production SHA256 still matches the protected baseline; no application
+implementation or database changes by Codex.
+
+#### Claude r5 fixes for the Codex r4 review (2026-10-26, implemented and verified by Claude, awaiting Codex)
+
+Evidence: `artifacts/db-hardening-20261023T143050Z/r5-closure/` (focused runs, mutations, probe rerun, real-copy
+conflicts, lint) and `.../r5-gate/` (full gate). Production sha256 still `9bc925c1…305e1d`, prod snapshot copy
+still `b453b7c9…` (`r5-closure/hash-before.txt` = `hash-after.txt`; copy opened `schema="read"` only). No config,
+workflow, deployment, account or team change; no parameter optimization. Final candidate fingerprint
+(src/tests/rules, 155 files, HEAD c6a0c5f + working tree): **`875fa1a59859dbfce6fc8fb4dfac0b382df602f3392ae4c9689a791291c1e33e`**,
+identical before and after the gate (`r5-gate/fingerprint-before.json`, `fingerprint-after.json`; doc edits after
+the gate are outside the fingerprint, `fingerprint-docs.json` equal).
+
+1. **Validated evaluations used future information (High).**
+   - New `project.history_as_of(frame, db, season, gw, cutoff)`: earlier GWs, fixtures kicked off before the cutoff
+     (a postponed fixture played later is left out), snapshot fields re-selected by `snapshot_as_of`.
+     `build_projection` uses it (same behaviour as before); `projection_backtest` now fits `MinutesModel` and builds
+     the last-5 baseline from it, `replay_season` fits from it. Applied in both modes (the fit previously disagreed
+     with the projection's own cutoff even when exploratory).
+   - Refit reuse: a model reused for later GWs was fitted at the earlier cutoff, so it sees less, never more
+     (tested: one fit for GW10+11, a correction landing between the two cutoffs never reaches it).
+   - Replay pool: `pool_as_of(..., cutoff)` keeps only rows snapshotted by the cutoff; validated replay uses it and
+     keeps FPL's observed `status`/`chance`. Exploratory replay keeps its documented every-player-available pool
+     without the observation cut (archive rows are kickoff-stamped, so cutting would drop the target week).
+   - Odds: both entrypoints pass `known_at_odds=validated` (no event-time fallback in validated mode).
+   - Codex probe rerun on the working tree (`r5-closure/probes_rerun.py`; only the import path, a `matches` row
+     per synthetic fixture and the cutoff argument changed): backtest and replay fit history 1,938 rows,
+     **unchanged, 0 changed positions**; late target-GW prices **0 changed**, GW still eligible.
+2. **Season-agnostic conflict joins (High).** `quality.FPL_FIXTURE_MATCHES`: (season, fixture id, match) with the
+   legacy `fpl` label counted only for its match's own season and `fpl-<season>` only when the match is of that
+   season, DISTINCT so dual aliases count once (the old join also doubled the FPL side when both aliases pointed
+   at one match). Used by `source_conflicts` and `eligibility.excluded_fixtures`. Probe rerun: **0 conflicts,
+   0 exclusions**. Real copy (`r5-closure/conflicts-copy.json`): F-16 set unchanged, 3 conflicts in matches
+   31/40/62, all 2026; excluded fixtures (2026,31/40/62) only.
+   - Consequence: a label whose match has no `matches` row no longer joins (that is already a `run_checks` orphan
+     error). One existing test inserted such a label; it now inserts the match.
+
+Tests: `tests/test_validated_eval.py` (12): Codex reused-id probe; genuine conflict in either season excludes only
+that season and keeps the other season's rows; dual aliases count once; a label bound to another season's match
+is ignored; fitted history unchanged by a late historical correction and without a post-cutoff fixture, both
+entrypoints (`MinutesModel.fit` captured); refit reuse; validated replay pool ignores a late target-week snapshot
+and keeps `d`/50 availability, exploratory pool all available; `known_at_odds` True/False per mode, both
+entrypoints; `market_lambdas(known_at=True)` never uses an unknown-time price.
+
+Verification (Windows `.venv`, `--basetemp` under the evidence dirs):
+- Focused: `pytest tests/test_validated_eval.py tests/test_source_health.py` → **27 passed** (`focused-1.log`).
+  An earlier run without `--basetemp` had 2 errors from a Windows temp-dir PermissionError (environment, not code).
+- Mutations (`r5-closure/mutations.sh`, `mutations.log`; each reverts one fix, then restores): fit uncut (backtest)
+  2 failed; replay fit uncut 1; validated pool uncut/reset 1; odds fallback 1; season join removed 4; DISTINCT
+  removed 1; exclusion season join removed 3. All mutants detected; sources restored (no `.bak` left).
+- `ruff check src tests` pass; `ruff format --check` 131 files clean (`r5-closure/lint.log`, after formatting one
+  line in project.py).
+- **Full gate** (`r5-gate/gate-batch.sh`, 12 foreground batches of 4 files, one coverage file, own exit codes):
+  53+90+57+125+54+42+96+56+79+44+50+68 = **814 passed, 5 skipped** (4 Linux shell tests, 1 existing contracts
+  skip), every batch exit 0 (`gate.log`, `batch-*.log`); `coverage report --fail-under=85` run directly:
+  **exit 0, TOTAL 93%** (`coverage-report.txt`).
+
+Not run: chain rehearsal and dry plan smoke on this fingerprint (the change touches only evaluation entrypoints,
+the conflict join and exclusions; the plan path is unchanged except `build_projection` now calling the extracted
+helper); safety-rails-reviewer / leakage-reviewer subagents (recommended for Codex, especially leakage on
+backtest.py/replay.py/project.py). Remaining outside this local approval: Linux archive path (CI evidence), F-16
+adjudication, certifi advisory, production apply. Nothing self-approved; DB08 not claimed.
+
+## Staffing update from the human (2026-10-27)
+Claude weekly capacity is exhausted until Thursday; continue the active M00-M03 batch using available Codex capacity. Zaza implements and records evidence here; god independently reviews and accepts. This supersedes earlier provider-specific implementation assignments only. M00-M03 requirements and protected data/production boundaries remain. Hive cards track ownership and status for this same work.
