@@ -182,11 +182,13 @@ def test_publish_then_restore_roundtrip(tmp_path, fake_gh):
     seeded().export_parquet(tmp_path / "out")
     assert sh("data_publish.sh", tmp_path / "out", env).returncode == 0
     names = sorted(p.name for p in store.glob("*.tar.zst"))
-    assert names[0] == "football-db.tar.zst" and names[1].startswith("football-db-")
+    # "-" sorts before ".", so the dated copy comes first; check membership, not order
+    dated_name = next(n for n in names if n.startswith("football-db-"))
+    assert names == sorted(["football-db.tar.zst", dated_name])
     res = sh("data_restore.sh", tmp_path / "restored", env)
     assert res.returncode == 0, res.stderr
     assert verify_export(tmp_path / "restored") == []
-    dated = {**env, "DATA_ASSET": names[1]}  # roll back to a dated copy
+    dated = {**env, "DATA_ASSET": dated_name}  # roll back to a dated copy
     assert sh("data_restore.sh", tmp_path / "rollback", dated).returncode == 0
 
 
