@@ -65,9 +65,9 @@ Under `artifacts/FAA-7-production/`:
 - `asset-api-response.json`: the metadata response received instead of archive bytes.
 - `data-workflow-runs.json`: latest three workflow-run responses.
 - `access-diagnostics.json`: sanitized request outcomes and remaining checks.
-- `broker-header-inspection.txt`, `inspect-broker.cjs`: packaged-app header behavior and reproduction helper.
+- `broker-header-inspection.txt`, `inspect-broker.cjs`: packaged-app header behavior and reproduction helper (local only: they excerpt third-party app source, so they are not in the repository).
 - `download.cjs`: direct read-only download attempt helper; reads credentials from the environment and contains no secret.
-- `scratch-materialized/supplied-tables.duckdb`: scratch database materialized from supplied Parquet files.
+- `scratch-materialized/supplied-tables.duckdb`: scratch database materialized from supplied Parquet files (local only; databases are not versioned).
 - `db-schema.json`, `source-health.json`, `db-eligibility.json`, `db-links.json`: requested command outputs; exit codes in `diagnostic-exit-codes.json`.
 - `scratch-materialized/parquet-schema-shapes.json`, `parquet-input-hashes-before.json`, `parquet-input-hashes-after.json`, `input-integrity.json`: direct schema compatibility and unchanged input hashes.
 
