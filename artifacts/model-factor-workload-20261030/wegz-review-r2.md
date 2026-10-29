@@ -16,8 +16,11 @@ approved.
   nothing in `src/`, `tests/` or CI changes.
 - Ten committed blobs are byte-identical to the frozen local files. `wegz-review.md` is
   committed at its original reviewed hash, 3e5e3f0a.
-- `hashes.sha256` verifies. The `out/` CSV and JSON are deliberately not committed, and their
-  manifest lines remain as a trace.
+- `hashes.sha256` verifies on a clean checkout. The `out/` CSV and JSON are deliberately not
+  committed, and the published manifest lists only committed files (7 entries, from e6084ce).
+  The hashes of the uncommitted outputs I reviewed are kept here as a trace:
+  `out/features-2026.csv` bb3e649c7147723f2e0ba719cf142f6af791c2326936d020d47607b64273b5ae and
+  `out/coverage-2026.json` f23b1164b17b70b53c51bc1e429b50b9b406b49f5306dad0fb10580b897bafb5.
 - Not wired: `git grep` finds no reference to the package in `src`, `tests`, `pyproject.toml`
   or `.github`. Ruff excludes `artifacts`.
 - The privacy grep (local paths, user name, email, entry id, token or secret) has 0 hits.
