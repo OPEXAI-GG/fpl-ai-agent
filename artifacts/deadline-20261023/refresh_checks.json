@@ -1,0 +1,190 @@
+{
+ "checked_at_utc": "2026-10-23T12:06:34+00:00",
+ "entry": {
+  "current_event": 7,
+  "bank": 2,
+  "value": 997,
+  "event_transfers": 3,
+  "active_chip": null,
+  "chips_used": [
+   [
+    "3xc",
+    3
+   ],
+   [
+    "wildcard",
+    6
+   ]
+  ],
+  "n_transfers_total": 27
+ },
+ "squad_identity": {
+  "owned": [
+   1,
+   8,
+   61,
+   115,
+   229,
+   427,
+   124,
+   453,
+   154,
+   411,
+   79,
+   250,
+   542,
+   194,
+   305
+  ],
+  "missing_canonical": []
+ },
+ "bootstrap_ids_without_canonical": 0,
+ "duplicates": {
+  "player_ids_key": 0,
+  "canonical_with_two_fpl_ids_2026": 0,
+  "player_codes_multi_code_players": 0,
+  "latest_snapshot_dupe_rows": 0,
+  "points_dupe_rows": 0
+ },
+ "orphans": {
+  "player_ids->players": 0,
+  "fpl_players_gw->players": 0,
+  "fpl_points_gw->players": 0,
+  "match_ids->matches": 0,
+  "team_ids->teams": 0
+ },
+ "mandatory_nulls": {
+  "latest_snapshot_null_player_id": 0,
+  "latest_snapshot_null_cost": 0,
+  "gw8_fixtures_null_kickoff": 0
+ },
+ "freshness": {
+  "fpl_players_gw_latest": [
+   [
+    8,
+    "2026-10-23 12:05:59.117154",
+    668
+   ]
+  ],
+  "fpl_points_gw_by_gw": [
+   [
+    1,
+    610,
+    "2026-10-20 14:48:52.700862"
+   ],
+   [
+    2,
+    626,
+    "2026-10-20 14:48:52.784082"
+   ],
+   [
+    3,
+    654,
+    "2026-10-20 14:48:52.864541"
+   ],
+   [
+    4,
+    659,
+    "2026-10-20 14:48:52.941907"
+   ],
+   [
+    5,
+    667,
+    "2026-10-20 14:48:53.027649"
+   ],
+   [
+    6,
+    667,
+    "2026-10-20 14:48:53.102476"
+   ],
+   [
+    7,
+    668,
+    "2026-10-20 18:08:50.216358"
+   ]
+  ],
+  "ingest_log_latest": []
+ },
+ "link_flags": [
+  [
+   "fotmob:mohammed kudus",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:mathys tel",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:tatsuhiro sakamoto",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:ephron mason clark",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:gustavo hamer",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:costinha",
+   "single-word name"
+  ],
+  [
+   "fotmob:ibrahim osman",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:anan khalaili",
+   "position MID differs from DEF"
+  ],
+  [
+   "fotmob:tyrick mitchell",
+   "position MID differs from DEF"
+  ],
+  [
+   "fotmob:dwight mcneil",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:oscar mingueza",
+   "position MID differs from DEF"
+  ],
+  [
+   "fotmob:rayan",
+   "single-word name"
+  ],
+  [
+   "fotmob:marcus tavernier",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:evanilson",
+   "single-word name"
+  ],
+  [
+   "fotmob:amine adli",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:david brooks",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:reinildo",
+   "single-word name"
+  ],
+  [
+   "fotmob:chris rigg",
+   "position FWD differs from MID"
+  ],
+  [
+   "fotmob:dayann methalie",
+   "position MID differs from DEF"
+  ],
+  [
+   "fotmob:chemsdine talbi",
+   "position FWD differs from MID"
+  ]
+ ]
+}

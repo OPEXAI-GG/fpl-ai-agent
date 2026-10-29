@@ -1,0 +1,12 @@
+PASSED repro/test_repro.py::test_R2_link_stays_active_after_contradicting_evidence
+PASSED repro/test_rereview.py::test_utc_stamped_contradiction_withdraws_the_link_now
+PASSED repro/test_rereview.py::test_decision_before_the_contradiction_was_stored_still_uses_the_link
+PASSED repro/test_rereview.py::test_local_time_stamp_is_future_to_utc_and_ignored_until_then
+PASSED repro/test_rereview.py::test_my_original_R2_fails_only_through_the_local_stamp
+FAILED repro/test_repro.py::test_R1_conflict_on_linked_pair_is_invisible_to_validated_exclusion - AssertionError: assert [{'match_id':...nutes'], ...}] == []
+FAILED repro/test_repro.py::test_R3_link_recorded_later_is_used_by_an_earlier_cutoff - assert {2} == {1}
+FAILED repro/test_repro.py::test_R4_reconstructed_snapshot_is_accepted_as_team_evidence - assert 1 == 0
+FAILED repro/test_repro.py::test_R5_redo_in_same_second_overwrites_the_undone_rows - AssertionError: assert 'links-7dbe0e...0000-fc1422f3' == 'links-7dbe0e...00...
+FAILED repro/test_repro.py::test_R6_player_links_outside_reference_registry - AssertionError: assert {'from_player...to_player_id'} == set()
+FAILED repro/test_repro.py::test_R7_a_2026_link_counts_as_coverage_for_another_season - assert (0 == 1)
+6 failed, 5 passed in 3.18s

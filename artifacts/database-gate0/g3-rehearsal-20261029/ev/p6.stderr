@@ -1,0 +1,19 @@
+football-db.tar.zst (updated 2026-10-29T07:43:16Z) is older than the newest dated copy football-db-20261029T074444Z.tar.zst (updated 2026-10-29T07:44:45Z): a publish stopped before replacing it; restoring the dated copy
+Traceback (most recent call last):
+  File "<string>", line 5, in <module>
+    with z.ZstdFile(src, "rb") as f, open(dst, "wb") as o: shutil.copyfileobj(f, o, 1 << 20)
+                                                           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\shutil.py", line 256, in copyfileobj
+    while buf := fsrc_read(length):
+                 ~~~~~~~~~^^^^^^^^
+  File "C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\zstd\_zstdfile.py", line 173, in read
+    return self._buffer.read(size)
+           ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\_common\_streams.py", line 68, in readinto
+    data = self.read(len(byte_view))
+  File "C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\_common\_streams.py", line 99, in read
+    raise EOFError("Compressed file ended before the "
+                   "end-of-stream marker was reached")
+EOFError: Compressed file ended before the end-of-stream marker was reached
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now

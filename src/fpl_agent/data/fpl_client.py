@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -21,6 +23,7 @@ class FPLClient:
         backoff: float = 1.0,
     ) -> None:
         self._base = base_url.rstrip("/")
+        self._owned = client is None  # close only a connection pool this client created
         self._http = client or httpx.Client(timeout=30, headers={"User-Agent": "fpl-agent/0.1"})
         self._retries = retries
         self._backoff = backoff
@@ -43,14 +46,42 @@ class FPLClient:
                 if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 429:
                     raise SourceUnavailable(f"GET {url}: HTTP {exc.response.status_code}") from exc
                 if attempt < self._retries:
-                    time.sleep(self._backoff * 2**attempt)
+                    time.sleep(self._wait(exc, attempt))
         raise SourceUnavailable(f"GET {url} failed after {self._retries + 1} attempts") from last
+
+    MAX_WAIT = 30.0
+
+    def _wait(self, exc: Exception, attempt: int) -> float:
+        """Seconds before the next try: the server's Retry-After when given (capped), else
+        exponential backoff."""
+        if isinstance(exc, httpx.HTTPStatusError):
+            header = exc.response.headers.get("Retry-After", "")
+            try:
+                return min(self.MAX_WAIT, max(0.0, float(header)))
+            except ValueError:
+                try:
+                    until = parsedate_to_datetime(header)
+                    return min(self.MAX_WAIT, max(0.0, (until - datetime.now(UTC)).total_seconds()))
+                except (ValueError, TypeError, OverflowError):
+                    pass
+        return min(self.MAX_WAIT, self._backoff * 2**attempt)
+
+    def close(self) -> None:
+        if self._owned:
+            self._http.close()
+
+    def __enter__(self) -> FPLClient:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     def bootstrap_raw(self) -> dict[str, Any]:
         return self._get("bootstrap-static/")
 
-    def bootstrap(self) -> Bootstrap:
-        return Bootstrap.model_validate(self.bootstrap_raw())
+    def bootstrap(self, raw: dict[str, Any] | None = None) -> Bootstrap:
+        """The parsed bootstrap; pass `raw` when it was already fetched (one GET per run)."""
+        return Bootstrap.model_validate(raw if raw is not None else self.bootstrap_raw())
 
     def fixtures_raw(self) -> list[dict[str, Any]]:
         return self._get("fixtures/")

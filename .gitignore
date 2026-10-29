@@ -12,3 +12,48 @@ data_cache/
 htmlcov/
 .env
 *.duckdb
+.claude/settings.local.json
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Hive office runtime and agent manifests (local only, never published)
+/hive/
+/palace/
+/palace.lock
+/palace.rebuilt-*
+/roster.json
+/roster-backups/
+/restore-gate.json
+/research/hires/
+
+# Database archives and raw exports (published as release assets, not source)
+*.tar.zst
+*.parquet
+
+# Disposable test output and copied review trees under artifacts/
+artifacts/**/pt-*/
+artifacts/**/pytest-*/
+artifacts/**/*temp*/
+artifacts/**/repo/
+artifacts/**/tree/
+artifacts/**/base/
+artifacts/**/chain-work/
+artifacts/**/probe-export/
+artifacts/**/scratch-materialized/
+artifacts/**/smoke-output/
+artifacts/**/tmp-*/
+
+# Owner FPL account exports (personal data) and copied third-party app source
+artifacts/deadline-20261023/inputs/entry.json
+artifacts/deadline-20261023/inputs/transfers.json
+artifacts/deadline-20261023/inputs/history.json
+artifacts/deadline-20261023/inputs/picks_gw7.json
+artifacts/FAA-7-production/broker-header-inspection.txt
+artifacts/FAA-7-production/inspect-broker.cjs
+artifacts/windows-sandbox-fix/

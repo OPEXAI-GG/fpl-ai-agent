@@ -7,6 +7,10 @@ current team, and plans from that. If the team differs from the last deadline's,
 were already made for this gameweek: no further ones are sent and no chip is planned, only the
 lineup and captain are set. The exception is an active Wildcard: until the deadline every change
 is free, so each run re-plans the whole squad from the latest data and news.
+
+Whatever chip is already active is carried into the plan (`active_chip`) so a re-plan keeps it
+and never plays a second one. An active Free Hit's squad is the bot's temporary one: it is not
+re-planned or counted as your own changes, and FPL restores the last deadline's squad after it.
 """
 
 from __future__ import annotations
@@ -54,32 +58,37 @@ def overlay(state: SquadState, my: dict, raw: dict, rules: Rules) -> tuple[Squad
         if c.get("status_for_entry") in ("played", "active") and c.get("name"):
             played = c.get("played_by_entry") or [state.next_gw]
             chips += [(c["name"], ev) for ev in played if (c["name"], ev) not in chips]
-    wc = any(
-        c.get("name") == "wildcard"
-        and (
+    active = next((
+        c["name"] for c in my.get("chips") or []
+        if c.get("name") and (
             c.get("status_for_entry") == "active"
             or (c.get("status_for_entry") == "played"
                 and state.next_gw in (c.get("played_by_entry") or []))
         )
-        for c in my.get("chips") or []
-    )  # fmt: skip
+    ), None)  # fmt: skip
+    wc = active == "wildcard"
     before = {p.player_id for p in state.squad}
     moved = sum(p.player_id not in before for p in squad)
     out = SquadState(
         next_gw=state.next_gw, squad=squad, bank=bank,
         free_transfers=state.free_transfers if ft is None else ft, chips_used=chips,
         value=value, already_transferred=0 if wc else max(state.already_transferred, moved),
-        wildcard_active=wc, base_squad=list(state.squad), picks=picks,
+        wildcard_active=wc, base_squad=list(state.squad), picks=picks, active_chip=active,
     )  # fmt: skip
     note = (
-        f"your Wildcard is active (team differs from the last deadline's by {moved} player(s)): "
-        "re-planning the whole squad, changes are free until the deadline"
+        f"your Free Hit is active (team differs from the last deadline's by {moved} player(s)): "
+        "the Free Hit squad is kept, only the lineup and captain are set"
+        if active == "freehit"
+        else f"your Wildcard is active (team differs from the last deadline's by {moved} "
+        "player(s)): re-planning the whole squad, changes are free until the deadline"
         if wc
         else f"your FPL team already differs from the last deadline's by {moved} player(s): "
         "planned from the current team, no further transfers this week"
         if moved
         else "live team read from FPL: matches the last deadline's squad"
     )
+    if active and active not in ("wildcard", "freehit"):
+        note += f"; {active} is already active and is kept"
     return out, bool(moved) and not wc, note
 
 

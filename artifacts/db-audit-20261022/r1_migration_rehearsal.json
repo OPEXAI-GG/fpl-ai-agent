@@ -1,0 +1,1151 @@
+{
+ "checks": [
+  {
+   "check": "baseline equals the hash recorded by the snapshot step",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "pre-migration copy equals baseline bytes",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "preflight: no problems",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "preflight: counts match the audit expectations",
+   "ok": true,
+   "detail": {
+    "player_ids": 668,
+    "team_ids": 20,
+    "match_ids": 380
+   }
+  },
+  {
+   "check": "migrate: migrated expected rows",
+   "ok": true,
+   "detail": {
+    "status": "migrated",
+    "migration_id": "fpl-season-labels-v1:20261023T115913568718",
+    "rows": 1068,
+    "counts": {
+     "player_ids": 668,
+     "team_ids": 20,
+     "match_ids": 380
+    }
+   }
+  },
+  {
+   "check": "second run is a verified no-op",
+   "ok": true,
+   "detail": {
+    "status": "noop-verified",
+    "rows": 1068
+   }
+  },
+  {
+   "check": "no legacy fpl identity rows remain",
+   "ok": true,
+   "detail": {
+    "player_ids": 0,
+    "team_ids": 0,
+    "match_ids": 0
+   }
+  },
+  {
+   "check": "migrated: schema equal and every table equal (id tables ignoring source)",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "only declared label change: fpl -> fpl-2026",
+   "ok": true,
+   "detail": {
+    "player_ids": {
+     "before": [
+      [
+       "fotmob",
+       2870
+      ],
+      [
+       "fpl",
+       668
+      ]
+     ],
+     "after": [
+      [
+       "fotmob",
+       2870
+      ],
+      [
+       "fpl-2026",
+       668
+      ]
+     ]
+    },
+    "team_ids": {
+     "before": [
+      [
+       "football-data",
+       20
+      ],
+      [
+       "fotmob",
+       119
+      ],
+      [
+       "fpl",
+       20
+      ],
+      [
+       "understat",
+       20
+      ]
+     ],
+     "after": [
+      [
+       "football-data",
+       20
+      ],
+      [
+       "fotmob",
+       119
+      ],
+      [
+       "fpl-2026",
+       20
+      ],
+      [
+       "understat",
+       20
+      ]
+     ]
+    },
+    "match_ids": {
+     "before": [
+      [
+       "fotmob",
+       776
+      ],
+      [
+       "fpl",
+       380
+      ],
+      [
+       "understat",
+       380
+      ]
+     ],
+     "after": [
+      [
+       "fotmob",
+       776
+      ],
+      [
+       "fpl-2026",
+       380
+      ],
+      [
+       "understat",
+       380
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "check": "consumer output unchanged by migration: dashboard",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "consumer output unchanged by migration: review_cutoff",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "consumer output unchanged by migration: quality",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "consumer output unchanged by migration: season_map_players",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "consumer output unchanged by migration: season_map_teams",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "consumer output unchanged by migration: season_map_matches",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "journal columns equal the declared schema.TABLES entry",
+   "ok": true,
+   "detail": [
+    "migration_id",
+    "table_name",
+    "source_id",
+    "canonical_id",
+    "source_name",
+    "old_source",
+    "new_source",
+    "applied_at",
+    "rolled_back_at"
+   ]
+  },
+  {
+   "check": "journal: every row matches its legacy and migrated identity row field by field",
+   "ok": true,
+   "detail": 0
+  },
+  {
+   "check": "re-ingesting the current season adds/changes no identity rows",
+   "ok": true,
+   "detail": {
+    "player_ids": [
+     3538,
+     3538
+    ],
+    "team_ids": [
+     179,
+     179
+    ],
+    "match_ids": [
+     1536,
+     1536
+    ]
+   }
+  },
+  {
+   "check": "re-ingesting the current season leaves matches unchanged (scores, provenance)",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "re-ingestion recorded one code per player, none flagged or contradicting",
+   "ok": true,
+   "detail": {
+    "recorded": [
+     668,
+     668
+    ],
+    "flags": 0,
+    "mismatches": 0
+   }
+  },
+  {
+   "check": "rollback restored the expected rows",
+   "ok": true,
+   "detail": {
+    "status": "rolled-back",
+    "migration_id": "fpl-season-labels-v1:20261023T115920955913",
+    "rows": 1068
+   }
+  },
+  {
+   "check": "rolled back: schema and every table identical to pre-migration",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "rolled back: consumer outputs identical",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "interrupted migration raised",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "interrupted migration: schema and every table identical, no journal",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "export carries the journal and codes",
+   "ok": true,
+   "detail": {
+    "seeded": {
+     "recorded": 668,
+     "flagged": 0
+    },
+    "exported_rows": {
+     "migration_log": 1068,
+     "player_codes": 668
+    },
+    "tables_loaded": 30,
+    "second_import": 0
+   }
+  },
+  {
+   "check": "restore loaded tables; a duplicate restore adds nothing",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "restored copy: migration is a verified no-op",
+   "ok": true,
+   "detail": {
+    "status": "noop-verified",
+    "rows": 1068
+   }
+  },
+  {
+   "check": "restored copy: rollback restores the legacy rows",
+   "ok": true,
+   "detail": {
+    "status": "rolled-back",
+    "migration_id": "fpl-season-labels-v1:20261023T115913568718",
+    "rows": 1068
+   }
+  },
+  {
+   "check": "restored + rolled back: every table identical to pre-migration",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "baseline snapshot unchanged",
+   "ok": true,
+   "detail": null
+  }
+ ],
+ "baseline": {
+  "path": "C:\\Users\\bedor\\OneDrive\\Documents\\FPL\\fpl-ai-agent-1\\artifacts\\db-migration-rehearsal-20261022T122715Z\\football-rehearsal.duckdb",
+  "sha256_before": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7",
+  "recorded_sha256": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7",
+  "sha256_after": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7"
+ },
+ "stamp": "20261023T115912Z",
+ "out_dir": "C:\\Users\\bedor\\OneDrive\\Documents\\FPL\\fpl-ai-agent-1\\artifacts\\db-migration-rehearsal-20261023T115912Z-r1",
+ "duckdb": "1.5.6",
+ "pre_migration_sha256": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7",
+ "preflight": {
+  "counts": {
+   "player_ids": 668,
+   "team_ids": 20,
+   "match_ids": 380
+  },
+  "problems": [],
+  "other_sources": {
+   "player_ids": {
+    "fotmob": 2870
+   },
+   "team_ids": {
+    "football-data": 20,
+    "fotmob": 119,
+    "understat": 20
+   },
+   "match_ids": {
+    "fotmob": 776,
+    "understat": 380
+   }
+  },
+  "seasons": {
+   "player": [
+    2026
+   ],
+   "team": [
+    2026
+   ],
+   "match": [
+    2026
+   ]
+  }
+ },
+ "migrate": {
+  "status": "migrated",
+  "migration_id": "fpl-season-labels-v1:20261023T115913568718",
+  "rows": 1068,
+  "counts": {
+   "player_ids": 668,
+   "team_ids": 20,
+   "match_ids": 380
+  }
+ },
+ "journal_summary": [
+  [
+   "match_ids",
+   380,
+   "fpl",
+   "fpl-2026",
+   1
+  ],
+  [
+   "player_ids",
+   668,
+   "fpl",
+   "fpl-2026",
+   1
+  ],
+  [
+   "team_ids",
+   20,
+   "fpl",
+   "fpl-2026",
+   1
+  ]
+ ],
+ "pre_vs_migrated": {
+  "schema_equal": true,
+  "tables": {
+   "appearances": {
+    "rows_a": 6862,
+    "rows_b": 6862,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "competitions": {
+    "rows_a": 6,
+    "rows_b": 6,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "decisions": {
+    "rows_a": 4,
+    "rows_b": 4,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "field_ownership": {
+    "rows_a": 156,
+    "rows_b": 156,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_players_gw": {
+    "rows_a": 1336,
+    "rows_b": 1336,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_points_gw": {
+    "rows_a": 4551,
+    "rows_b": 4551,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_log": {
+    "rows_a": 180,
+    "rows_b": 180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_state": {
+    "rows_a": 349,
+    "rows_b": 349,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "league_translation": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "lessons": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_ids": {
+    "rows_a": 1536,
+    "rows_b": 1536,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds": {
+    "rows_a": 280,
+    "rows_b": 280,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds_log": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "matches": {
+    "rows_a": 776,
+    "rows_b": 776,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "news_evidence": {
+    "rows_a": 89,
+    "rows_b": 89,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_ids": {
+    "rows_a": 3538,
+    "rows_b": 3538,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_match_stats": {
+    "rows_a": 101072,
+    "rows_b": 101072,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "players": {
+    "rows_a": 3180,
+    "rows_b": 3180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "projections": {
+    "rows_a": 26720,
+    "rows_b": 26720,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "reviews": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "runs": {
+    "rows_a": 5,
+    "rows_b": 5,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_cache": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_calls": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "shots": {
+    "rows_a": 4603,
+    "rows_b": 4603,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_ids": {
+    "rows_a": 179,
+    "rows_b": 179,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_match": {
+    "rows_a": 604,
+    "rows_b": 604,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "teams": {
+    "rows_a": 119,
+    "rows_b": 119,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "transfers": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   }
+  }
+ },
+ "label_counts": {
+  "player_ids": {
+   "before": [
+    [
+     "fotmob",
+     2870
+    ],
+    [
+     "fpl",
+     668
+    ]
+   ],
+   "after": [
+    [
+     "fotmob",
+     2870
+    ],
+    [
+     "fpl-2026",
+     668
+    ]
+   ]
+  },
+  "team_ids": {
+   "before": [
+    [
+     "football-data",
+     20
+    ],
+    [
+     "fotmob",
+     119
+    ],
+    [
+     "fpl",
+     20
+    ],
+    [
+     "understat",
+     20
+    ]
+   ],
+   "after": [
+    [
+     "football-data",
+     20
+    ],
+    [
+     "fotmob",
+     119
+    ],
+    [
+     "fpl-2026",
+     20
+    ],
+    [
+     "understat",
+     20
+    ]
+   ]
+  },
+  "match_ids": {
+   "before": [
+    [
+     "fotmob",
+     776
+    ],
+    [
+     "fpl",
+     380
+    ],
+    [
+     "understat",
+     380
+    ]
+   ],
+   "after": [
+    [
+     "fotmob",
+     776
+    ],
+    [
+     "fpl-2026",
+     380
+    ],
+    [
+     "understat",
+     380
+    ]
+   ]
+  }
+ },
+ "ingestion_after_migration": {
+  "season": 2026,
+  "gw": 8,
+  "elements": 668,
+  "teams": 20,
+  "fixtures": 380
+ },
+ "codes_after_ingestion": {
+  "recorded": [
+   668,
+   668
+  ],
+  "flags": 0,
+  "mismatches": 0
+ },
+ "pre_vs_rolled_back": {
+  "schema_equal": true,
+  "tables": {
+   "appearances": {
+    "rows_a": 6862,
+    "rows_b": 6862,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "competitions": {
+    "rows_a": 6,
+    "rows_b": 6,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "decisions": {
+    "rows_a": 4,
+    "rows_b": 4,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "field_ownership": {
+    "rows_a": 156,
+    "rows_b": 156,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_players_gw": {
+    "rows_a": 1336,
+    "rows_b": 1336,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_points_gw": {
+    "rows_a": 4551,
+    "rows_b": 4551,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_log": {
+    "rows_a": 180,
+    "rows_b": 180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_state": {
+    "rows_a": 349,
+    "rows_b": 349,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "league_translation": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "lessons": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_ids": {
+    "rows_a": 1536,
+    "rows_b": 1536,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds": {
+    "rows_a": 280,
+    "rows_b": 280,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds_log": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "matches": {
+    "rows_a": 776,
+    "rows_b": 776,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "news_evidence": {
+    "rows_a": 89,
+    "rows_b": 89,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_ids": {
+    "rows_a": 3538,
+    "rows_b": 3538,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_match_stats": {
+    "rows_a": 101072,
+    "rows_b": 101072,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "players": {
+    "rows_a": 3180,
+    "rows_b": 3180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "projections": {
+    "rows_a": 26720,
+    "rows_b": 26720,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "reviews": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "runs": {
+    "rows_a": 5,
+    "rows_b": 5,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_cache": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_calls": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "shots": {
+    "rows_a": 4603,
+    "rows_b": 4603,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_ids": {
+    "rows_a": 179,
+    "rows_b": 179,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_match": {
+    "rows_a": 604,
+    "rows_b": 604,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "teams": {
+    "rows_a": 119,
+    "rows_b": 119,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "transfers": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   }
+  }
+ },
+ "export_restore": {
+  "seeded": {
+   "recorded": 668,
+   "flagged": 0
+  },
+  "exported_rows": {
+   "migration_log": 1068,
+   "player_codes": 668
+  },
+  "tables_loaded": 30,
+  "second_import": 0
+ },
+ "pre_vs_restored_rolled_back": {
+  "schema_equal": true,
+  "tables": {
+   "appearances": {
+    "rows_a": 6862,
+    "rows_b": 6862,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "competitions": {
+    "rows_a": 6,
+    "rows_b": 6,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "decisions": {
+    "rows_a": 4,
+    "rows_b": 4,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "field_ownership": {
+    "rows_a": 156,
+    "rows_b": 156,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_players_gw": {
+    "rows_a": 1336,
+    "rows_b": 1336,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "fpl_points_gw": {
+    "rows_a": 4551,
+    "rows_b": 4551,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_log": {
+    "rows_a": 180,
+    "rows_b": 180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "ingest_state": {
+    "rows_a": 349,
+    "rows_b": 349,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "league_translation": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "lessons": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_ids": {
+    "rows_a": 1536,
+    "rows_b": 1536,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds": {
+    "rows_a": 280,
+    "rows_b": 280,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "match_odds_log": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "matches": {
+    "rows_a": 776,
+    "rows_b": 776,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "news_evidence": {
+    "rows_a": 89,
+    "rows_b": 89,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_ids": {
+    "rows_a": 3538,
+    "rows_b": 3538,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "player_match_stats": {
+    "rows_a": 101072,
+    "rows_b": 101072,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "players": {
+    "rows_a": 3180,
+    "rows_b": 3180,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "projections": {
+    "rows_a": 26720,
+    "rows_b": 26720,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "reviews": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "runs": {
+    "rows_a": 5,
+    "rows_b": 5,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_cache": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "scout_calls": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "shots": {
+    "rows_a": 4603,
+    "rows_b": 4603,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_ids": {
+    "rows_a": 179,
+    "rows_b": 179,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "team_match": {
+    "rows_a": 604,
+    "rows_b": 604,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "teams": {
+    "rows_a": 119,
+    "rows_b": 119,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   },
+   "transfers": {
+    "rows_a": 0,
+    "rows_b": 0,
+    "only_a": 0,
+    "only_b": 0,
+    "equal": true
+   }
+  }
+ },
+ "files": {
+  "export-source.duckdb": {
+   "bytes": 24653824,
+   "sha256": "da6c983008075e10cfb3986202c418634d218626c327f5980040623971372a0f"
+  },
+  "ingest.duckdb": {
+   "bytes": 26750976,
+   "sha256": "99cc9972f81e08121f1db03b072a433b64bf886a1a5471415fc6cc8d099adf95"
+  },
+  "interrupted.duckdb": {
+   "bytes": 21508096,
+   "sha256": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7"
+  },
+  "migrated.duckdb": {
+   "bytes": 24129536,
+   "sha256": "31468ecaf6baea754249fa10ca41415660a9320dce7bd4802eadb112befe7717"
+  },
+  "pre-migration.duckdb": {
+   "bytes": 21508096,
+   "sha256": "1b959584bd140622a3d1b76acc0e70ee0948193d7d3eeade0c22db5dfe6667d7"
+  },
+  "restored.duckdb": {
+   "bytes": 24653824,
+   "sha256": "19acfdccde66d0cea53e53e415db19da01fd26d7cd92a3a6483415d80c6d964c"
+  },
+  "rollback.duckdb": {
+   "bytes": 24129536,
+   "sha256": "b0da886b33b15848ab5b074dc072efbbcde0f12440b3caf3975dad8c1bc5b2fd"
+  }
+ },
+ "failed": []
+}

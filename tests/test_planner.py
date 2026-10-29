@@ -298,3 +298,34 @@ def test_a_kept_player_is_not_sold_in_any_week_of_the_plan():
     assert sold, "the fixture must want to sell someone"
     kept = solve_plan(replace(pi, kept=frozenset(sold)), CFG)
     assert not sold & {p for w in kept.weeks for p in w.transfers_out}
+
+
+def test_solver_reports_status_and_rejects_a_broken_incumbent():
+    from fpl_agent.solver.mip import Infeasible, Model
+
+    m = Model()
+    m.var("x", 0, 10, obj=1.0)
+    m.var("y", 0, 10, obj=1.0)
+    m.le({"x": 1, "y": 1}, 7)
+    sol, obj = m.solve(time_limit=5)
+    assert obj == 7 and m.info.optimal and m.info.status == 0 and m.info.seconds >= 0
+    assert m.feasible(np.array([3.0, 4.0])) and not m.feasible(np.array([5.0, 4.0]))
+    assert not m.feasible(np.array([3.5, 3.0]))  # integrality
+    m.feasible = lambda x: False  # a solver that hands back an incumbent breaking the model
+    with pytest.raises(Infeasible):
+        m.solve(time_limit=5)
+
+
+def test_a_time_limited_plan_is_labelled_not_optimal(monkeypatch):
+    from fpl_agent.solver import mip
+
+    real = mip.Model.solve
+
+    def stopped(self, *a, **k):
+        out = real(self, *a, **k)
+        self.info = mip.SolveInfo(1, False, 0.02, 30.0, "Time limit reached")
+        return out
+
+    monkeypatch.setattr(mip.Model, "solve", stopped)
+    plan = solve_plan(pinput(), PlannerConfig(time_limit=30))
+    assert plan.solve is not None and plan.solve.optimal is False

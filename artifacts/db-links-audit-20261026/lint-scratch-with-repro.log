@@ -1,0 +1,345 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> repro\test_repro.py:2:1
+   |
+ 1 |   """Auditor reproductions (Wegz, FAA-3). Each test asserts the CURRENT (defective) behaviour."""
+ 2 | / import json
+ 3 | | from datetime import datetime, timedelta
+ 4 | |
+ 5 | | import pandas as pd
+ 6 | |
+ 7 | | from fpl_agent.db import link_candidates as lc, player_links
+ 8 | | from fpl_agent.db.database import FootballDB
+ 9 | | from fpl_agent.db.eligibility import excluded_fixtures
+10 | | from fpl_agent.db.link_audit import coverage
+11 | | from fpl_agent.db.quality import source_conflicts
+12 | | from fpl_agent.model import features
+13 | | from tests.test_link_candidates import CUT, SNAP, T0, fotmob, fpl, season
+   | |_________________________________________________________________________^
+help: Organize imports
+   |
+5  | import pandas as pd
+6  + from tests.test_link_candidates import CUT, SNAP, T0, fotmob, fpl, season
+7  |
+   - from fpl_agent.db import link_candidates as lc, player_links
+8  + from fpl_agent.db import link_candidates as lc
+9  + from fpl_agent.db import player_links
+10 | from fpl_agent.db.database import FootballDB
+--------------------------------------------------------------------------------
+14 | from fpl_agent.model import features
+   - from tests.test_link_candidates import CUT, SNAP, T0, fotmob, fpl, season
+15 |
+   |
+
+F401 [*] `tests.test_link_candidates.SNAP` imported but unused
+  --> repro\test_repro.py:13:45
+   |
+11 | from fpl_agent.db.quality import source_conflicts
+12 | from fpl_agent.model import features
+13 | from tests.test_link_candidates import CUT, SNAP, T0, fotmob, fpl, season
+   |                                             ^^^^
+help: Remove unused import: `tests.test_link_candidates.SNAP`
+   |
+12 | from fpl_agent.model import features
+   - from tests.test_link_candidates import CUT, SNAP, T0, fotmob, fpl, season
+13 + from tests.test_link_candidates import CUT, T0, fotmob, fpl, season
+14 |
+   |
+
+E501 Line too long (102 > 100)
+  --> repro\test_repro.py:32:101
+   |
+30 |         fixture_id=104, minutes=90, total_points=6, kickoff=T0 + timedelta(weeks=3),
+31 |         stats=json.dumps({"minutes": 90, "starts": 1, "goals_scored": 1}))]))
+32 |     db.con.execute("INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', false, 20, 'FWD', now())", [q])
+   |                                                                                                     ^^
+33 |     db.con.execute("INSERT INTO player_match_stats VALUES (4, ?, 'fotmob', 'goals', 0, now())", [q])
+34 |     assert source_conflicts(db) == []            # conflict not detected
+   |
+
+E501 Line too long (101 > 100)
+  --> repro\test_repro.py:47:101
+   |
+45 |         fixture_id=104, minutes=0, total_points=0, kickoff=T0 + timedelta(weeks=3),
+46 |         stats=json.dumps({"minutes": 0}))]))
+47 |     db.con.execute("INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', true, 90, 'FWD', now())", [q])
+   |                                                                                                     ^
+48 |     later = datetime(2026, 12, 1)
+49 |     # without the link, the rule would now reject the pair ...
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> repro\test_repro.py:50:23
+   |
+48 |     later = datetime(2026, 12, 1)
+49 |     # without the link, the rule would now reject the pair ...
+50 |     db2 = FootballDB(); season(db2, n=5)
+   |                       ^
+51 |     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+52 |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+   |
+
+F841 Local variable `p2` is assigned to but never used
+  --> repro\test_repro.py:51:5
+   |
+49 |     # without the link, the rule would now reject the pair ...
+50 |     db2 = FootballDB(); season(db2, n=5)
+51 |     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+   |     ^^
+52 |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+53 |     assert not r2["accepted"] and "contradicted" in r2["rejected"][0]["reason"]
+   |
+help: Remove assignment to unused variable `p2`
+
+E702 Multiple statements on one line (semicolon)
+  --> repro\test_repro.py:51:62
+   |
+49 |     # without the link, the rule would now reject the pair ...
+50 |     db2 = FootballDB(); season(db2, n=5)
+51 |     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+   |                                                              ^
+52 |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+53 |     assert not r2["accepted"] and "contradicted" in r2["rejected"][0]["reason"]
+   |
+
+F841 Local variable `q2` is assigned to but never used
+  --> repro\test_repro.py:51:64
+   |
+49 |     # without the link, the rule would now reject the pair ...
+50 |     db2 = FootballDB(); season(db2, n=5)
+51 |     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+   |                                                                ^^
+52 |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+53 |     assert not r2["accepted"] and "contradicted" in r2["rejected"][0]["reason"]
+   |
+help: Remove assignment to unused variable `q2`
+
+E501 Line too long (120 > 100)
+  --> repro\test_repro.py:51:101
+   |
+49 |     # without the link, the rule would now reject the pair ...
+50 |     db2 = FootballDB(); season(db2, n=5)
+51 |     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+52 |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+53 |     assert not r2["accepted"] and "contradicted" in r2["rejected"][0]["reason"]
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> repro\test_repro.py:75:22
+   |
+74 | def test_R4_reconstructed_snapshot_is_accepted_as_team_evidence():
+75 |     db = FootballDB(); season(db, n=5)
+   |                      ^
+76 |     # snapshot rows with no element_type in raw = reconstructed (vaastav) by features.OBSERVED_SNAPSHOT
+77 |     p = fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}, snap=T0)
+   |
+
+E501 Line too long (103 > 100)
+  --> repro\test_repro.py:76:101
+   |
+74 | def test_R4_reconstructed_snapshot_is_accepted_as_team_evidence():
+75 |     db = FootballDB(); season(db, n=5)
+76 |     # snapshot rows with no element_type in raw = reconstructed (vaastav) by features.OBSERVED_SNAPSHOT
+   |                                                                                                     ^^^
+77 |     p = fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}, snap=T0)
+78 |     q = fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+   |
+
+E501 Line too long (119 > 100)
+  --> repro\test_repro.py:79:101
+   |
+77 |     p = fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}, snap=T0)
+78 |     q = fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+79 |     assert db.con.execute(f"SELECT count(*) FROM fpl_players_gw WHERE {features.OBSERVED_SNAPSHOT}").fetchone()[0] == 0
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+80 |     r = lc.history(db, 2026, CUT)
+81 |     assert [(a["fpl_player_id"], a["candidate"]) for a in r["accepted"]] == [(p, q)]
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> repro\test_repro.py:87:22
+   |
+85 |     stamp = datetime(2026, 10, 26, 12, 0, 0)
+86 |     monkeypatch.setattr(player_links, "now", lambda: stamp)
+87 |     db = FootballDB(); season(db, n=5)
+   |                      ^
+88 |     fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}); fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+89 |     a = player_links.apply(db, 2026, CUT)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> repro\test_repro.py:88:50
+   |
+86 |     monkeypatch.setattr(player_links, "now", lambda: stamp)
+87 |     db = FootballDB(); season(db, n=5)
+88 |     fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}); fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+   |                                                  ^
+89 |     a = player_links.apply(db, 2026, CUT)
+90 |     assert player_links.undo(db, a["batch_id"]) == 1
+   |
+
+E501 Line too long (106 > 100)
+  --> repro\test_repro.py:94:101
+   |
+92 |     assert a["batch_id"] == b["batch_id"]
+93 |     # the rollback record is gone: one row, active, no trace of the undo
+94 |     assert db.con.execute("SELECT count(*), count(rolled_back_at) FROM player_links").fetchone() == (1, 0)
+   |                                                                                                     ^^^^^^
+
+E501 Line too long (133 > 100)
+   --> repro\test_repro.py:110:101
+    |
+108 |         stats=json.dumps({"minutes": 90}))]))
+109 |     # q has no 2025 FotMob rows and the link is season 2026, yet 2025 reports p as linked
+110 |     assert not db.con.execute("SELECT count(*) FROM appearances a JOIN matches m USING (match_id) WHERE m.season=2025").fetchone()[0]
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+111 |     c = coverage(db, 2025)
+112 |     assert c["linked_by_evidence"] == 1 and c["minute_share"] == 1.0
+    |
+
+Found 16 errors.
+[*] 2 fixable with the `--fix` option (2 hidden fixes can be enabled with the `--unsafe-fixes` option).
+ruff=1
+unformatted: File would be reformatted
+   --> repro\test_repro.py:2:1
+    |
+1   | """Auditor reproductions (Wegz, FAA-3). Each test asserts the CURRENT (defective) behaviour."""
+2   +
+3   | import json
+--------------------------------------------------------------------------------
+29  |     # match 4 arrives later: FPL says 90 min + 1 goal, FotMob record says 20 min, 0 goals
+    -     db.upsert("fpl_points_gw", pd.DataFrame([dict(season=2026, gw=4, fpl_id=p, player_id=p,
+    -         fixture_id=104, minutes=90, total_points=6, kickoff=T0 + timedelta(weeks=3),
+    -         stats=json.dumps({"minutes": 90, "starts": 1, "goals_scored": 1}))]))
+    -     db.con.execute("INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', false, 20, 'FWD', now())", [q])
+30  +     db.upsert(
+31  +         "fpl_points_gw",
+32  +         pd.DataFrame(
+33  +             [
+34  +                 dict(
+35  +                     season=2026,
+36  +                     gw=4,
+37  +                     fpl_id=p,
+38  +                     player_id=p,
+39  +                     fixture_id=104,
+40  +                     minutes=90,
+41  +                     total_points=6,
+42  +                     kickoff=T0 + timedelta(weeks=3),
+43  +                     stats=json.dumps({"minutes": 90, "starts": 1, "goals_scored": 1}),
+44  +                 )
+45  +             ]
+46  +         ),
+47  +     )
+48  +     db.con.execute(
+49  +         "INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', false, 20, 'FWD', now())", [q]
+50  +     )
+51  |     db.con.execute("INSERT INTO player_match_stats VALUES (4, ?, 'fotmob', 'goals', 0, now())", [q])
+    -     assert source_conflicts(db) == []            # conflict not detected
+52  +     assert source_conflicts(db) == []  # conflict not detected
+53  |     assert excluded_fixtures(db) == (set(), set())  # so validated runs keep match 4
+--------------------------------------------------------------------------------
+61  |     # later evidence: record plays for the player's side in a match FPL says p sat out
+    -     db.upsert("fpl_points_gw", pd.DataFrame([dict(season=2026, gw=4, fpl_id=p, player_id=p,
+    -         fixture_id=104, minutes=0, total_points=0, kickoff=T0 + timedelta(weeks=3),
+    -         stats=json.dumps({"minutes": 0}))]))
+    -     db.con.execute("INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', true, 90, 'FWD', now())", [q])
+62  +     db.upsert(
+63  +         "fpl_points_gw",
+64  +         pd.DataFrame(
+65  +             [
+66  +                 dict(
+67  +                     season=2026,
+68  +                     gw=4,
+69  +                     fpl_id=p,
+70  +                     player_id=p,
+71  +                     fixture_id=104,
+72  +                     minutes=0,
+73  +                     total_points=0,
+74  +                     kickoff=T0 + timedelta(weeks=3),
+75  +                     stats=json.dumps({"minutes": 0}),
+76  +                 )
+77  +             ]
+78  +         ),
+79  +     )
+80  +     db.con.execute(
+81  +         "INSERT INTO appearances VALUES (4, ?, 1, 'fotmob', true, 90, 'FWD', now())", [q]
+82  +     )
+83  |     later = datetime(2026, 12, 1)
+84  |     # without the link, the rule would now reject the pair ...
+    -     db2 = FootballDB(); season(db2, n=5)
+    -     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0}); q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+85  +     db2 = FootballDB()
+86  +     season(db2, n=5)
+87  +     p2 = fpl(db2, "Bukayo Saka", {1: 77, 2: 90, 3: 64, 4: 0})
+88  +     q2 = fotmob(db2, "B. Saka", {1: 77, 2: 90, 3: 65, 4: 90})
+89  |     r2 = lc.propose(lc.load(db2, 2026, later), later)
+--------------------------------------------------------------------------------
+111 | def test_R4_reconstructed_snapshot_is_accepted_as_team_evidence():
+    -     db = FootballDB(); season(db, n=5)
+112 +     db = FootballDB()
+113 +     season(db, n=5)
+114 |     # snapshot rows with no element_type in raw = reconstructed (vaastav) by features.OBSERVED_SNAPSHOT
+115 |     p = fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}, snap=T0)
+116 |     q = fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+    -     assert db.con.execute(f"SELECT count(*) FROM fpl_players_gw WHERE {features.OBSERVED_SNAPSHOT}").fetchone()[0] == 0
+117 +     assert (
+118 +         db.con.execute(
+119 +             f"SELECT count(*) FROM fpl_players_gw WHERE {features.OBSERVED_SNAPSHOT}"
+120 +         ).fetchone()[0]
+121 +         == 0
+122 +     )
+123 |     r = lc.history(db, 2026, CUT)
+--------------------------------------------------------------------------------
+129 |     monkeypatch.setattr(player_links, "now", lambda: stamp)
+    -     db = FootballDB(); season(db, n=5)
+    -     fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64}); fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+130 +     db = FootballDB()
+131 +     season(db, n=5)
+132 +     fpl(db, "Bukayo Saka", {1: 77, 2: 90, 3: 64})
+133 +     fotmob(db, "B. Saka", {1: 77, 2: 90, 3: 65})
+134 |     a = player_links.apply(db, 2026, CUT)
+--------------------------------------------------------------------------------
+138 |     # the rollback record is gone: one row, active, no trace of the undo
+    -     assert db.con.execute("SELECT count(*), count(rolled_back_at) FROM player_links").fetchone() == (1, 0)
+139 +     assert db.con.execute(
+140 +         "SELECT count(*), count(rolled_back_at) FROM player_links"
+141 +     ).fetchone() == (1, 0)
+142 |
+143 |
+144 | def test_R6_player_links_outside_reference_registry():
+145 |     from fpl_agent.db.quality import REFERENCES
+146 +
+147 |     cols = {c for refs in REFERENCES.values() for t, c in refs if t == "player_links"}
+--------------------------------------------------------------------------------
+153 |     p, q, _ = linked(db)
+    -     db.upsert("fpl_points_gw", pd.DataFrame([dict(season=2025, gw=1, fpl_id=p, player_id=p,
+    -         fixture_id=1, minutes=90, total_points=2, kickoff=datetime(2025, 8, 16),
+    -         stats=json.dumps({"minutes": 90}))]))
+154 +     db.upsert(
+155 +         "fpl_points_gw",
+156 +         pd.DataFrame(
+157 +             [
+158 +                 dict(
+159 +                     season=2025,
+160 +                     gw=1,
+161 +                     fpl_id=p,
+162 +                     player_id=p,
+163 +                     fixture_id=1,
+164 +                     minutes=90,
+165 +                     total_points=2,
+166 +                     kickoff=datetime(2025, 8, 16),
+167 +                     stats=json.dumps({"minutes": 90}),
+168 +                 )
+169 +             ]
+170 +         ),
+171 +     )
+172 |     # q has no 2025 FotMob rows and the link is season 2026, yet 2025 reports p as linked
+    -     assert not db.con.execute("SELECT count(*) FROM appearances a JOIN matches m USING (match_id) WHERE m.season=2025").fetchone()[0]
+173 +     assert not db.con.execute(
+174 +         "SELECT count(*) FROM appearances a JOIN matches m USING (match_id) WHERE m.season=2025"
+175 +     ).fetchone()[0]
+176 |     c = coverage(db, 2025)
+    |
+
+1 file would be reformatted, 138 files already formatted
+fmt=1

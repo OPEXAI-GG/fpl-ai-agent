@@ -23,8 +23,8 @@ def test_team_key_uses_latest_club():
 
 
 def test_real_world_coverage():
-    fpl = json.loads((FIX / "idmap_fpl.json").read_text())
-    us = json.loads((FIX / "idmap_understat.json").read_text())
+    fpl = json.loads((FIX / "idmap_fpl.json").read_text(encoding="utf-8"))
+    us = json.loads((FIX / "idmap_understat.json").read_text(encoding="utf-8"))
     m = build_id_map(fpl, us)
     cov = coverage(m, fpl)
     assert cov["coverage"] >= 0.99, cov["missing"]
@@ -48,8 +48,8 @@ def test_ambiguous_names_are_not_guessed():
 
 
 def test_override_wins():
-    fpl = json.loads((FIX / "idmap_fpl.json").read_text())
-    us = json.loads((FIX / "idmap_understat.json").read_text())
+    fpl = json.loads((FIX / "idmap_fpl.json").read_text(encoding="utf-8"))
+    us = json.loads((FIX / "idmap_understat.json").read_text(encoding="utf-8"))
     some = us[0]
     m = build_id_map(fpl, us, overrides={int(some["id"]): 1})
     row = m[m.understat_id == int(some["id"])].iloc[0]
@@ -62,7 +62,9 @@ def test_client_parses_and_sends_ajax_headers():
     def handler(request: httpx.Request) -> httpx.Response:
         seen["h"] = dict(request.headers)
         seen["path"] = request.url.path
-        return httpx.Response(200, json=json.loads((FIX / "understat_league.json").read_text()))
+        return httpx.Response(
+            200, json=json.loads((FIX / "understat_league.json").read_text(encoding="utf-8"))
+        )
 
     c = UnderstatClient(client=httpx.Client(transport=httpx.MockTransport(handler)), delay=0)
     data = c.league_data("2026")

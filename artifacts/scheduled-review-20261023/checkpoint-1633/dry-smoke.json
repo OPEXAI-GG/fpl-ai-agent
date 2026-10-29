@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "mode": "dry",
+  "is_live": false,
+  "enabled": true,
+  "recorded_decisions": "dry",
+  "database": "synthetic in-memory",
+  "network": "blocked",
+  "notifications": false,
+  "pass_": true
+}

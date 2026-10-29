@@ -1,0 +1,36 @@
+{
+  "input": "real local official FPL history",
+  "rows": 4551,
+  "trials": [
+    {
+      "threads": 32,
+      "seconds": 1.164
+    },
+    {
+      "threads": 2,
+      "seconds": 0.8558
+    },
+    {
+      "threads": 32,
+      "seconds": 0.9818
+    },
+    {
+      "threads": 2,
+      "seconds": 1.0286
+    },
+    {
+      "threads": 32,
+      "seconds": 1.0103
+    },
+    {
+      "threads": 2,
+      "seconds": 1.168
+    }
+  ],
+  "equal_probabilities": true,
+  "medians": {
+    "32": 1.0103,
+    "2": 1.0286
+  },
+  "reduction": -0.018113431653964174
+}

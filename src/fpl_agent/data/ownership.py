@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import random
+import time
 
 import pandas as pd
 
@@ -28,16 +29,25 @@ TOP = 10_000
 PAGE_SIZE = 50
 SAMPLE = 200
 PAGES = 6  # standings pages read to draw the sample from
+MIN_SAMPLE = 60  # fewer managers than this is not a usable picture of the field
+BUDGET_S = 90.0  # stop asking for more managers' picks after this long
 
 
 def sample_field(fpl, gw: int, sample: int = SAMPLE, top: int = TOP,
-                 pages: int = PAGES, seed: int | None = None) -> pd.DataFrame:  # fmt: skip
+                 pages: int = PAGES, seed: int | None = None, budget_s: float = BUDGET_S,
+                 min_sample: int = MIN_SAMPLE, clock=time.monotonic) -> pd.DataFrame:  # fmt: skip
     """Ownership among `sample` managers drawn from the top `top`, from their picks for `gw`
-    (a finished or locked gameweek). Columns: fpl_id, owned, eo, sample."""
+    (a finished or locked gameweek). Columns: fpl_id, owned, eo, sample.
+
+    Requests stop after `budget_s` seconds; a sample smaller than `min_sample` is discarded
+    (empty frame), so a slow or failing run never stores a tiny sample for the whole week."""
+    t0 = clock()
     rng = random.Random(seed if seed is not None else gw)
     last_page = max(1, top // PAGE_SIZE)
     entries: list[int] = []
     for page in sorted(rng.sample(range(1, last_page + 1), min(pages, last_page))):
+        if clock() - t0 >= budget_s:
+            break
         rows = fpl.league_standings_raw(OVERALL_LEAGUE, page).get("standings", {})
         entries += [r["entry"] for r in rows.get("results", [])]
     if not entries:
@@ -47,6 +57,9 @@ def sample_field(fpl, gw: int, sample: int = SAMPLE, top: int = TOP,
     eo: dict[int, int] = {}
     n = 0
     for entry in chosen:
+        if clock() - t0 > budget_s:
+            log.warning("field sample stopped at its %.0fs budget after %d managers", budget_s, n)
+            break
         try:
             picks = fpl.entry_picks_raw(entry, gw).get("picks", [])
         except Exception as exc:  # noqa: BLE001  (one unreadable manager is skipped)
@@ -58,7 +71,9 @@ def sample_field(fpl, gw: int, sample: int = SAMPLE, top: int = TOP,
         for p in picks:
             owned[p["element"]] = owned.get(p["element"], 0) + 1
             eo[p["element"]] = eo.get(p["element"], 0) + int(p.get("multiplier", 1))
-    if not n:
+    if n < max(1, min_sample):
+        if n:
+            log.warning("field sample of %d managers is below %d: not used", n, min_sample)
         return pd.DataFrame(columns=["fpl_id", "owned", "eo", "sample"])
     return pd.DataFrame(
         [

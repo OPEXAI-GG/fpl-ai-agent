@@ -11,7 +11,7 @@ from fpl_agent.config import Settings
 from fpl_agent.execution import safety
 from fpl_agent.execution.auth import AuthError, TokenExchange
 from fpl_agent.execution.execute import execute
-from fpl_agent.execution.fpl_writer import lineup_payload, preview_matches, transfers_payload
+from fpl_agent.execution.fpl_writer import lineup_payload, transfers_payload
 from fpl_agent.rules import Rules
 from fpl_agent.solver.decide import decide
 from fpl_agent.solver.planner import PlannerConfig
@@ -71,6 +71,15 @@ def test_unavailable_or_doubtful_buys_and_starters_are_blocked(base):
     assert (
         rules_hit(v2, "availability_start") and v2.blocked("lineup") and not v2.blocked("transfers")
     )
+
+
+def test_doubtful_owned_starter_passes_but_doubtful_purchase_does_not(base):
+    d = base[2]
+    pool = base[3].copy()
+    pool.loc[pool.player_id == d.xi[0], ["status", "chance"]] = ["d", 75.0]
+    assert not rules_hit(safety.check(d, ctx_for(base, pool=pool), RULES), "availability_start")
+    pool.loc[pool.player_id == d.transfers_in[0], ["status", "chance"]] = ["d", 75.0]
+    assert rules_hit(safety.check(d, ctx_for(base, pool=pool), RULES), "availability_buy")
 
 
 def test_hit_caps(base):
@@ -152,8 +161,8 @@ def test_payloads(base):
     _, st, d, pool, _ = base
     ids = fid(base)
     price = {i: 50 for i in d.transfers_in}
-    tp = transfers_payload(d, st, 77, ids, price, confirmed=False)
-    assert tp["confirmed"] is False and tp["event"] == d.gw and tp["chip"] is None
+    tp = transfers_payload(d, st, 77, ids, price)
+    assert tp["confirmed"] is True and tp["event"] == d.gw and tp["chip"] is None
     assert len(tp["transfers"]) == len(d.transfers_in)
     lp = lineup_payload(d, ids)
     assert [p["position"] for p in lp["picks"]] == list(range(1, 16))
@@ -163,52 +172,189 @@ def test_payloads(base):
     )
 
 
-def test_preview_comparison_catches_a_different_plan(base):
-    d = base[2]
-    ids = fid(base)
-    good = {
-        "transfers": [{"element_in": ids[i]} for i in d.transfers_in],
-        "points_cost": 4 * d.hits,
-        "bank": d.bank_after,
-    }
-    assert preview_matches(good, d, ids) == []
-    bad = {**good, "points_cost": 4 * d.hits + 4}
-    assert preview_matches(bad, d, ids)
-
-
 class FakeFPL:
-    def __init__(self, base, preview_ok=True, empty_preview=False, already=False):
-        self.log, self.d, self.ids, self.ok = [], base[2], fid(base), preview_ok
-        self.empty = empty_preview
-        self.moved = already  # FPL already holds the incoming players
+    """A fake FPL that keeps a team. A transfers POST is binding: it swaps the players (as FPL
+    has been seen to do even for a "preview"); a lineup POST sets the slots and armbands."""
+
+    def __init__(
+        self,
+        base,
+        *,
+        apply=True,
+        status=200,
+        lose_reply=False,
+        refuse_second=False,
+        wrong_out=False,
+        already=False,
+        bank_delta=0,
+        drop_pick=False,
+        team=None,
+    ):
+        _, st, d, _, _ = base
+        self.d, self.ids, self.log = d, fid(base), []
+        self.apply, self.status, self.lose = apply, status, lose_reply
+        self.refuse_second, self.wrong_out, self.drop_pick = refuse_second, wrong_out, drop_pick
+        sell = {p.player_id: p.sell_price for p in st.squad}
+        out_value = sum(sell[o] for o in d.transfers_out)
+        self.team = {
+            "picks": [{"element": self.ids[p.player_id], "position": n + 1,
+                       "selling_price": p.sell_price, "is_captain": False,
+                       "is_vice_captain": False} for n, p in enumerate(st.squad)],
+            "transfers": {"bank": d.bank_after - out_value + PRICE * len(d.transfers_in)
+                          + bank_delta, "limit": len(d.transfers_in) - d.hits, "made": 0},
+            "chips": [],
+        } | (team or {})  # fmt: skip
+        if already:
+            self._swap()
+
+    def _swap(self):
+        outs = [self.ids[o] for o in self.d.transfers_out]
+        if self.wrong_out:  # FPL sold someone else
+            outs = [p["element"] for p in self.team["picks"]
+                    if p["element"] not in outs][: len(outs)]  # fmt: skip
+        ins = iter(self.ids[i] for i in self.d.transfers_in)
+        for p in self.team["picks"]:
+            if p["element"] in outs:
+                p["element"], p["selling_price"] = next(ins), PRICE
+        self.team["transfers"]["bank"] = self.d.bank_after
+        self.team["transfers"]["made"] = len(self.d.transfers_in)
+
+    def posts(self, path):
+        return [b for m, p, b in self.log if m == "POST" and p.endswith(path)]
 
     def __call__(self, req: httpx.Request):
         body = json.loads(req.content) if req.content else {}
-        self.log.append((req.method, req.url.path, body.get("confirmed")))
+        self.log.append((req.method, req.url.path, body))
         assert req.headers["X-API-Authorization"] == "Bearer access"
         if req.url.path.endswith("/transfers/"):
-            if body.get("confirmed") is True:
-                self.moved = True
-            if self.empty and body.get("confirmed") is False:
-                return httpx.Response(200, json={})
-            ins = [{"element_in": self.ids[i]} for i in self.d.transfers_in]
-            return httpx.Response(
-                200,
-                json={
-                    "transfers": ins,
-                    "bank": self.d.bank_after if self.ok else 0,
-                    "points_cost": 4 * self.d.hits,
-                },
-            )
-        if req.method == "POST":
+            if self.refuse_second and len(self.posts("/transfers/")) > 1:
+                return httpx.Response(400, json={"detail": "transfers already made"})
+            if self.apply:
+                self._swap()
+            if self.lose:
+                raise httpx.ReadTimeout("reply lost", request=req)
+            return httpx.Response(self.status, json={})
+        if req.method == "POST":  # lineup
+            keep = {p["element"]: p for p in self.team["picks"]}
+            self.team["picks"] = [keep[p["element"]] | p for p in body["picks"]]
+            if body.get("chip"):
+                self.team["chips"] = [{"name": body["chip"], "status_for_entry": "active"}]
             return httpx.Response(200, json={})
-        new = set(self.d.transfers_in)
-        picks = [
-            {"element": self.ids[p], "is_captain": p == self.d.captain}
-            for p in self.d.xi
-            if self.moved or p not in new
-        ]
-        return httpx.Response(200, json={"picks": picks})
+        team = json.loads(json.dumps(self.team))
+        if self.drop_pick:
+            team["picks"] = team["picks"][:14]
+        return httpx.Response(200, json=team)
+
+
+PRICE = 50
+
+
+def run_live(base, fake, d=None, **ctx):
+    http = httpx.Client(transport=httpx.MockTransport(fake))
+    d = d or base[2]
+    return execute(d, ctx_for(base, mode="live", **ctx), RULES, fid(base),
+                   {i: PRICE for i in d.transfers_in}, 77, exchange=live_exchange(),
+                   http=http)  # fmt: skip
+
+
+def test_live_flow_sends_one_binding_transfer_call_then_lineup_and_verifies(base):
+    fake = FakeFPL(base)
+    out = run_live(base, fake)
+    assert out.mode == "live" and out.ok and out.verified, out
+    assert len(fake.posts("/transfers/")) == 1 and fake.posts("/transfers/")[0]["confirmed"]
+    assert len(fake.posts("/my-team/77/")) == 1
+    assert out.unverified == []
+
+
+def test_first_post_applies_and_a_second_would_fail_so_only_one_is_sent(base):
+    fake = FakeFPL(base, refuse_second=True)  # the reported production behaviour
+    out = run_live(base, fake)
+    assert len(fake.posts("/transfers/")) == 1
+    assert fake.posts("/my-team/77/") and out.verified, out
+
+
+@pytest.mark.parametrize("kind", ["lost reply", "4xx after applying"])
+def test_an_error_after_fpl_applied_the_transfers_still_sets_the_lineup(base, kind):
+    fake = FakeFPL(base, lose_reply=kind == "lost reply",
+                   status=400 if kind == "4xx after applying" else 200)  # fmt: skip
+    out = run_live(base, fake)
+    assert len(fake.posts("/transfers/")) == 1  # never resubmitted
+    assert fake.posts("/my-team/77/") and out.verified and out.ok, out
+    assert any("transfers are in place" in x for x in out.done)
+
+
+def test_transfers_that_did_not_apply_are_not_retried_and_not_verified(base):
+    fake = FakeFPL(base, apply=False)
+    out = run_live(base, fake)
+    assert len(fake.posts("/transfers/")) == 1 and not fake.posts("/my-team/77/")
+    assert not out.verified and any("not applied" in e for e in out.errors)
+
+
+def test_wrong_outgoing_player_stops_everything(base):
+    fake = FakeFPL(base, wrong_out=True)
+    out = run_live(base, fake)
+    assert not fake.posts("/my-team/77/") and not out.verified
+    assert any("matches neither" in e for e in out.errors)
+
+
+def test_partial_squad_sends_nothing(base):
+    fake = FakeFPL(base, drop_pick=True)
+    out = run_live(base, fake)
+    assert not fake.posts("/") and not out.verified and out.errors
+
+
+@pytest.mark.parametrize("team,why", [
+    ({"transfers": {"bank": -999, "limit": 5, "made": 0}}, "bank"),
+    ({"transfers": {"bank": None, "limit": 0, "made": 3}}, "points cost"),
+])  # fmt: skip
+def test_wrong_bank_or_cost_blocks_before_anything_is_sent(base, team, why):
+    fake = FakeFPL(base, team=team)
+    out = run_live(base, fake)
+    assert not fake.posts("/transfers/")
+    assert any(why in b for b in out.blocked), out
+
+
+def test_a_bank_that_differs_after_the_transfers_is_not_verified(base):
+    fake = FakeFPL(base)
+    real = fake._swap
+
+    def swap_and_charge():
+        real()
+        fake.team["transfers"]["bank"] -= 1
+
+    fake._swap = swap_and_charge
+    out = run_live(base, fake)
+    assert not out.verified and any("bank" in e for e in out.errors)
+
+
+def test_a_lineup_fpl_did_not_take_is_not_verified(base):
+    fake = FakeFPL(base)
+    real = fake.__call__
+
+    class Ignore:
+        def __call__(self, req):
+            if req.method == "POST" and req.url.path.endswith("/my-team/77/"):
+                fake.log.append(("POST", req.url.path, {}))
+                return httpx.Response(200, json={})  # accepted, but nothing changed
+            return real(req)
+
+    out = run_live(base, Ignore())
+    assert not out.verified and any("captain" in e for e in out.errors)
+
+
+def test_a_repeated_run_does_not_send_the_transfers_again(base):
+    fake = FakeFPL(base, already=True)
+    out = run_live(base, fake)
+    assert out.verified, out
+    assert not fake.posts("/transfers/")
+    assert any("already in place" in x for x in out.done)
+
+
+def test_fields_fpl_does_not_report_are_listed_as_unverified(base):
+    fake = FakeFPL(base)
+    del fake.team["chips"]
+    out = run_live(base, fake)
+    assert "active chip" in out.unverified
 
 
 def live_exchange():
@@ -219,30 +365,6 @@ def live_exchange():
             return Tokens("access", "refresh")
 
     return lambda: Ex()
-
-
-def test_live_flow_previews_then_confirms_then_sets_lineup_and_verifies(base):
-    fake = FakeFPL(base)
-    http = httpx.Client(transport=httpx.MockTransport(fake))
-    c = ctx_for(base, mode="live")
-    price = {i: 50 for i in base[2].transfers_in}
-    out = execute(base[2], c, RULES, fid(base), price, 77, exchange=live_exchange(), http=http)
-    assert out.mode == "live" and out.ok and out.verified, out
-    posts = [(m, p, conf) for m, p, conf in fake.log if m == "POST"]
-    assert posts[0][2] is False and posts[1][2] is True  # preview strictly before confirm
-    assert posts[2][1].endswith("/my-team/77/")
-
-
-def test_a_preview_that_disagrees_is_not_confirmed(base):
-    fake = FakeFPL(base, preview_ok=False)
-    http = httpx.Client(transport=httpx.MockTransport(fake))
-    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
-                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
-    assert any("preview differs" in b for b in out.blocked)
-    assert not any(conf is True for _, _, conf in fake.log)
-    # the lineup needs players the blocked transfers would have brought in, so it is not sent
-    assert not any(m == "POST" and p.endswith("/my-team/77/") for m, p, _ in fake.log)
-    assert any("lineup not set" in b for b in out.blocked)
 
 
 def test_blocked_transfers_never_send_a_lineup_of_unowned_players(base):
@@ -319,15 +441,14 @@ def test_failed_sign_in_says_why_without_leaking_the_token():
 
 
 def test_a_refused_transfer_reports_what_fpl_said(base):
+    fake = FakeFPL(base, apply=False)
+
     def refuse(req: httpx.Request):
         if req.method == "POST" and req.url.path.endswith("/transfers/"):
             return httpx.Response(400, text='{"non_field_errors": ["You cannot wildcard now"]}')
-        return httpx.Response(200, json={"picks": []})
+        return fake(req)
 
-    http = httpx.Client(transport=httpx.MockTransport(refuse))
-    d = base[2]
-    out = execute(d, ctx_for(base, mode="live"), RULES, fid(base),
-                  {i: 50 for i in d.transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
+    out = run_live(base, refuse)
     assert any("HTTP 400 POST /api/transfers/" in e and "cannot wildcard" in e for e in out.errors)
     assert "Bearer" not in " ".join(out.errors)
 
@@ -343,33 +464,6 @@ def test_transfers_are_paired_by_position_because_fpl_rejects_other_swaps():
     assert paired_transfers(d, pos) == [(1, 10), (2, 20), (3, 30)]
     with pytest.raises(ValueError, match="no player leaving"):
         paired_transfers(d, {**pos, 3: "MID"})
-
-
-def test_an_empty_preview_reply_counts_as_accepted(base):
-    fake = FakeFPL(base, empty_preview=True)
-    http = httpx.Client(transport=httpx.MockTransport(fake))
-    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
-                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
-    assert out.ok and out.verified, out
-    assert any(conf is True for _, _, conf in fake.log)
-
-
-def test_a_disagreeing_preview_shows_what_fpl_said(base):
-    fake = FakeFPL(base, preview_ok=False)
-    http = httpx.Client(transport=httpx.MockTransport(fake))
-    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
-                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
-    assert any("FPL said:" in b for b in out.blocked)
-
-
-def test_transfers_already_on_fpl_are_not_sent_again(base):
-    fake = FakeFPL(base, already=True)
-    http = httpx.Client(transport=httpx.MockTransport(fake))
-    out = execute(base[2], ctx_for(base, mode="live"), RULES, fid(base),
-                  {i: 50 for i in base[2].transfers_in}, 77, exchange=live_exchange(), http=http)  # fmt: skip
-    assert out.verified, out
-    assert not any(p.endswith("/transfers/") for _, p, _ in fake.log)
-    assert any("already in place" in x for x in out.done)
 
 
 def test_lineup_puts_the_keepers_in_slots_1_and_12_because_fpl_demands_it():
@@ -423,3 +517,36 @@ def test_an_active_wildcard_with_no_changes_sends_no_transfer_call(base):
     finally:
         c.state.wildcard_active = False
         c.state.chips_used.pop()
+
+
+def test_a_second_chip_is_blocked_while_one_is_active(base):
+    c = ctx_for(base)
+    c.state.active_chip = "bboost"
+    c.state.chips_used.append(("bboost", base[2].gw))
+    try:
+        v = safety.check(replace(base[2], chip="3xc"), c, RULES)
+        assert rules_hit(v, "second_chip") and v.blocked("global")
+        v2 = safety.check(replace(base[2], chip="bboost"), c, RULES)
+        assert not rules_hit(v2, "second_chip") and not rules_hit(v2, "chip_unavailable")
+    finally:
+        c.state.active_chip = None
+        c.state.chips_used.pop()
+
+
+def test_a_replan_with_bench_boost_active_keeps_it_on_the_lineup(base):
+    own = [p.player_id for p in base[1].squad]  # a re-plan on the squad already held
+    d = replace(base[2], chip="bboost", transfers_in=[], transfers_out=[], hits=0,
+                xi=own[:11], bench=own[11:], captain=own[0], vice=own[1])  # fmt: skip
+    fake = FakeFPL(base, team={"chips": [{"name": "bboost", "status_for_entry": "active"}]})
+    c = ctx_for(base, mode="live")
+    c.state.active_chip = "bboost"
+    c.state.chips_used.append(("bboost", d.gw))
+    try:
+        http = httpx.Client(transport=httpx.MockTransport(fake))
+        out = execute(d, c, RULES, fid(base), {}, 77, exchange=live_exchange(), http=http)
+    finally:
+        c.state.active_chip = None
+        c.state.chips_used.pop()
+    assert not fake.posts("/transfers/")
+    assert fake.posts("/my-team/77/")[0]["chip"] == "bboost"
+    assert out.verified, out

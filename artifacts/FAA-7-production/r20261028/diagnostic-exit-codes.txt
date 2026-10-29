@@ -1,0 +1,4 @@
+db-schema exit 0
+source-health exit 1
+db-eligibility exit 0
+db-links exit 0

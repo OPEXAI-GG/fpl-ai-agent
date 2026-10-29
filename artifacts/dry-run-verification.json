@@ -1,0 +1,28 @@
+{
+  "runs": [
+    [
+      "076ae053a91d4da0",
+      8,
+      "<owner-entry-id>",
+      "dry",
+      "ok",
+      "planned",
+      0,
+      "{\"bootstrap\": {\"status\": \"ok\", \"seconds\": 0.806}, \"squad\": {\"status\": \"ok\", \"seconds\": 0.22}, \"model\": {\"status\": \"ok\", \"seconds\": 6.494}, \"decision\": {\"status\": \"ok\", \"seconds\": 371.508}, \"execute\": {\"status\": \"ok\", \"seconds\": 0.003}}"
+    ],
+    [
+      "ea12d37cc38b4800",
+      8,
+      "<owner-entry-id>",
+      "dry",
+      "ok",
+      "planned",
+      0,
+      "{\"bootstrap\": {\"status\": \"ok\", \"seconds\": 0.152}, \"squad\": {\"status\": \"ok\", \"seconds\": 0.369}, \"model\": {\"status\": \"ok\", \"seconds\": 5.835}, \"decision\": {\"status\": \"ok\", \"seconds\": 356.913}, \"execute\": {\"status\": \"ok\", \"seconds\": 0.003}}"
+    ]
+  ],
+  "mode": "dry",
+  "account_writes": false,
+  "blocked": [],
+  "errors": []
+}

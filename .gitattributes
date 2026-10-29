@@ -1,0 +1,3 @@
+# Scripts run on Linux CI; keep LF endings regardless of core.autocrlf
+*.sh text eol=lf
+*.py text eol=lf

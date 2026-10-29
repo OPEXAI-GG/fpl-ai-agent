@@ -1,0 +1,29 @@
+{
+ "at": "2026-10-24T11:15:32.751741",
+ "season": 2026,
+ "overall": "blocked",
+ "blocked": [
+  "FPL snapshot stale"
+ ],
+ "degraded": [
+  "no source attempt record (database older than the schema): failed or never-run sources cannot be seen"
+ ],
+ "sources": [],
+ "data": {
+  "fpl_snapshot": {
+   "at": "2026-10-20T18:08:49.456263",
+   "age_hours": 89.11,
+   "state": "stale"
+  },
+  "fpl_points": {
+   "finished_gws_without_points": [],
+   "state": "ok"
+  },
+  "fotmob_detail": {
+   "finished_matches": 70,
+   "with_detail": 70,
+   "state": "ok"
+  }
+ },
+ "attempt_record": false
+}

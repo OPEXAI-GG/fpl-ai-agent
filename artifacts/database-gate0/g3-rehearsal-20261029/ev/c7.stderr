@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File [35m"<string>"[0m, line [35m5[0m, in [35m<module>[0m
+    with z.ZstdFile(src, "rb") as f, open(dst, "wb") as o: [31mshutil.copyfileobj[0m[1;31m(f, o, 1 << 20)[0m
+                                                           [31m~~~~~~~~~~~~~~~~~~[0m[1;31m^^^^^^^^^^^^^^^[0m
+  File [35m"C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\shutil.py"[0m, line [35m256[0m, in [35mcopyfileobj[0m
+    while buf := [31mfsrc_read[0m[1;31m(length)[0m:
+                 [31m~~~~~~~~~[0m[1;31m^^^^^^^^[0m
+  File [35m"C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\zstd\_zstdfile.py"[0m, line [35m173[0m, in [35mread[0m
+    return [31mself._buffer.read[0m[1;31m(size)[0m
+           [31m~~~~~~~~~~~~~~~~~[0m[1;31m^^^^^^[0m
+  File [35m"C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\_common\_streams.py"[0m, line [35m68[0m, in [35mreadinto[0m
+    data = self.read(len(byte_view))
+  File [35m"C:\Users\bedor\AppData\Local\Programs\Python\Python315\Lib\compression\_common\_streams.py"[0m, line [35m99[0m, in [35mread[0m
+    raise EOFError("Compressed file ended before the "
+                   "end-of-stream marker was reached")
+[1;35mEOFError[0m: [35mCompressed file ended before the end-of-stream marker was reached[0m
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now
+restore of football-db.tar.zst failed; to restore the newest dated copy instead rerun with DATA_ASSET=football-db-20261029T074407Z.tar.zst

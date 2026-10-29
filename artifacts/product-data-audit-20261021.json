@@ -1,0 +1,19 @@
+{
+  "audit_date_local": "2026-10-21",
+  "database": "data_cache/football.duckdb",
+  "connection_read_only": true,
+  "projection_run": "aa41fa953903",
+  "season": 2026,
+  "gameweek": 8,
+  "projection_created_at_utc": "2026-10-20 20:10:08.785436",
+  "player_rate_sources": {"pl": 277, "prior": 364, "translated": 27},
+  "counts": {"reviews": 0, "lessons": 0, "decisions": 4},
+  "queries": [
+    "SELECT run_id, season, gw, created_at FROM projections ORDER BY created_at DESC, gw LIMIT 1",
+    "SELECT json_extract_string(detail, '$.rate_source') AS source, count(*) FROM projections WHERE run_id = ? AND gw = ? GROUP BY 1 ORDER BY 1",
+    "SELECT count(*) FROM reviews",
+    "SELECT count(*) FROM lessons",
+    "SELECT count(*) FROM decisions"
+  ],
+  "interpretation": "Reactive memory exists in code, but zero stored lessons means it is not established as the cause of this plan. Rate priors do not prove missing history for every squad member."
+}

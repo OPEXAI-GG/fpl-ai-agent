@@ -1,0 +1,50 @@
+{
+ "season": 2026,
+ "at": null,
+ "players_played": 449,
+ "players_linked": 293,
+ "linked_by_name": 293,
+ "linked_by_evidence": 0,
+ "player_share": 0.6526,
+ "minutes": 137657,
+ "minutes_linked": 96781,
+ "minute_share": 0.7031,
+ "unlinked_reasons": {
+  "no FotMob player with this name": 76,
+  "position FWD": 68,
+  "position MID": 10,
+  "position DEF": 2
+ },
+ "unlinked": [
+  {
+   "player_id": 1,
+   "name": "David Raya Mart\u00edn",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 4,
+   "name": "Gabriel dos Santos Magalh\u00e3es",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 37,
+   "name": "Victor Lindel\u00f6f",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 66,
+   "name": "\u0110or\u0111e Petrovi\u0107",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 91,
+   "name": "Ant\u00f3nio Jo\u00e3o Pereira de Albuquerque Tavares da Silva",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  }
+ ]
+}

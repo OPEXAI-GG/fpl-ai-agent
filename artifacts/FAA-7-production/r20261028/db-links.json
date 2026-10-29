@@ -1,0 +1,168 @@
+{
+ "season": 2026,
+ "at": null,
+ "players_played": 451,
+ "players_linked": 366,
+ "linked_by_name": 366,
+ "linked_by_evidence": 0,
+ "player_share": 0.8115,
+ "minutes": 157372,
+ "minutes_linked": 131188,
+ "minute_share": 0.8336,
+ "unlinked_reasons": {
+  "no FotMob player with this name": 85
+ },
+ "unlinked": [
+  {
+   "player_id": 1,
+   "name": "David Raya Mart\u00edn",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 4,
+   "name": "Gabriel dos Santos Magalh\u00e3es",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 37,
+   "name": "Victor Lindel\u00f6f",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 66,
+   "name": "\u0110or\u0111e Petrovi\u0107",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 91,
+   "name": "Ant\u00f3nio Jo\u00e3o Pereira de Albuquerque Tavares da Silva",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 474,
+   "name": "R\u00faben dos Santos Gato Alves Dias",
+   "minutes": 720,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 575,
+   "name": "Murillo Costa dos Santos",
+   "minutes": 719,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 116,
+   "name": "Igor Thiago Nascimento Rodrigues",
+   "minutes": 712,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 76,
+   "name": "Rayan Vitor Simpl\u00edcio Rocha",
+   "minutes": 702,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 140,
+   "name": "Diego G\u00f3mez Amarilla",
+   "minutes": 700,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 88,
+   "name": "Francisco Evanilson de Lima Barbosa",
+   "minutes": 678,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 308,
+   "name": "Josh King",
+   "minutes": 657,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 518,
+   "name": "Bruno Borges Fernandes",
+   "minutes": 630,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 277,
+   "name": "Vitalii Mykolenko",
+   "minutes": 613,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 646,
+   "name": "Reinildo Mandava",
+   "minutes": 612,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 173,
+   "name": "Levi Samuels Colwill",
+   "minutes": 611,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 178,
+   "name": "Pedro Lomba Neto",
+   "minutes": 591,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 40,
+   "name": "Emiliano Buend\u00eda Stati",
+   "minutes": 559,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 509,
+   "name": "Diogo Dalot Teixeira",
+   "minutes": 557,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 27,
+   "name": "Ezri Konsa Ngoyo",
+   "minutes": 551,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 520,
+   "name": "Matheus Santos Carneiro da Cunha",
+   "minutes": 548,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 244,
+   "name": "Y\u00e9remy Pino Santos",
+   "minutes": 539,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 577,
+   "name": "Jair Paula da Cunha Filho",
+   "minutes": 534,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 10,
+   "name": "Benjamin White",
+   "minutes": 532,
+   "reason": "no FotMob player with this name"
+  },
+  {
+   "player_id": 569,
+   "name": "Daniel Mu\u00f1oz Mej\u00eda",
+   "minutes": 527,
+   "reason": "no FotMob player with this name"
+  }
+ ],
+ "unsupported_links": []
+}

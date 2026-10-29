@@ -1,14 +1,20 @@
 """The weekly/daily database update, with every source guarded, validated against its contract
-and written in a transaction. A broken source is skipped and reported; the database is only
-exported when the quality checks pass."""
+and written in a transaction of its own. A broken source's rows roll back and it is reported;
+sources that succeeded stay committed (no whole-update rollback). Every run records each
+source's outcome in `source_attempts`. The quality checks run after the successful sources have
+committed, and the database is only exported when they pass."""
 
 from __future__ import annotations
 
+import re
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+import duckdb
 import httpx
+import pandas as pd
 
 from fpl_agent import contracts, notify
 from fpl_agent.data import leagues
@@ -26,7 +32,16 @@ from fpl_agent.db import (
     ingest_vaastav,
 )
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, repair, run_checks
+from fpl_agent.db.fpl_identity import season_map
+from fpl_agent.db.quality import (
+    Issue,
+    blocked_writes,
+    errors,
+    format_issues,
+    quarantine,
+    repair,
+    run_checks,
+)
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from fpl_agent.health import HealthReport, SourceResult, guard
 
@@ -44,6 +59,10 @@ class UpdateOptions:
     fotmob: tuple[str, ...] = ()  # competition ids, e.g. ("ENG1", "ENG2"); () = skip FotMob
     fotmob_matches: int = 60  # match pages per competition per run (the rest wait for next run)
     understat_leagues: tuple[str, ...] = ("EPL",)
+    reload_gws: tuple[int, ...] = ()  # finished GWs to reload even if already stored (repair)
+    # automatic repair/quarantine deletes are opt-in: by default they are only probed (on a
+    # copy) and any change they would make blocks the run (exit 3) without being applied
+    repairs: bool = False
 
 
 @dataclass
@@ -75,9 +94,11 @@ def run_update(
     fm = fm or FotMobClient()
     report = HealthReport()
     season = opts.season
-    fixed = repair(db)
 
-    # 1. FPL bootstrap is critical: without it there is nothing to decide on.
+    # 1. FPL bootstrap and fixtures are critical: without them there is nothing to decide on.
+    # Both are fetched and checked row by row before any data is written (repairs included), so
+    # a failed refresh leaves the data exactly as it was and exits non-zero; only the attempt
+    # record (`source_attempts`) is written.
     def pull_bootstrap():
         raw = fpl.bootstrap_raw()
         contracts.require(contracts.fpl_bootstrap(raw), "fpl bootstrap")
@@ -86,41 +107,37 @@ def run_update(
     raw = guard(report, "fpl:bootstrap", pull_bootstrap, critical=True)
     if raw is None:
         return _finish(db, report, [], CRITICAL_SOURCE_FAILED, opts, alert)
+
+    def pull_fixtures():
+        fixtures = fpl.fixtures_raw()
+        team_ids = {t["id"] for t in raw["teams"]}
+        contracts.require(contracts.fpl_fixtures(fixtures, team_ids), "fpl fixtures")
+        return fixtures
+
+    fixtures = guard(report, "fpl:fixtures", pull_fixtures, critical=True)
+    if fixtures is None:
+        return _finish(db, report, [], CRITICAL_SOURCE_FAILED, opts, alert)
     nxt = next_event(Bootstrap.model_validate(raw))
     gw = nxt.id if nxt else 38
+    fixed = _repair_step(db, report, opts.repairs)
+    if fixed is None or errors(fixed):  # a needed repair is disabled, or the step failed
+        return _finish(db, report, fixed or [], BAD_DATA, opts, alert)
 
-    def load_bootstrap():
-        with db.transaction():
-            return ingest_fpl.load_bootstrap(db, raw, season, gw)
+    def load_fpl():
+        with db.transaction():  # players and fixtures together, or neither
+            n = ingest_fpl.load_bootstrap(db, raw, season, gw)
+            ingest_fpl.load_fixtures(db, fixtures, raw, season)
+            return n
 
-    guard(report, "fpl:players", load_bootstrap, critical=True)
-
-    def load_fixtures():
-        fixtures = fpl.fixtures_raw()
-        contracts.require(contracts.fpl_fixtures(fixtures), "fpl fixtures")
-        with db.transaction():
-            return ingest_fpl.load_fixtures(db, fixtures, raw, season)
-
-    guard(report, "fpl:fixtures", load_fixtures)
+    if guard(report, "fpl:players", load_fpl, critical=True) is None:
+        return _finish(db, report, fixed, CRITICAL_SOURCE_FAILED, opts, alert)
 
     if opts.points:
-        have = {
-            r[0]
-            for r in db.con.execute(
-                "SELECT DISTINCT gw FROM fpl_points_gw WHERE season = ?", [season]
-            ).fetchall()
-        }
         for ev in raw["events"]:
-            if not ev["finished"] or ev["id"] in have:
-                continue
-
-            def load_points(gw_id=ev["id"]):
-                live = fpl.live_raw(gw_id)
-                contracts.require(contracts.fpl_live(live), f"fpl live gw{gw_id}")
-                with db.transaction():
-                    return ingest_fpl.load_live(db, live, season, gw_id)
-
-            guard(report, f"fpl:points gw{ev['id']}", load_points)
+            due = ev["id"] in opts.reload_gws or _points_due(db, season, ev["id"])
+            if ev["finished"] and due:
+                guard(report, f"fpl:points gw{ev['id']}",
+                      lambda e=ev: load_points(db, fpl, season, e))  # fmt: skip
 
     # 2. Understat: xG and shots.
     league = None
@@ -130,11 +147,7 @@ def run_update(
         if code == "EPL":
             league = got
     if league and opts.players:
-        canon = dict(
-            db.con.execute(
-                "SELECT source_id::INTEGER, player_id FROM player_ids WHERE source = 'fpl'"
-            ).fetchall()
-        )
+        canon = season_map(db.con, "player", season)
         id_map = build_id_map(raw, league["players"])
         todo = id_map.dropna(subset=["fpl_id"]).head(opts.player_limit)
         failed = 0
@@ -179,9 +192,69 @@ def run_update(
             )
 
     # 5. Quality gate. Errors mean the data must not be used or exported.
-    issues = fixed + quarantine(db) + run_checks(db)
-    code = BAD_DATA if errors(issues) else OK
+    issues, code = _quality_gate(db, report, fixed, opts.repairs)
     return _finish(db, report, issues, code, opts, alert)
+
+
+def _repair_step(db: FootballDB, report: HealthReport, apply: bool) -> list[Issue] | None:
+    """Repairs before loading: applied (journalled, see `repair-undo`) only when `apply`;
+    otherwise probed on a copy, and a change they would make is an error. An exception is a
+    failed critical step in the report (and so in `source_attempts`), never a silent stop.
+    Returns the issues, or None when the step failed."""
+    return guard(report, "step:repair",
+                 lambda: repair(db) if apply else blocked_writes(db, repair, "repair"),
+                 critical=True)  # fmt: skip
+
+
+def _quality_gate(
+    db: FootballDB, report: HealthReport, fixed: list[Issue], apply: bool
+) -> tuple[list[Issue], int]:
+    """Quarantine (applied only when `apply`, else probed like the repairs) and the checks,
+    each guarded like `_repair_step`. Any error, or a failed step, means exit 3: no export."""
+    held = guard(report, "step:quarantine",
+                 lambda: quarantine(db) if apply else blocked_writes(db, quarantine, "quarantine"),
+                 critical=True)  # fmt: skip
+    found = guard(report, "step:checks", lambda: run_checks(db), critical=True)
+    issues = fixed + (held or []) + (found or [])
+    failed = held is None or found is None
+    return issues, BAD_DATA if failed or errors(issues) else OK
+
+
+def _points_due(db: FootballDB, season: int, gw: int) -> bool:
+    """A finished gameweek is (re)loaded until it has been stored once FPL marked its data
+    checked (bonus and corrections final). Gameweeks stored by older code, without that mark,
+    are left alone: reloading them is a separate repair (`--reload-gws`)."""
+    if not db.con.execute(
+        "SELECT 1 FROM fpl_points_gw WHERE season = ? AND gw = ? LIMIT 1", [season, gw]
+    ).fetchone():
+        return True
+    mark = db.con.execute(
+        "SELECT status FROM ingest_state WHERE source = 'fpl_points' AND key = ?",
+        [f"{season}:{gw}"],
+    ).fetchone()
+    return mark is not None and mark[0] != "final"
+
+
+def load_points(db: FootballDB, fpl: FPLClient, season: int, ev: dict) -> int:
+    gw = ev["id"]
+    live = fpl.live_raw(gw)
+    contracts.require(contracts.fpl_live(live, finished=True), f"fpl live gw{gw}")
+    stored = db.con.execute(
+        "SELECT count(DISTINCT fpl_id) FROM fpl_points_gw WHERE season = ? AND gw = ?",
+        [season, gw],
+    ).fetchone()[0]
+    if len(live["elements"]) < stored:  # a truncated feed must not replace good history
+        raise SourceFormatError(
+            f"fpl live gw{gw}: {len(live['elements'])} players, {stored} already stored"
+        )
+    final = "final" if ev.get("data_checked") else "provisional"
+    with db.transaction():
+        n = ingest_fpl.load_live(db, live, season, gw)
+        db.con.execute(
+            "INSERT OR REPLACE INTO ingest_state VALUES ('fpl_points', ?, ?, ?, ?)",
+            [f"{season}:{gw}", final, f"{n} rows", ingest_fotmob.now()],
+        )
+    return n
 
 
 def understat_league(db: FootballDB, us: UnderstatClient, code: str, season: int):
@@ -274,6 +347,7 @@ class BackfillOptions:
     sources: tuple[str, ...] = ("football-data", "understat", "fotmob", "vaastav")
     export: Path | None = None
     max_minutes: float | None = None  # stop starting new steps after this, and save the progress
+    repairs: bool = False  # opt-in, as for UpdateOptions: by default a needed change blocks
 
 
 _clock = time.monotonic  # the backfill's time budget (replaced in tests)
@@ -312,7 +386,10 @@ def run_backfill(
     otherwise hit the job's time limit never loses its work."""
     fm, us, http = fm or FotMobClient(), us or UnderstatClient(), http or http_client()
     report = HealthReport()
-    fixed = repair(db)
+    fixed = _repair_step(db, report, opts.repairs)
+    if fixed is None or errors(fixed):  # a needed repair is disabled, or the step failed
+        return _finish(db, report, fixed or [], BAD_DATA, UpdateOptions(export=opts.export), alert,
+                       "backfill")  # fmt: skip
     ing = ingest_fotmob.FotMobIngestor(db)
     current = opts.end
     t0 = _clock()
@@ -365,13 +442,39 @@ def run_backfill(
         report.results.append(SourceResult(
             "time budget", True, error=f"stopped after {opts.max_minutes:.0f} min with "
             f"{len(stopped)} steps left (next: {stopped[0]}); the next run continues"))  # fmt: skip
-    issues = fixed + quarantine(db) + run_checks(db)
-    code = BAD_DATA if errors(issues) else OK
+    issues, code = _quality_gate(db, report, fixed, opts.repairs)
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
+
+
+_QUERY = re.compile(r"\?\S*")  # a URL's query string may carry a key: never stored
+
+
+def record_attempts(db: FootballDB, report: HealthReport, job: str, code: int) -> str | None:
+    """Store every attempted source's outcome in `source_attempts`, in a transaction of its own
+    (see the table's note in schema.py). Returns the attempt id, or None when there was nothing
+    to record. A failure to record is added to the report; it never changes the exit code."""
+    if not report.results:
+        return None
+    attempt = uuid.uuid4().hex
+    rows = pd.DataFrame([{
+        "attempt_id": attempt, "seq": i, "job": job, "source": r.name, "ok": r.ok,
+        "critical": r.critical, "rows": r.rows,
+        "error": _QUERY.sub("?…", r.error)[:300] if r.error else None,
+        "started_at": r.started_at, "finished_at": r.finished_at, "exit_code": code,
+    } for i, r in enumerate(report.results)])  # fmt: skip
+    try:
+        with db.transaction():
+            db.append("source_attempts", rows)
+    except duckdb.Error as exc:
+        report.results.append(SourceResult("record:attempts", False,
+                                           error=f"{type(exc).__name__}"))  # fmt: skip
+        return None
+    return attempt
 
 
 def _finish(db, report, issues, code, opts, alert, what: str = "data update") -> UpdateResult:
     result = UpdateResult(code, report, issues)
+    record_attempts(db, report, what, code)
     if code == OK and opts.export:
         db.export_parquet(opts.export)
     if alert and (report.failed or code != OK):

@@ -1,0 +1,20 @@
+{
+ "columns": 237,
+ "checked_pass": 149,
+ "finding": 17,
+ "measured_only": 1,
+ "referenced_only_not_validated": 2,
+ "not_applicable": 6,
+ "not_testable_empty_table": 62,
+ "untested_gap": 0,
+ "unclassified_checks": 0,
+ "invalid_references": [],
+ "schema_drift": [],
+ "applicable_testable_columns": 169,
+ "columns_with_value_contract_validated": 112,
+ "columns_without_value_contract_validated_and_testable": 57,
+ "untested_gap_columns": [],
+ "unclassified": [],
+ "ledger_reconciliation_ok": true,
+ "audit_complete": true
+}

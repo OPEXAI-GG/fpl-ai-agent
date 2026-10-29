@@ -1,0 +1,242 @@
+{
+  "mode": "dry",
+  "decision": {
+    "gw": 10,
+    "action": "play wildcard",
+    "chip": "wildcard",
+    "transfers_in": [
+      137,
+      89,
+      91,
+      108,
+      124,
+      125,
+      44,
+      79,
+      146,
+      167,
+      102,
+      135
+    ],
+    "transfers_out": [
+      1,
+      42,
+      58,
+      110,
+      126,
+      161,
+      82,
+      98,
+      99,
+      133,
+      17,
+      85
+    ],
+    "hits": 0,
+    "captain": 91,
+    "vice": 89,
+    "xi": [
+      167,
+      154,
+      146,
+      124,
+      125,
+      135,
+      44,
+      108,
+      89,
+      91,
+      79
+    ],
+    "bench": [
+      102,
+      115,
+      34,
+      137
+    ],
+    "xp": 42.767,
+    "xp_no_transfers": 19.827,
+    "bank_after": 0,
+    "held": {
+      "freehit": "best gain +4.6 below the 8-point threshold",
+      "bboost": "best gain +4.4 below the 14-point threshold"
+    },
+    "warnings": [],
+    "field_view": [
+      "captain xP tradeoff: 0.05 below the highest-xP starter; ownership/rotation policy may prefer this captain"
+    ],
+    "checks": [],
+    "chip_timing": {
+      "wildcard": {
+        "expires_gw": 19,
+        "best_gw": 10,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      },
+      "freehit": {
+        "expires_gw": 19,
+        "best_gw": 12,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.49
+      },
+      "bboost": {
+        "expires_gw": 19,
+        "best_gw": 10,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      }
+    },
+    "captain_options": [
+      {
+        "player_id": 89,
+        "xpts": 4.18
+      },
+      {
+        "player_id": 91,
+        "xpts": 4.13
+      },
+      {
+        "player_id": 146,
+        "xpts": 3.75
+      },
+      {
+        "player_id": 108,
+        "xpts": 3.47
+      }
+    ],
+    "plan": [
+      {
+        "gw": 11,
+        "in": [
+          72,
+          111
+        ],
+        "out": [
+          108,
+          167
+        ]
+      },
+      {
+        "gw": 12,
+        "in": [],
+        "out": []
+      }
+    ]
+  },
+  "outcome": {
+    "mode": "dry",
+    "done": [
+      "would transfer Player 1 Synth -> Player 137 Synth",
+      "would transfer Player 42 Synth -> Player 89 Synth",
+      "would transfer Player 58 Synth -> Player 91 Synth",
+      "would transfer Player 110 Synth -> Player 108 Synth",
+      "would transfer Player 126 Synth -> Player 124 Synth",
+      "would transfer Player 161 Synth -> Player 125 Synth",
+      "would transfer Player 82 Synth -> Player 44 Synth",
+      "would transfer Player 98 Synth -> Player 79 Synth",
+      "would transfer Player 99 Synth -> Player 146 Synth",
+      "would transfer Player 133 Synth -> Player 167 Synth",
+      "would transfer Player 17 Synth -> Player 102 Synth",
+      "would transfer Player 85 Synth -> Player 135 Synth",
+      "would play wildcard",
+      "would set captain Player 91 Synth, vice Player 89 Synth"
+    ],
+    "blocked": [],
+    "errors": [],
+    "verified": null,
+    "unverified": []
+  },
+  "chips": {
+    "held": {
+      "freehit": "best gain +4.6 below the 8-point threshold",
+      "bboost": "best gain +4.4 below the 14-point threshold"
+    },
+    "play_now": "wildcard",
+    "scenarios": [
+      {
+        "chip": "wildcard",
+        "gw": 10,
+        "gain": 20.43,
+        "win_share": 0.73,
+        "ok": true
+      },
+      {
+        "chip": "wildcard",
+        "gw": 11,
+        "gain": 11.66,
+        "win_share": 0.69,
+        "ok": true
+      },
+      {
+        "chip": "wildcard",
+        "gw": 12,
+        "gain": 4.45,
+        "win_share": 0.61,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 10,
+        "gain": 4.12,
+        "win_share": 0.56,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 11,
+        "gain": 4.57,
+        "win_share": 0.54,
+        "ok": true
+      },
+      {
+        "chip": "freehit",
+        "gw": 12,
+        "gain": 4.61,
+        "win_share": 0.61,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 10,
+        "gain": 4.38,
+        "win_share": 0.66,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 11,
+        "gain": 4.0,
+        "win_share": 0.66,
+        "ok": true
+      },
+      {
+        "chip": "bboost",
+        "gw": 12,
+        "gain": 3.69,
+        "win_share": 0.71,
+        "ok": true
+      }
+    ],
+    "timing": {
+      "wildcard": {
+        "expires_gw": 19,
+        "best_gw": 10,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      },
+      "freehit": {
+        "expires_gw": 19,
+        "best_gw": 12,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.49
+      },
+      "bboost": {
+        "expires_gw": 19,
+        "best_gw": 10,
+        "expiry_in_horizon": false,
+        "gain_forgone_if_used_now": 0.0
+      }
+    }
+  },
+  "run_id": "16e1a28e658f4799"
+}

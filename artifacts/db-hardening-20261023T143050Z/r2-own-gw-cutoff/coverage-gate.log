@@ -1,0 +1,37 @@
+== batch 1: tests/test_agent.py tests/test_auth_queue.py tests/test_backfill.py tests/test_backtest.py tests/test_calibration.py tests/test_cli.py tests/test_contracts.py tests/test_cover.py
+........................................................................ [ 51%]
+........................s............................................    [100%]
+140 passed, 1 skipped in 246.81s (0:04:06)
+== batch 1 exit 0
+== batch 2: tests/test_dashboard.py tests/test_dashboard_controls.py tests/test_data.py tests/test_db.py tests/test_decide.py tests/test_entry.py tests/test_execution.py tests/test_fotmob.py
+........................................................................ [ 39%]
+........................................................................ [ 79%]
+......................................                                   [100%]
+182 passed in 55.18s
+== batch 2 exit 0
+== batch 3: tests/test_fpl_identity.py tests/test_fpl_identity_evidence.py tests/test_gw_summary.py tests/test_lessons.py tests/test_live_state.py tests/test_minutes.py tests/test_news.py tests/test_notify.py
+........................................................................ [ 75%]
+........................                                                 [100%]
+96 passed in 31.93s
+== batch 3 exit 0
+== batch 4: tests/test_oddsapi_scout.py tests/test_ownership.py tests/test_persistence.py tests/test_pipeline.py tests/test_planner.py tests/test_players.py tests/test_point_in_time.py tests/test_project.py
+..............................................ssss...................... [ 47%]
+........................................................................ [ 95%]
+.......                                                                  [100%]
+147 passed, 4 skipped in 185.32s (0:03:05)
+== batch 4 exit 0
+== batch 5: tests/test_properties.py tests/test_quality.py tests/test_rank_target.py tests/test_replay.py tests/test_retro.py tests/test_review.py tests/test_rules.py tests/test_run_history.py
+........................................................................ [ 74%]
+.........................                                                [100%]
+97 passed in 168.92s (0:02:48)
+== batch 5 exit 0
+== batch 6: tests/test_simulate.py tests/test_strength.py tests/test_timing.py tests/test_understat_idmap.py tests/test_value.py tests/test_workflows.py
+........................................................................ [ 79%]
+...................                                                      [100%]
+91 passed in 9.80s
+== batch 6 exit 0
+src\fpl_agent\solver\value.py                 24      1      8      1    94%
+----------------------------------------------------------------------------
+TOTAL                                       7762    451   2186    254    93%
+== coverage report exit 0
+== overall exit 0

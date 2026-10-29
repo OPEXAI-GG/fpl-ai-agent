@@ -1,0 +1,87 @@
+{
+ "stores": [
+  {
+   "store": "football database (cli --db and pipeline default)",
+   "path": "data_cache/football.duckdb",
+   "defined_at": "src/fpl_agent/cli.py:467-581",
+   "exists_on_disk": true
+  },
+  {
+   "store": "SnapshotStore point-in-time JSON",
+   "path": "data_cache/snapshots",
+   "defined_at": "src/fpl_agent/config.py:34,51; data/store.py",
+   "exists_on_disk": false
+  },
+  {
+   "store": "snapshot parquet frames",
+   "path": "data_cache/snapshots/frames",
+   "defined_at": "data/store.py write_frame; cli.py:60",
+   "exists_on_disk": false
+  },
+  {
+   "store": "dashboard state dir",
+   "path": "data_cache/dashboard",
+   "defined_at": "src/fpl_agent/cli.py:594",
+   "exists_on_disk": true
+  },
+  {
+   "store": "dashboard jobs file",
+   "path": "data_cache/dashboard/jobs.json",
+   "defined_at": "dashboard/jobs.py",
+   "exists_on_disk": true
+  },
+  {
+   "store": "dashboard preferences",
+   "path": "data_cache/dashboard/preferences.json",
+   "defined_at": "dashboard/service.py",
+   "exists_on_disk": true
+  },
+  {
+   "store": "dashboard plans",
+   "path": "data_cache/dashboard/plans",
+   "defined_at": "dashboard/service.py",
+   "exists_on_disk": true
+  },
+  {
+   "store": "parquet export folder (db-update/--export, pipeline.py:409)",
+   "path": "(argument; none found under data_cache)",
+   "defined_at": "db/database.py:390",
+   "exists_on_disk": null
+  },
+  {
+   "store": "pre-change backups (manual copies)",
+   "path": "data_cache/backups",
+   "defined_at": "no code path found",
+   "exists_on_disk": true
+  },
+  {
+   "store": "calibration archive",
+   "path": "data_cache/calibration-study-20261020.duckdb",
+   "defined_at": "no code path found; historical seasons 2024-2025",
+   "exists_on_disk": true
+  },
+  {
+   "store": "GitHub release asset 'data' (parquet export + manifest), written by .github/workflows/data.yml and backfill.yml (history from 2017/18)",
+   "path": "(remote; NOT inspected: no network or credentials used)",
+   "defined_at": ".github/workflows/data.yml, backfill.yml; scripts/data_publish.sh",
+   "exists_on_disk": null
+  },
+  {
+   "store": "data release scripts",
+   "path": "scripts/data_publish.sh, scripts/data_restore.sh, scripts/plan_publish.sh",
+   "defined_at": "release assets; DB05",
+   "exists_on_disk": null
+  }
+ ],
+ "effective_environment_presence_this_shell": {
+  "SNAPSHOT_DIR": false,
+  "AGENT_MODE": false,
+  "AGENT_ENABLED": false,
+  "AGENT_MAX_SNAPSHOT_HOURS": false,
+  "FPL_ENTRY_ID": false,
+  "ODDS_API_KEY": false
+ },
+ ".env_file_present": false,
+ "gitignored": "data_cache/ and *.duckdb are ignored (.gitignore)",
+ "note": "defaults are not effective configuration; the dashboard server and any scheduler were not inspected, so SNAPSHOT_DIR, ODDS_API_KEY etc. may differ there"
+}

@@ -1,0 +1,16 @@
+{
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\prod-snapshot.duckdb",
+ "tables_in_snapshot": 28,
+ "created_by_constructor": [
+  "migration_log",
+  "player_codes"
+ ],
+ "export_s": 0.41,
+ "verify": [],
+ "missing_tables": [],
+ "tables_loaded": 30,
+ "reimport_loaded": 0,
+ "restore_s": 1.07,
+ "differences": {},
+ "ok": true
+}

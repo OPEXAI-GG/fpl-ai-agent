@@ -1,14 +1,20 @@
 """Alerts. Posts to NOTIFY_WEBHOOK if set (Discord/Slack-style JSON). Never raises: an alert
-failing must not take the run down."""
+failing must not take the run down. Each chunk is retried a few times (network errors, 429 and
+5xx, honouring a short Retry-After); `send` is True only when every chunk was accepted, so a
+report that did not arrive is sent again by the next run (see runs.py)."""
 
 from __future__ import annotations
 
 import os
 import sys
+import time
 
 import httpx
 
 LIMIT = 1900  # Discord refuses messages over 2000 characters
+ATTEMPTS = 3  # per chunk
+MAX_WAIT = 10.0  # seconds; a longer Retry-After gives up and leaves it to the next run
+_sleep = time.sleep  # replaced in tests
 
 
 DISCORD_API = "https://discord.com/api/v10"
@@ -35,6 +41,29 @@ def chunks(message: str, limit: int = LIMIT) -> list[str]:
     return [*out, cur] if cur else out
 
 
+def _post(http: httpx.Client, url: str, part: str) -> httpx.Response:
+    """One chunk, retried on network errors, 429 and 5xx with a capped backoff."""
+    for attempt in range(ATTEMPTS):
+        last = attempt == ATTEMPTS - 1
+        try:
+            resp = http.post(url, json={"content": part, "text": part})
+        except httpx.TransportError:
+            if last:
+                raise
+            _sleep(2**attempt)
+            continue
+        if resp.status_code != 429 and resp.status_code < 500 or last:
+            return resp
+        try:
+            wait = float(resp.headers.get("Retry-After", 2**attempt))
+        except ValueError:
+            wait = 2.0**attempt
+        if wait > MAX_WAIT:
+            return resp
+        _sleep(wait)
+    return resp
+
+
 def send(message: str, client: httpx.Client | None = None, webhook: str | None = None) -> bool:
     url = webhook or os.environ.get("NOTIFY_WEBHOOK")
     if not url:
@@ -43,7 +72,7 @@ def send(message: str, client: httpx.Client | None = None, webhook: str | None =
     try:
         http = client or httpx.Client(timeout=10)
         for part in chunks(message):
-            resp = http.post(url, json={"content": part, "text": part})
+            resp = _post(http, url, part)
             if resp.status_code >= 300:
                 break
     except Exception as exc:  # noqa: BLE001

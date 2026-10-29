@@ -8,7 +8,7 @@ from fpl_agent.rules import Rules, auto_sub, bonus, effective_captain, score, se
 
 FIX = Path(__file__).parent / "fixtures"
 R = Rules.load(2026)
-GWS = json.loads((FIX / "rules_gws.json").read_text())
+GWS = json.loads((FIX / "rules_gws.json").read_text(encoding="utf-8"))
 
 
 def test_score_matches_official_points_for_every_player():
@@ -68,7 +68,10 @@ def test_score_thresholds():
     assert score({"minutes": 60, "clean_sheets": 1}, "DEF", R)["total"] == 6
     assert score({"minutes": 90, "saves": 5}, "GKP", R).get("saves") == 1
     assert score({"minutes": 90, "saves": 6}, "GKP", R).get("saves") == 2
-    assert score({"minutes": 0, "yellow_cards": 1}, "MID", R)["total"] == 0
+    # a card from the bench costs its points with 0 minutes, as in FPL's official results
+    assert score({"minutes": 0, "yellow_cards": 1}, "MID", R)["total"] == -1
+    assert score({"minutes": 0, "red_cards": 1}, "DEF", R)["total"] == -3
+    assert score({"minutes": 0, "goals_scored": 1}, "FWD", R)["total"] == 0
     assert score({"minutes": 90, "defensive_contribution": 12}, "MID", R)["total"] == 4
     assert "defensive_contribution" not in score(
         {"minutes": 90, "defensive_contribution": 30}, "GKP", R
@@ -90,6 +93,13 @@ def test_auto_sub_replaces_zero_minute_starter_in_bench_order():
     mins["m2"] = 0
     final = auto_sub(XI, BENCH, mins, POS, R)
     assert "m2" not in final and "m4" in final
+
+
+def test_one_minute_cameo_prevents_bench_cover():
+    mins = {p: 90 for p in POS}
+    mins["f1"] = 1
+    final = auto_sub(XI, BENCH, mins, POS, R)
+    assert final == XI
 
 
 def test_auto_sub_skips_bench_players_who_did_not_play():
@@ -127,3 +137,27 @@ def test_captaincy_and_prices():
 def test_missing_rules_file():
     with pytest.raises(FileNotFoundError):
         Rules.load(1999)
+
+
+def test_a_card_from_the_bench_counts_as_taking_part():
+    """Audit case: a starter shown a card without playing is not substituted, and a bench player
+    shown a card can come on. Without card data only minutes count, as before."""
+    mins = {p: 90 for p in POS}
+    mins.update({"m2": 0, "m4": 0})
+    cards = {"m2": 1}
+    assert "m2" in auto_sub(XI, BENCH, mins, POS, R, cards)
+    assert "m2" not in auto_sub(XI, BENCH, mins, POS, R)
+    mins["m2"], mins["m1"] = 90, 0
+    final = auto_sub(XI, BENCH, mins, POS, R, {"m4": 1})
+    assert "m4" in final and "m1" not in final
+
+
+def test_a_captain_booked_without_minutes_hands_the_armband_to_the_vice():
+    """2026/27 rules: the vice-captain takes over when the captain "plays no minutes". A card
+    without minutes counts as playing for automatic substitution only, so the booked captain
+    stays in the team but loses the armband."""
+    mins = {p: 90 for p in POS}
+    mins["m2"] = 0
+    final = auto_sub(XI, BENCH, mins, POS, R, {"m2": 1})
+    assert "m2" in final  # the card keeps him in the team...
+    assert effective_captain("m2", "m3", mins) == "m3"  # ...but the vice takes the armband

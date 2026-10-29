@@ -1,0 +1,321 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - link "Matchroom overview" [ref=f2e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=f2e6]:
+          - text: M
+          - generic [ref=f2e7]: ↗
+        - generic [ref=f2e8]:
+          - text: MATCHROOM
+          - generic [ref=f2e9]: FPL AGENT / LOCAL
+      - navigation "Sections" [ref=f2e10]:
+        - link "Overview" [ref=f2e11] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=f2e12]: ◫
+          - text: Overview
+        - link "My Team" [ref=f2e13] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=f2e14]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=f2e15] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=f2e16]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=f2e17] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=f2e18]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=f2e19] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=f2e20]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=f2e21] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=f2e22]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=f2e23] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=f2e24]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=f2e25] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=f2e26]: ♡
+          - text: Data Health
+    - generic [ref=f2e27]:
+      - banner [ref=f2e28]:
+        - generic [ref=f2e29]: WORKSPACE / Data Health
+        - generic [ref=f2e30]: LOCAL CONNECTION
+      - main [ref=f2e33]:
+        - generic [ref=f2e34]:
+          - generic [ref=f2e35]:
+            - generic [ref=f2e36]: FANTASY PREMIER LEAGUE
+            - heading "Data Health" [level=1] [ref=f2e37]
+            - paragraph [ref=f2e38]: Know what is fresh, what is missing, and what needs attention.
+          - link "Open operations" [ref=f2e39] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=f2e40]: ↗
+        - status [ref=f2e41]: data read 10/21/2026, 12:27:16 AM
+        - generic [ref=f2e50]:
+          - generic [ref=f2e51]:
+            - generic [ref=f2e53]:
+              - generic [ref=f2e54]: FPL snapshot
+              - generic [ref=f2e55]: 2.3 h ago
+              - generic [ref=f2e56]: fresh
+            - generic [ref=f2e59]:
+              - generic [ref=f2e60]: Official points through
+              - generic [ref=f2e61]: GW7
+          - generic [ref=f2e62]:
+            - heading "Last successful load per source" [level=2] [ref=f2e63]
+            - table [ref=f2e65]:
+              - rowgroup [ref=f2e66]:
+                - row [ref=f2e67]:
+                  - columnheader "Source" [ref=f2e68]
+                  - columnheader "Table" [ref=f2e69]
+                  - columnheader "When" [ref=f2e70]
+                  - columnheader "Rows" [ref=f2e71]
+                  - columnheader "Note" [ref=f2e72]
+              - rowgroup [ref=f2e73]:
+                - row [ref=f2e74]:
+                  - cell "football-data" [ref=f2e75]
+                  - cell "matches" [ref=f2e76]
+                  - cell "10/20/2026, 6:48:58 PM (5.6 h ago)" [ref=f2e77]
+                  - cell "70" [ref=f2e78]
+                  - cell "E0 2026" [ref=f2e79]
+                - row [ref=f2e80]:
+                  - cell "fotmob" [ref=f2e81]
+                  - cell "match" [ref=f2e82]
+                  - cell "10/21/2026, 12:09:02 AM (18 min ago)" [ref=f2e83]
+                  - cell "46" [ref=f2e84]
+                  - cell "UECL 6112491" [ref=f2e85]
+                - row [ref=f2e86]:
+                  - cell "fotmob" [ref=f2e87]
+                  - cell "matches" [ref=f2e88]
+                  - cell "10/21/2026, 12:08:44 AM (18 min ago)" [ref=f2e89]
+                  - cell "108" [ref=f2e90]
+                  - cell "UECL 2026" [ref=f2e91]
+                - row [ref=f2e92]:
+                  - cell "fpl" [ref=f2e93]
+                  - cell "fpl_players_gw" [ref=f2e94]
+                  - cell "10/20/2026, 10:08:49 PM (2.3 h ago)" [ref=f2e95]
+                  - cell "668" [ref=f2e96]
+                  - cell "gw8" [ref=f2e97]
+                - row [ref=f2e98]:
+                  - cell "fpl" [ref=f2e99]
+                  - cell "fpl_points_gw" [ref=f2e100]
+                  - cell "10/20/2026, 10:08:50 PM (2.3 h ago)" [ref=f2e101]
+                  - cell "668" [ref=f2e102]
+                  - cell "gw7 players=668 unknown_splits=0 blanks=0" [ref=f2e103]
+                - row [ref=f2e104]:
+                  - cell "fpl" [ref=f2e105]
+                  - cell "matches" [ref=f2e106]
+                  - cell "10/20/2026, 10:08:50 PM (2.3 h ago)" [ref=f2e107]
+                  - cell "380" [ref=f2e108]
+                  - cell "—" [ref=f2e109]
+                - row [ref=f2e110]:
+                  - cell "understat" [ref=f2e111]
+                  - cell "matches" [ref=f2e112]
+                  - cell "10/20/2026, 10:08:52 PM (2.3 h ago)" [ref=f2e113]
+                  - cell "380" [ref=f2e114]
+                  - cell "EPL 2026" [ref=f2e115]
+            - paragraph [ref=f2e116]: the database records successful loads only; failed or skipped sources appear in the db-update output, not here
+            - paragraph [ref=f2e117]: the dashboard never calls FPL or any other API; source availability is only known from the last refresh
+          - generic [ref=f2e118]:
+            - heading "Incremental load state" [level=2] [ref=f2e119]
+            - table [ref=f2e121]:
+              - rowgroup [ref=f2e122]:
+                - row [ref=f2e123]:
+                  - columnheader "Source" [ref=f2e124]
+                  - columnheader "Status" [ref=f2e125]
+                  - columnheader "Items" [ref=f2e126]
+                  - columnheader "Last" [ref=f2e127]
+              - rowgroup [ref=f2e128]:
+                - row [ref=f2e129]:
+                  - cell "fotmob" [ref=f2e130]
+                  - cell "done" [ref=f2e131]
+                  - cell "162" [ref=f2e132]
+                  - cell "10/21/2026, 12:09:02 AM" [ref=f2e133]
+                - row [ref=f2e134]:
+                  - cell "fpl_points" [ref=f2e135]
+                  - cell "final" [ref=f2e136]
+                  - cell "7" [ref=f2e137]
+                  - cell "10/20/2026, 10:08:50 PM" [ref=f2e138]
+                - row [ref=f2e139]:
+                  - cell "link" [ref=f2e140]
+                  - cell "unlinked" [ref=f2e141]
+                  - cell "179" [ref=f2e142]
+                  - cell "10/21/2026, 12:08:58 AM" [ref=f2e143]
+                - row [ref=f2e144]:
+                  - cell "repair" [ref=f2e145]
+                  - cell "done" [ref=f2e146]
+                  - cell "1" [ref=f2e147]
+                  - cell "10/20/2026, 10:48:50 PM" [ref=f2e148]
+          - generic [ref=f2e149]:
+            - heading "News verification" [level=2] [ref=f2e150]
+            - paragraph [ref=f2e151]: "Coverage: City official news and BBC Football. Evidence is advisory; UCL availability does not confirm Premier League fitness. Failed, stale and undated sources never clear an injury."
+            - table [ref=f2e153]:
+              - rowgroup [ref=f2e154]:
+                - row [ref=f2e155]:
+                  - columnheader "Source" [ref=f2e156]
+                  - columnheader "Article / check" [ref=f2e157]
+                  - columnheader "State" [ref=f2e158]
+                  - columnheader "Published" [ref=f2e159]
+                  - columnheader "Checked" [ref=f2e160]
+                  - columnheader "Detail" [ref=f2e161]
+              - rowgroup [ref=f2e162]:
+                - row [ref=f2e163]:
+                  - cell "official club" [ref=f2e164]
+                  - cell "https://www.mancity.com/news/mens" [ref=f2e165]
+                  - cell "failed" [ref=f2e166]
+                  - cell "not verified" [ref=f2e168]
+                  - cell "10/21/2026, 12:22:15 AM" [ref=f2e169]
+                  - cell "HTTPStatusError" [ref=f2e170]
+                - row [ref=f2e171]:
+                  - cell "sports news" [ref=f2e172]
+                  - cell "BBC Football feed checked" [ref=f2e173]
+                  - cell "undated" [ref=f2e174]
+                  - cell "not verified" [ref=f2e176]
+                  - cell "10/21/2026, 12:22:15 AM" [ref=f2e177]
+                  - cell "https://feeds.bbci.co.uk/sport/football/rss.xml" [ref=f2e178]
+                - row [ref=f2e179]:
+                  - cell "official club" [ref=f2e180]
+                  - cell "https://www.mancity.com/news/mens/maresca-aek-athen-written-press-conference-63928003" [ref=f2e181]
+                  - cell "failed" [ref=f2e182]
+                  - cell "not verified" [ref=f2e184]
+                  - cell "10/20/2026, 11:56:01 PM" [ref=f2e185]
+                  - cell "HTTPStatusError" [ref=f2e186]
+                - row [ref=f2e187]:
+                  - cell "official club" [ref=f2e188]
+                  - cell "https://www.mancity.com/news/mens/city-v-aek-athens-team-news-63928107" [ref=f2e189]
+                  - cell "failed" [ref=f2e190]
+                  - cell "not verified" [ref=f2e192]
+                  - cell "10/20/2026, 11:56:01 PM" [ref=f2e193]
+                  - cell "HTTPStatusError" [ref=f2e194]
+          - generic [ref=f2e195]:
+            - heading "Settings (presence only)" [level=2] [ref=f2e196]
+            - table [ref=f2e198]:
+              - rowgroup [ref=f2e199]:
+                - row [ref=f2e200]:
+                  - columnheader "Setting" [ref=f2e201]
+                  - columnheader "State" [ref=f2e202]
+              - rowgroup [ref=f2e203]:
+                - row [ref=f2e204]:
+                  - cell "AGENT_MODE (for scheduled runs)" [ref=f2e205]
+                  - cell "dry" [ref=f2e206]
+                - row [ref=f2e207]:
+                  - cell "AGENT_ENABLED" [ref=f2e208]
+                  - cell "true" [ref=f2e209]
+                - row [ref=f2e210]:
+                  - cell "ANTHROPIC_API_KEY" [ref=f2e211]
+                  - cell "not set" [ref=f2e212]
+                - row [ref=f2e213]:
+                  - cell "ODDS_API_KEY" [ref=f2e214]
+                  - cell "not set" [ref=f2e215]
+                - row [ref=f2e216]:
+                  - cell "FPL_ENTRY_ID" [ref=f2e217]
+                  - cell "not set" [ref=f2e218]
+                - row [ref=f2e219]:
+                  - cell "NOTIFY_WEBHOOK" [ref=f2e220]
+                  - cell "not set" [ref=f2e221]
+                - row [ref=f2e222]:
+                  - cell "Dashboard jobs" [ref=f2e223]
+                  - 'cell "always dry: no sign-in, no notifications" [ref=f2e224]'
+          - generic [ref=f2e225]:
+            - heading "Tables" [level=2] [ref=f2e226]
+            - table [ref=f2e228]:
+              - rowgroup [ref=f2e229]:
+                - row [ref=f2e230]:
+                  - columnheader "Table" [ref=f2e231]
+                  - columnheader "Rows" [ref=f2e232]
+              - rowgroup [ref=f2e233]:
+                - row [ref=f2e234]:
+                  - cell "appearances" [ref=f2e235]
+                  - cell "6862" [ref=f2e236]
+                - row [ref=f2e237]:
+                  - cell "competitions" [ref=f2e238]
+                  - cell "6" [ref=f2e239]
+                - row [ref=f2e240]:
+                  - cell "decisions" [ref=f2e241]
+                  - cell "4" [ref=f2e242]
+                - row [ref=f2e243]:
+                  - cell "field_ownership" [ref=f2e244]
+                  - cell "156" [ref=f2e245]
+                - row [ref=f2e246]:
+                  - cell "fpl_players_gw" [ref=f2e247]
+                  - cell "1336" [ref=f2e248]
+                - row [ref=f2e249]:
+                  - cell "fpl_points_gw" [ref=f2e250]
+                  - cell "4551" [ref=f2e251]
+                - row [ref=f2e252]:
+                  - cell "ingest_log" [ref=f2e253]
+                  - cell "180" [ref=f2e254]
+                - row [ref=f2e255]:
+                  - cell "ingest_state" [ref=f2e256]
+                  - cell "349" [ref=f2e257]
+                - row [ref=f2e258]:
+                  - cell "league_translation" [ref=f2e259]
+                  - cell "0" [ref=f2e260]
+                - row [ref=f2e261]:
+                  - cell "lessons" [ref=f2e262]
+                  - cell "0" [ref=f2e263]
+                - row [ref=f2e264]:
+                  - cell "match_ids" [ref=f2e265]
+                  - cell "1536" [ref=f2e266]
+                - row [ref=f2e267]:
+                  - cell "match_odds" [ref=f2e268]
+                  - cell "280" [ref=f2e269]
+                - row [ref=f2e270]:
+                  - cell "match_odds_log" [ref=f2e271]
+                  - cell "0" [ref=f2e272]
+                - row [ref=f2e273]:
+                  - cell "matches" [ref=f2e274]
+                  - cell "776" [ref=f2e275]
+                - row [ref=f2e276]:
+                  - cell "news_evidence" [ref=f2e277]
+                  - cell "89" [ref=f2e278]
+                - row [ref=f2e279]:
+                  - cell "player_ids" [ref=f2e280]
+                  - cell "3538" [ref=f2e281]
+                - row [ref=f2e282]:
+                  - cell "player_match_stats" [ref=f2e283]
+                  - cell "101072" [ref=f2e284]
+                - row [ref=f2e285]:
+                  - cell "players" [ref=f2e286]
+                  - cell "3180" [ref=f2e287]
+                - row [ref=f2e288]:
+                  - cell "projections" [ref=f2e289]
+                  - cell "26720" [ref=f2e290]
+                - row [ref=f2e291]:
+                  - cell "reviews" [ref=f2e292]
+                  - cell "0" [ref=f2e293]
+                - row [ref=f2e294]:
+                  - cell "runs" [ref=f2e295]
+                  - cell "5" [ref=f2e296]
+                - row [ref=f2e297]:
+                  - cell "scout_cache" [ref=f2e298]
+                  - cell "0" [ref=f2e299]
+                - row [ref=f2e300]:
+                  - cell "scout_calls" [ref=f2e301]
+                  - cell "0" [ref=f2e302]
+                - row [ref=f2e303]:
+                  - cell "shots" [ref=f2e304]
+                  - cell "4603" [ref=f2e305]
+                - row [ref=f2e306]:
+                  - cell "team_ids" [ref=f2e307]
+                  - cell "179" [ref=f2e308]
+                - row [ref=f2e309]:
+                  - cell "team_match" [ref=f2e310]
+                  - cell "604" [ref=f2e311]
+                - row [ref=f2e312]:
+                  - cell "teams" [ref=f2e313]
+                  - cell "119" [ref=f2e314]
+                - row [ref=f2e315]:
+                  - cell "transfers" [ref=f2e316]
+                  - cell "0" [ref=f2e317]
+        - generic [ref=f2e47]:
+          - text: FPL AGENT
+          - generic [ref=f2e48]: Independent analysis. Informed decisions.
+          - generic [ref=f2e49]: 127.0.0.1 · LOCAL WORKSPACE

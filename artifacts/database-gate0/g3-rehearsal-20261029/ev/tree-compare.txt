@@ -1,0 +1,6 @@
+same src/fpl_agent/db/database.py
+same src/fpl_agent/cli.py
+same scripts/check_archive.sh
+same scripts/data_publish.sh
+same scripts/data_restore.sh
+same tests/test_export_release.py

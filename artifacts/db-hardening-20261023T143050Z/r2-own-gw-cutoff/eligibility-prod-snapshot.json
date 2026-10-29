@@ -1,0 +1,184 @@
+{
+ "season": 2026,
+ "eligible_gws": [],
+ "reconstructed_gws": [],
+ "unavailable_gws": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "excluded_matches": [
+  31,
+  40,
+  62
+ ],
+ "conflicts": [
+  {
+   "match_id": 31,
+   "season": 2026,
+   "player_id": 36,
+   "kinds": [
+    "minutes"
+   ],
+   "fpl": {
+    "goals": 0.0,
+    "minutes": 90
+   },
+   "fotmob": {
+    "goals": 0.0,
+    "minutes": 83
+   }
+  },
+  {
+   "match_id": 40,
+   "season": 2026,
+   "player_id": 419,
+   "kinds": [
+    "goals"
+   ],
+   "fpl": {
+    "goals": 1.0,
+    "minutes": 77
+   },
+   "fotmob": {
+    "goals": 2.0,
+    "minutes": 78
+   }
+  },
+  {
+   "match_id": 62,
+   "season": 2026,
+   "player_id": 113,
+   "kinds": [
+    "minutes"
+   ],
+   "fpl": {
+    "goals": 0.0,
+    "minutes": 52
+   },
+   "fotmob": {
+    "goals": 0.0,
+    "minutes": 45
+   }
+  }
+ ],
+ "missing_tables": [
+  "player_codes",
+  "migration_log",
+  "repair_log",
+  "source_attempts",
+  "fpl_deadlines"
+ ],
+ "gameweeks": [
+  {
+   "season": 2026,
+   "gw": 1,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 610 players"
+   ],
+   "cutoff": "2026-08-21T17:30:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 610,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 2,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 626 players"
+   ],
+   "cutoff": "2026-08-28T17:30:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 626,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 3,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 654 players"
+   ],
+   "cutoff": "2026-09-04T17:30:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 654,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 4,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 659 players"
+   ],
+   "cutoff": "2026-09-12T12:30:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 659,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 5,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 667 players"
+   ],
+   "cutoff": "2026-09-18T17:30:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 667,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 6,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 667 players"
+   ],
+   "cutoff": "2026-10-10T10:00:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 667,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 7,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of 668 players"
+   ],
+   "cutoff": "2026-10-17T10:00:00",
+   "cutoff_kind": "approximate",
+   "scoring_players": 668,
+   "observed_snapshot_players": 0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  }
+ ],
+ "rule": "only eligible gameweeks, without excluded matches, support decision-performance claims; reconstructed/unavailable ones are exploratory"
+}

@@ -1,0 +1,69 @@
+{
+ "file": "data_cache/calibration-study-20261020.duckdb",
+ "fpl_players_gw_by_season": [
+  {
+   "season": "2024",
+   "n_rows": "26919",
+   "players": "784",
+   "gws": "38",
+   "distinct_snapshot_at": "212",
+   "chance_null": "26919",
+   "news_null": "26919",
+   "status_null": "0"
+  },
+  {
+   "season": "2025",
+   "n_rows": "29338",
+   "players": "841",
+   "gws": "38",
+   "distinct_snapshot_at": "226",
+   "chance_null": "29338",
+   "news_null": "29338",
+   "status_null": "0"
+  }
+ ],
+ "snapshot_after_first_kickoff_of_gw": [
+  {
+   "season": "2024",
+   "n_rows": "26919",
+   "after_first_kickoff": "21564"
+  },
+  {
+   "season": "2025",
+   "n_rows": "29338",
+   "after_first_kickoff": "24029"
+  }
+ ],
+ "raw_keys_sample": [
+  {
+   "keys": "[was_home]"
+  }
+ ],
+ "id_sources": [
+  {
+   "source": "fotmob",
+   "n": "171"
+  },
+  {
+   "source": "vaastav-2024",
+   "n": "804"
+  },
+  {
+   "source": "vaastav-2025",
+   "n": "841"
+  }
+ ],
+ "matches_by_season": [
+  {
+   "competition_id": "ENG1",
+   "season": "2026",
+   "n": "380"
+  },
+  {
+   "competition_id": "UCL",
+   "season": "2026",
+   "n": "144"
+  }
+ ],
+ "note": "history rows (2024, 2025) come from the vaastav archive: snapshot_at equals a fixture kick-off, availability fields are NULL and raw holds only was_home. They are an event-time reconstruction, not captured pre-deadline snapshots."
+}

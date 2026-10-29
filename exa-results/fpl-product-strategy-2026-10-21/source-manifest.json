@@ -1,0 +1,794 @@
+{
+  "as_of_local_date": "2026-10-21",
+  "timezone": "Asia/Dubai",
+  "search_provider": "Exa",
+  "search_calls": 19,
+  "requested_result_slots": 95,
+  "unique_candidate_urls": 93,
+  "fetch_attempt_unique_urls": 22,
+  "method": "Candidate count is not a count of independently verified sources. Search snippets were screened; selected page extracts were inspected. Dates and prices are retrieval observations, not guaranteed checkout offers.",
+  "queries": [
+    {
+      "workstream": "market",
+      "query": "Official FPL Review premium subscription pricing predicted points multi period solver features",
+      "numResults": 5
+    },
+    {
+      "workstream": "market",
+      "query": "Official Fantasy Football Hub membership pricing AI team rating predictions subscription",
+      "numResults": 5
+    },
+    {
+      "workstream": "market",
+      "query": "Official Fantasy Football Scout membership Fantasy Football Fix premium pricing team planner",
+      "numResults": 5
+    },
+    {
+      "workstream": "model",
+      "query": "research paper fantasy premier league stochastic optimization expected points player minutes prediction backtesting",
+      "numResults": 5
+    },
+    {
+      "workstream": "model",
+      "query": "research paper football player availability minutes prediction probabilistic forecasting calibration scoring rules",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "official Premier League terms conditions fantasy data commercial use FotMob terms API commercial license",
+      "numResults": 5
+    },
+    {
+      "workstream": "model",
+      "query": "Gneiting Raftery strictly proper scoring rules prediction calibration sharpness probabilistic forecasts paper",
+      "numResults": 5
+    },
+    {
+      "workstream": "model",
+      "query": "OpenFPL Daniel Groos forecasting 2025 2026 evaluation limitations data leakage model code",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "FotMob official terms of use automated scraping commercial redistribution data",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "Sportmonks football API pricing expected goals historical data commercial subscription terms",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "Stats Perform Opta data licensing fantasy sports official developer commercial",
+      "numResults": 5
+    },
+    {
+      "workstream": "product",
+      "query": "Stripe subscriptions customer portal webhook signature idempotency entitlements official documentation",
+      "numResults": 5
+    },
+    {
+      "workstream": "product",
+      "query": "OWASP multi tenant application security authorization tenant isolation cheat sheet",
+      "numResults": 5
+    },
+    {
+      "workstream": "product",
+      "query": "W3C WCAG 2.2 target size minimum focus not obscured contrast accessibility",
+      "numResults": 5
+    },
+    {
+      "workstream": "news",
+      "query": "site.premierleague.com fantasy injury 75 per cent chance playing automatic substitutions rules",
+      "numResults": 5
+    },
+    {
+      "workstream": "news",
+      "query": "site.mancity.com news mens injury press conference fit available assessment training",
+      "numResults": 5
+    },
+    {
+      "workstream": "news",
+      "query": "fixture congestion professional soccer injury risk performance systematic review match minutes original study",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "site.ico.org.uk data minimisation privacy by design online services personal data public information",
+      "numResults": 5
+    },
+    {
+      "workstream": "rights",
+      "query": "Sportmonks official terms conditions derived data machine learning redistribution storage license logos",
+      "numResults": 5
+    }
+  ],
+  "candidates": [
+    {
+      "url": "https://docs.fplreview.com/getting-started/premium-features/",
+      "title": "What Comes with Premium?",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.patreon.com/fplreview/membership",
+      "title": "fplreview | Membership | Patreon",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://fplreview.com/",
+      "title": "FPL Review | Projections, Planner & Solver",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://docs.fplreview.com/the-model/projections/massive-data-model/",
+      "title": "Massive Data Model",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://docs.fplreview.com/the-model/solvers/settings/",
+      "title": "Solver Settings",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://fantasyfootballhub.freshdesk.com/support/solutions/articles/103000113576-what-are-the-differences-between-tiers-",
+      "title": "What Are The Differences Between Tiers? : Fantasy Football Hub",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballhub.co.uk/landing/LTFPL",
+      "title": "Andy Mears | Fantasy Football Hub",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballhub.co.uk/member-upgrade",
+      "title": "Go into GW1 fully armed.",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballhub.co.uk/join",
+      "title": "Join the Hub - Fantasy Football Hub",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballhub.co.uk/checkout-stripe",
+      "title": "Complete your sign up",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballscout.co.uk/pricing/",
+      "title": "Pricing - Best FPL Tips, Advice, Team News, Picks, and ...",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballfix.com/premium/",
+      "title": "Fix Premium",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballscout.co.uk/register?membership=monthly",
+      "title": "Sign Up",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://www.fantasyfootballscout.co.uk/register?sub=recurring",
+      "title": "Sign Up - Fantasy Football Scout",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://support.fantasyfootballfix.com/support/solutions/articles/202000056638-how-do-i-sign-up-for-premium-or-premium-plus-membership-",
+      "title": "How do I sign up for Premium or Premium Plus membership? : fantasyfootballfix.com",
+      "workstreams": [
+        "market"
+      ]
+    },
+    {
+      "url": "https://sal.aalto.fi/files/opinnot/kurssit/mat-2.kandi/esittelyt/lukaslindholm-esittely.pdf",
+      "title": "lukaslindholm-esittely  -  Compatibility Mode",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "http://hdl.handle.net/11250/2577003",
+      "title": "Developing a Forecast-Based Optimization Model for Fantasy Premier League",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://arxiv.org/html/2505.02170v3",
+      "title": "A data-driven framework for team selection in Fantasy ...",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://arxiv.org/html/2508.09992",
+      "title": "OpenFPL: An open-source forecasting method rivaling state-of-the-art Fantasy Premier League services",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://chrischowen.com/work/fantasy-premier-league/",
+      "title": "Fantasy Premier League engine · Chris Chowen",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://www.mdpi.com/2076-3417/16/4/2139",
+      "title": "“How Many Minutes Does the Player Have in His Legs?” Answering One of Football’s Oldest Coaching Questions Through a Mathematical Model",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://doi.org/10.1016/j.procs.2025.12.047",
+      "title": "Sports analytics optimizing injury prevention and player availability in professional soccer",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://doi.org/10.1109/ebccsp51266.2020.9291355",
+      "title": "Prognosis of Health-Related Unavailability of Professional German Football Players",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://www.cs.ru.nl/bachelors-theses/2026/%C3%81ron_Moln%C3%A1r___1121908___Predicting_Seasonal_Playing_Time_of_Professional_Football_Players_Using_Historical_and_Contextual_Data.pdf",
+      "title": "Predicting Seasonal Playing Time of Professional Football Players Using Historical and Contextual Data",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://sage.cnpereading.com/doi/10.1177/17479541221147764",
+      "title": "Key considerations in the week-to-week forecasting of individual match actions in football",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/terms-and-conditions",
+      "title": "Terms of Use | Premier League",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://fantasy.premierleague.com/en/help/terms",
+      "title": "Terms & Conditions | Fantasy Premier League",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/about/faq/other",
+      "title": "N/A",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/news/102426",
+      "title": "Who should I contact to discuss a business proposal, the use of Premier League trademarks, or data?",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/terms-and-conditions/pl-companion",
+      "title": "Terms of Use - PL Companion | Premier League",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://doi.org/10.1198/016214506000001437",
+      "title": "Strictly Proper Scoring Rules, Prediction, and Estimation",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://academic.oup.com/jrsssb/article/69/2/243/7109375",
+      "title": "Probabilistic Forecasts, Calibration and Sharpness | Journal of the Royal Statistical Society Series B: Statistical Methodology | Oxford Academic",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://doi.org/10.1111/j.1467-9868.2007.00587.x",
+      "title": "Probabilistic Forecasts, Calibration and Sharpness",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://stat.uw.edu/research/tech-reports/strictly-proper-scoring-rules-prediction-and-estimation",
+      "title": "Strictly Proper Scoring Rules, Prediction, and Estimation",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://eecs.harvard.edu/cs286r/courses/fall12/papers/Gneiting07.pdf",
+      "title": "Strictly Proper Scoring Rules, Prediction, and Estimation",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://openfpl.kassem.dev/static/report/openfpl-technical-report.pdf",
+      "title": "OpenFPL Technical Report",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://arxiv.org/abs/2508.09992",
+      "title": "[2508.09992] OpenFPL: An open-source forecasting method rivaling state-of-the-art Fantasy Premier League services",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://smartplayfpl.com/under-the-hood",
+      "title": "How It Works — SmartPlay",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://github.com/qazybekb/smartplayfpl-dastan/blob/main/docs/ACCURACY.md",
+      "title": "docs/ACCURACY.md",
+      "workstreams": [
+        "model"
+      ]
+    },
+    {
+      "url": "https://www.fotmob.com/tos.txt",
+      "title": "N/A",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.fotmob.com/term-of-service",
+      "title": "FotMob - Football Live Scores",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://github.com/probberechts/soccerdata/issues/918",
+      "title": "Scraping of FotMob is against the ToS",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://github.com/JaseZiv/worldfootballR/pull/311",
+      "title": "Remove `fotmob` functions",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://fotmob.co.in/terms-conditions/",
+      "title": "Terms & Conditions – FotMob",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/football-api/plans-pricing/",
+      "title": "Football API Pricing | Plans from €29/mo | Sportmonks",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://docs.sportmonks.com/v3/tutorials-and-guides/guides/historical-data-add-on",
+      "title": "Historical Data add-on | API 3.0",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/faq/",
+      "title": "FAQs About Our Sports APIs | Sportmonks Support",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/football-api/xg-data/",
+      "title": "xG Data API | Live Expected Goals Data for Football | Sportmonks",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/blogs/introducing-our-new-pricing-setup/",
+      "title": "Introducing our new pricing setup - Sportmonks",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.statsperform.com/faqs/stats-perform-faqs-pricing-licensing/",
+      "title": "Stats Perform FAQs – Pricing & Licensing",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://developers.statsperform.com/coverage-and-data-rights",
+      "title": "Stats Perform coverage and official data rights",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.statsperform.com/faqs/stats-perform-faqs-fantasy/",
+      "title": "Stats Perform FAQs – Fantasy",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.statsperform.com/legal/mla2020-v2/",
+      "title": "Master Licence Agreement 2020 V2",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://developers.statsperform.com/stats-perform-is-opta",
+      "title": "Stats Perform is Opta: the company behind the Opta brand and product family",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://docs.stripe.com/billing/subscriptions/webhooks",
+      "title": "Using webhooks with subscriptions | Stripe Documentation",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://docs.stripe.com/customer-management/integrate-customer-portal",
+      "title": "Integrate the customer portal with the API | Stripe Documentation",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://docs.stripe.com/billing/entitlements?dashboard-or-api=api",
+      "title": "Entitlements | Stripe Documentation",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://docs.stripe.com/webhooks",
+      "title": "Receive Stripe events in your webhook endpoint | Stripe Documentation",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://docs.stripe.com/billing/subscriptions/overview",
+      "title": "How subscriptions work | Stripe Documentation",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html",
+      "title": "Multi Tenant Security - OWASP Cheat Sheet Series",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html",
+      "title": "Authorization - OWASP Cheat Sheet Series",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://docs.aws.amazon.com/pdfs/prescriptive-guidance/latest/saas-multitenant-api-access-authorization/saas-multitenant-api-access-authorization.pdf",
+      "title": "AWS Prescriptive Guidance - Multi-tenant SaaS authorization and API access control: Implementation options and best practices",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Patterns_Cheat_Sheet.html",
+      "title": "Authorization Patterns - OWASP Cheat Sheet Series",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Regression_Testing_Cheat_Sheet.html",
+      "title": "Authorization Regression Testing - OWASP Cheat Sheet Series",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/",
+      "title": "What's New in WCAG 2.2 | Web Accessibility Initiative (WAI) | W3C",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+      "title": "Understanding SC 2.5.8: Target Size (Minimum) (Level AA)",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html",
+      "title": "Understanding Success Criterion 2.4.13: Focus Appearance | WAI | W3C",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://www.w3.org/TR/WCAG22/",
+      "title": "Web Content Accessibility Guidelines (WCAG) 2.2",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://www.w3.org/WAI/WCAG22/quickref/",
+      "title": "How to Meet WCAG (Quickref Reference)",
+      "workstreams": [
+        "product"
+      ]
+    },
+    {
+      "url": "https://fantasy.premierleague.com/en/help/rules",
+      "title": "Fantasy Football Game Rules & Help | Fantasy Premier League",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://fantasy.premierleague.com/en/the-scout/player-news",
+      "title": "Fantasy Premier League Player Availability, Injuries &amp; Eligibility | Fantasy Premier League",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/news/4661029",
+      "title": "FPL Rules Copilot",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.premierleague.com/en/news/2174899/fpl-basics-managing-your-team",
+      "title": "FPL basics explained: Managing your team",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://fantasy.premierleague.com/en/help/faqs",
+      "title": "Fantasy Premier League, Official Fantasy Football Game of the",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.mancity.com/news/mens/pep-guardiola-liverpool-injury-news-63905976",
+      "title": "Pep gives update on Bernardo, Dias and Stones",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.mancity.com/news/mens/maresca-aek-athen-written-press-conference-63928003",
+      "title": "Semenyo out for eight weeks, says Maresca",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.mancity.com/news/mens/man-city-v-crystal-palace-pep-guardiola-injury-update-63914182",
+      "title": "Pep shares injury update on Rodri and Khusanov",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.mancity.com/news/mens/pep-guardiola-josko-gvardiol-mateo-kovacic-rico-lewis-fitness-63908404",
+      "title": "Pep delivers updates on Gvardiol, Kovacic and Lewis fitness",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://www.mancity.com/news/mens/pep-guardiola-newcastle-injury-update-63907179",
+      "title": "Guardiola gives fitness update on Savinho and Doku",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://link.springer.com/article/10.1007/s40279-020-01359-9",
+      "title": "The Effect of Fixture Congestion on Performance During Professional Male Soccer Match-Play: A Systematic Critical Review with Meta-Analysis | Sports Medicine | Springer Nature Link",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://bjsm.bmj.com/content/49/6/390",
+      "title": "The effects of a congested fixture period on physical performance, technical activity and injury rate during matches in a professional soccer team | British Journal of Sports Medicine",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9758680/",
+      "title": "The Effects of Fixture Congestion on Injury in Professional Male Soccer: A Systematic Review",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9602492/",
+      "title": "A Systematic Review of the Relationship between Workload and Injury Risk of Professional Male Soccer Players",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://pubmed.ncbi.nlm.nih.gov/22012641/",
+      "title": "Are physical performance and injury risk in a professional soccer team in match-play affected over a prolonged period of fixture congestion?",
+      "workstreams": [
+        "news"
+      ]
+    },
+    {
+      "url": "https://ico.org.uk/privacy-design",
+      "title": "Privacy in the product design lifecycle | ICO",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/accountability-and-governance/guide-to-accountability-and-governance/data-protection-by-design-and-by-default/",
+      "title": "Data protection by design and by default | ICO",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-principles/a-guide-to-the-data-protection-principles/data-minimisation/",
+      "title": "Principle (c): Data minimisation | ICO",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/8-data-minimisation/",
+      "title": "8. Data minimisation | ICO",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://ico.org.uk/for-organisations/advice-and-services/audits/data-protection-audit-framework/toolkits/age-appropriate-design/data-minimisation/",
+      "title": "Data minimisation | ICO",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/terms-of-service/",
+      "title": "Sportmonks' Terms of Service | For your protection and ours",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/integrity-support/",
+      "title": "Sportmonks integrity support: GDPR, security & data use",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/football-api/enterprise-plan/",
+      "title": "Football API Enterprise | Custom Solutions | Sportmonks",
+      "workstreams": [
+        "rights"
+      ]
+    },
+    {
+      "url": "https://www.sportmonks.com/football-api/solutions/sports-media/",
+      "title": "Football API for Sports Media | Sportmonks",
+      "workstreams": [
+        "rights"
+      ]
+    }
+  ],
+  "fetched_urls": [
+    "https://arxiv.org/html/2508.09992",
+    "https://arxiv.org/html/2505.02170v3",
+    "https://www.fotmob.com/tos.txt",
+    "https://www.premierleague.com/en/terms-and-conditions",
+    "https://www.sportmonks.com/football-api/plans-pricing/",
+    "https://www.sportmonks.com/football-api/xg-data/",
+    "https://www.statsperform.com/faqs/stats-perform-faqs-pricing-licensing/",
+    "https://www.fantasyfootballfix.com/premium/",
+    "https://www.fantasyfootballscout.co.uk/pricing/",
+    "https://www.patreon.com/fplreview/membership",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html",
+    "https://docs.stripe.com/billing/subscriptions/webhooks",
+    "https://fantasy.premierleague.com/en/help/rules",
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC9758680/",
+    "https://docs.fplreview.com/the-model/projections/massive-data-model/",
+    "https://docs.fplreview.com/the-model/solvers/settings/",
+    "https://www.sportmonks.com/terms-conditions/",
+    "https://stat.uw.edu/research/tech-reports/strictly-proper-scoring-rules-prediction-and-estimation",
+    "https://ico.org.uk/privacy-design",
+    "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+    "https://www.sportmonks.com/terms-of-service/",
+    "https://www.sportmonks.com/integrity-support/"
+  ],
+  "known_fetch_failures": [
+    "https://www.sportmonks.com/terms-conditions/ (wrong URL, corrected to /terms-of-service/)"
+  ],
+  "exclusions": [
+    "fotmob.co.in: unrelated cricket site, not FotMob official terms",
+    "PL Companion terms: chatbot-specific, not general football-data license",
+    "OpenFPL technical report at kassem.dev: distinct project; not attributed to Daniel Groos",
+    "Competitor accuracy and win-rate marketing: not independently reproduced",
+    "Academic topic proposal: not evidence of completed experimental results"
+  ]
+}

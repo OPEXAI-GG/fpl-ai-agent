@@ -1,0 +1,291 @@
+- generic [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "Matchroom overview" [ref=e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=e6]:
+          - text: M
+          - generic [ref=e7]: ↗
+        - generic [ref=e8]:
+          - text: MATCHROOM
+          - generic [ref=e9]: FPL AGENT / LOCAL
+      - generic [ref=e10]: YOUR COMMAND CENTER
+      - navigation "Sections" [ref=e11]:
+        - link "Overview" [ref=e12] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=e13]: ◫
+          - text: Overview
+        - link "My Team" [ref=e14] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=e15]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=e16] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=e17]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=e18] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=e19]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=e20] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=e21]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=e22] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=e23]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=e24] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=e25]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=e26] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=e27]: ♡
+          - text: Data Health
+      - generic [ref=e28]:
+        - text: PRIVATE WORKSPACE
+        - paragraph [ref=e30]: On your machine.Built for the next gameweek.
+        - generic [ref=e31]: DRY RUN CONTROLS
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]: WORKSPACE / Data Health
+        - generic [ref=e35]:
+          - generic [ref=e36]: LOCAL CONNECTION
+          - link "Open agent settings" [ref=e38] [cursor=pointer]:
+            - /url: "#controls"
+            - text: FA
+      - main [active] [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: FANTASY PREMIER LEAGUE
+            - heading "Data Health" [level=1] [ref=e68]
+            - paragraph [ref=e44]: Know what is fresh, what is missing, and what needs attention.
+          - link "Open operations" [ref=e45] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=e46]: ↗
+        - status [ref=e47]:
+          - generic [ref=e74]: "database busy: showing the last view"
+          - text: · data read 10/21/2026, 12:09:12 AM
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e78]:
+              - generic [ref=e79]: FPL snapshot
+              - generic [ref=e80]: 2.1 h ago
+              - generic [ref=e81]: fresh
+            - generic [ref=e84]:
+              - generic [ref=e85]: Official points through
+              - generic [ref=e86]: GW7
+          - generic [ref=e87]:
+            - heading "Last successful load per source" [level=2] [ref=e88]
+            - table [ref=e90]:
+              - rowgroup [ref=e91]:
+                - row [ref=e92]:
+                  - columnheader "Source" [ref=e93]
+                  - columnheader "Table" [ref=e94]
+                  - columnheader "When" [ref=e95]
+                  - columnheader "Rows" [ref=e96]
+                  - columnheader "Note" [ref=e97]
+              - rowgroup [ref=e98]:
+                - row [ref=e99]:
+                  - cell "football-data" [ref=e100]
+                  - cell "matches" [ref=e101]
+                  - cell "10/20/2026, 6:48:58 PM (5.3 h ago)" [ref=e102]
+                  - cell "70" [ref=e103]
+                  - cell "E0 2026" [ref=e104]
+                - row [ref=e105]:
+                  - cell "fotmob" [ref=e106]
+                  - cell "match" [ref=e107]
+                  - cell "10/21/2026, 12:09:02 AM (0 min ago)" [ref=e108]
+                  - cell "46" [ref=e109]
+                  - cell "UECL 6112491" [ref=e110]
+                - row [ref=e111]:
+                  - cell "fotmob" [ref=e112]
+                  - cell "matches" [ref=e113]
+                  - cell "10/21/2026, 12:08:44 AM (0 min ago)" [ref=e114]
+                  - cell "108" [ref=e115]
+                  - cell "UECL 2026" [ref=e116]
+                - row [ref=e117]:
+                  - cell "fpl" [ref=e118]
+                  - cell "fpl_players_gw" [ref=e119]
+                  - cell "10/20/2026, 10:08:49 PM (2.0 h ago)" [ref=e120]
+                  - cell "668" [ref=e121]
+                  - cell "gw8" [ref=e122]
+                - row [ref=e123]:
+                  - cell "fpl" [ref=e124]
+                  - cell "fpl_points_gw" [ref=e125]
+                  - cell "10/20/2026, 10:08:50 PM (2.0 h ago)" [ref=e126]
+                  - cell "668" [ref=e127]
+                  - cell "gw7 players=668 unknown_splits=0 blanks=0" [ref=e128]
+                - row [ref=e129]:
+                  - cell "fpl" [ref=e130]
+                  - cell "matches" [ref=e131]
+                  - cell "10/20/2026, 10:08:50 PM (2.0 h ago)" [ref=e132]
+                  - cell "380" [ref=e133]
+                  - cell "—" [ref=e134]
+                - row [ref=e135]:
+                  - cell "understat" [ref=e136]
+                  - cell "matches" [ref=e137]
+                  - cell "10/20/2026, 10:08:52 PM (2.0 h ago)" [ref=e138]
+                  - cell "380" [ref=e139]
+                  - cell "EPL 2026" [ref=e140]
+            - paragraph [ref=e141]: the database records successful loads only; failed or skipped sources appear in the db-update output, not here
+            - paragraph [ref=e142]: the dashboard never calls FPL or any other API; source availability is only known from the last refresh
+          - generic [ref=e143]:
+            - heading "Incremental load state" [level=2] [ref=e144]
+            - table [ref=e146]:
+              - rowgroup [ref=e147]:
+                - row [ref=e148]:
+                  - columnheader "Source" [ref=e149]
+                  - columnheader "Status" [ref=e150]
+                  - columnheader "Items" [ref=e151]
+                  - columnheader "Last" [ref=e152]
+              - rowgroup [ref=e153]:
+                - row [ref=e154]:
+                  - cell "fotmob" [ref=e155]
+                  - cell "done" [ref=e156]
+                  - cell "162" [ref=e157]
+                  - cell "10/21/2026, 12:09:02 AM" [ref=e158]
+                - row [ref=e159]:
+                  - cell "fpl_points" [ref=e160]
+                  - cell "final" [ref=e161]
+                  - cell "7" [ref=e162]
+                  - cell "10/20/2026, 10:08:50 PM" [ref=e163]
+                - row [ref=e164]:
+                  - cell "link" [ref=e165]
+                  - cell "unlinked" [ref=e166]
+                  - cell "179" [ref=e167]
+                  - cell "10/21/2026, 12:08:58 AM" [ref=e168]
+                - row [ref=e169]:
+                  - cell "repair" [ref=e170]
+                  - cell "done" [ref=e171]
+                  - cell "1" [ref=e172]
+                  - cell "10/20/2026, 10:48:50 PM" [ref=e173]
+          - generic [ref=e174]:
+            - heading "Settings (presence only)" [level=2] [ref=e175]
+            - table [ref=e177]:
+              - rowgroup [ref=e178]:
+                - row [ref=e179]:
+                  - columnheader "Setting" [ref=e180]
+                  - columnheader "State" [ref=e181]
+              - rowgroup [ref=e182]:
+                - row [ref=e183]:
+                  - cell "AGENT_MODE (for scheduled runs)" [ref=e184]
+                  - cell "dry" [ref=e185]
+                - row [ref=e186]:
+                  - cell "AGENT_ENABLED" [ref=e187]
+                  - cell "true" [ref=e188]
+                - row [ref=e189]:
+                  - cell "ANTHROPIC_API_KEY" [ref=e190]
+                  - cell "not set" [ref=e191]
+                - row [ref=e192]:
+                  - cell "ODDS_API_KEY" [ref=e193]
+                  - cell "not set" [ref=e194]
+                - row [ref=e195]:
+                  - cell "FPL_ENTRY_ID" [ref=e196]
+                  - cell "not set" [ref=e197]
+                - row [ref=e198]:
+                  - cell "NOTIFY_WEBHOOK" [ref=e199]
+                  - cell "not set" [ref=e200]
+                - row [ref=e201]:
+                  - cell "Dashboard jobs" [ref=e202]
+                  - 'cell "always dry: no sign-in, no notifications" [ref=e203]'
+          - generic [ref=e204]:
+            - heading "Tables" [level=2] [ref=e205]
+            - table [ref=e207]:
+              - rowgroup [ref=e208]:
+                - row [ref=e209]:
+                  - columnheader "Table" [ref=e210]
+                  - columnheader "Rows" [ref=e211]
+              - rowgroup [ref=e212]:
+                - row [ref=e213]:
+                  - cell "appearances" [ref=e214]
+                  - cell "6862" [ref=e215]
+                - row [ref=e216]:
+                  - cell "competitions" [ref=e217]
+                  - cell "6" [ref=e218]
+                - row [ref=e219]:
+                  - cell "decisions" [ref=e220]
+                  - cell "3" [ref=e221]
+                - row [ref=e222]:
+                  - cell "field_ownership" [ref=e223]
+                  - cell "156" [ref=e224]
+                - row [ref=e225]:
+                  - cell "fpl_players_gw" [ref=e226]
+                  - cell "1336" [ref=e227]
+                - row [ref=e228]:
+                  - cell "fpl_points_gw" [ref=e229]
+                  - cell "4551" [ref=e230]
+                - row [ref=e231]:
+                  - cell "ingest_log" [ref=e232]
+                  - cell "180" [ref=e233]
+                - row [ref=e234]:
+                  - cell "ingest_state" [ref=e235]
+                  - cell "349" [ref=e236]
+                - row [ref=e237]:
+                  - cell "league_translation" [ref=e238]
+                  - cell "0" [ref=e239]
+                - row [ref=e240]:
+                  - cell "lessons" [ref=e241]
+                  - cell "0" [ref=e242]
+                - row [ref=e243]:
+                  - cell "match_ids" [ref=e244]
+                  - cell "1536" [ref=e245]
+                - row [ref=e246]:
+                  - cell "match_odds" [ref=e247]
+                  - cell "280" [ref=e248]
+                - row [ref=e249]:
+                  - cell "match_odds_log" [ref=e250]
+                  - cell "0" [ref=e251]
+                - row [ref=e252]:
+                  - cell "matches" [ref=e253]
+                  - cell "776" [ref=e254]
+                - row [ref=e255]:
+                  - cell "news_evidence" [ref=e256]
+                  - cell "47" [ref=e257]
+                - row [ref=e258]:
+                  - cell "player_ids" [ref=e259]
+                  - cell "3538" [ref=e260]
+                - row [ref=e261]:
+                  - cell "player_match_stats" [ref=e262]
+                  - cell "101072" [ref=e263]
+                - row [ref=e264]:
+                  - cell "players" [ref=e265]
+                  - cell "3180" [ref=e266]
+                - row [ref=e267]:
+                  - cell "projections" [ref=e268]
+                  - cell "21376" [ref=e269]
+                - row [ref=e270]:
+                  - cell "reviews" [ref=e271]
+                  - cell "0" [ref=e272]
+                - row [ref=e273]:
+                  - cell "runs" [ref=e274]
+                  - cell "4" [ref=e275]
+                - row [ref=e276]:
+                  - cell "scout_cache" [ref=e277]
+                  - cell "0" [ref=e278]
+                - row [ref=e279]:
+                  - cell "scout_calls" [ref=e280]
+                  - cell "0" [ref=e281]
+                - row [ref=e282]:
+                  - cell "shots" [ref=e283]
+                  - cell "4603" [ref=e284]
+                - row [ref=e285]:
+                  - cell "team_ids" [ref=e286]
+                  - cell "179" [ref=e287]
+                - row [ref=e288]:
+                  - cell "team_match" [ref=e289]
+                  - cell "604" [ref=e290]
+                - row [ref=e291]:
+                  - cell "teams" [ref=e292]
+                  - cell "119" [ref=e293]
+                - row [ref=e294]:
+                  - cell "transfers" [ref=e295]
+                  - cell "0" [ref=e296]
+        - generic [ref=e53]:
+          - text: FPL AGENT
+          - generic [ref=e54]: Independent analysis. Informed decisions.
+          - generic [ref=e55]: 127.0.0.1 · LOCAL WORKSPACE

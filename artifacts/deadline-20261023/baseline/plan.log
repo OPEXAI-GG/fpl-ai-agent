@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\bedor\OneDrive\Documents\FPL\fpl-ai-agent-1\.venv\Scripts\fpl-agent.exe\__main__.py", line 10, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\bedor\OneDrive\Documents\FPL\fpl-ai-agent-1\src\fpl_agent\cli.py", line 621, in main
+    return _dispatch(args)
+  File "C:\Users\bedor\OneDrive\Documents\FPL\fpl-ai-agent-1\src\fpl_agent\cli.py", line 679, in _dispatch
+    return plan(args, settings)
+  File "C:\Users\bedor\OneDrive\Documents\FPL\fpl-ai-agent-1\src\fpl_agent\cli.py", line 215, in plan
+    print(res.report)
+    ~~~~~^^^^^^^^^^^^
+  File "C:\Users\bedor\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u0107' in position 1594: character maps to <undefined>
+exit 1

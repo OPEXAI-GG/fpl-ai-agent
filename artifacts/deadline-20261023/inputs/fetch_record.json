@@ -1,0 +1,31 @@
+{
+  "bootstrap": {
+    "url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+    "fetched_at_utc": "2026-10-23T11:55:01+00:00",
+    "bytes": 1786842
+  },
+  "fixtures": {
+    "url": "https://fantasy.premierleague.com/api/fixtures/",
+    "fetched_at_utc": "2026-10-23T11:55:01+00:00",
+    "bytes": 278235
+  },
+  "events": [
+    {
+      "id": 7,
+      "is_current": true,
+      "is_next": false,
+      "finished": true,
+      "deadline_time": "2026-10-17T10:00:00Z",
+      "deadline_dubai": "2026-10-17T14:00:00+04:00"
+    },
+    {
+      "id": 8,
+      "is_current": false,
+      "is_next": true,
+      "finished": false,
+      "deadline_time": "2026-10-23T17:30:00Z",
+      "deadline_dubai": "2026-10-23T21:30:00+04:00"
+    }
+  ],
+  "n_elements": 668
+}

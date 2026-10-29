@@ -1,0 +1,100 @@
+{
+ "latest_projection_run": "aa41fa953903",
+ "fpl_own_underlying_stats_on_played_rows": [
+  {
+   "grp": "linked to FotMob",
+   "played_player_fixtures": "1444",
+   "with_fpl_xg": "1444",
+   "with_fpl_defcon": "1444"
+  },
+  {
+   "grp": "not linked",
+   "played_player_fixtures": "714",
+   "with_fpl_xg": "714",
+   "with_fpl_defcon": "714"
+  }
+ ],
+ "projection_rate_source_gw8": [
+  {
+   "grp": "linked to FotMob",
+   "rate_source": "pl",
+   "players": "277",
+   "mean_xpts": "2.06"
+  },
+  {
+   "grp": "linked to FotMob",
+   "rate_source": "prior",
+   "players": "54",
+   "mean_xpts": "0.06"
+  },
+  {
+   "grp": "linked to FotMob",
+   "rate_source": "translated",
+   "players": "27",
+   "mean_xpts": "0.46"
+  },
+  {
+   "grp": "not linked",
+   "rate_source": "prior",
+   "players": "310",
+   "mean_xpts": "0.9"
+  }
+ ],
+ "projection_rate_source_gw8_by_position_minutes": [
+  {
+   "position": "DEF",
+   "grp": "linked",
+   "rate_source": "pl",
+   "players": "58"
+  },
+  {
+   "position": "DEF",
+   "grp": "linked",
+   "rate_source": "translated",
+   "players": "1"
+  },
+  {
+   "position": "DEF",
+   "grp": "not linked",
+   "rate_source": "prior",
+   "players": "17"
+  },
+  {
+   "position": "FWD",
+   "grp": "linked",
+   "rate_source": "pl",
+   "players": "16"
+  },
+  {
+   "position": "FWD",
+   "grp": "not linked",
+   "rate_source": "prior",
+   "players": "5"
+  },
+  {
+   "position": "GKP",
+   "grp": "linked",
+   "rate_source": "pl",
+   "players": "18"
+  },
+  {
+   "position": "GKP",
+   "grp": "not linked",
+   "rate_source": "prior",
+   "players": "2"
+  },
+  {
+   "position": "MID",
+   "grp": "linked",
+   "rate_source": "pl",
+   "players": "45"
+  },
+  {
+   "position": "MID",
+   "grp": "not linked",
+   "rate_source": "prior",
+   "players": "36"
+  }
+ ],
+ "note": "rate_source is whatever the projector recorded; no inference about its quality is made here"
+}

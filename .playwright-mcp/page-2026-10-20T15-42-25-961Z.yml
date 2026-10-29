@@ -1,0 +1,26 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]: ◆ FPL Agent local
+    - status
+  - generic [ref=e5]:
+    - navigation "Sections" [ref=e6]:
+      - link "Overview" [ref=e7] [cursor=pointer]:
+        - /url: "#overview"
+      - link "My Team" [ref=e8] [cursor=pointer]:
+        - /url: "#team"
+      - link "Recommendations" [ref=e9] [cursor=pointer]:
+        - /url: "#recommendations"
+      - link "Players" [ref=e10] [cursor=pointer]:
+        - /url: "#players"
+      - link "Planning" [ref=e11] [cursor=pointer]:
+        - /url: "#planning"
+      - link "Activity" [ref=e12] [cursor=pointer]:
+        - /url: "#activity"
+      - link "Controls" [ref=e13] [cursor=pointer]:
+        - /url: "#controls"
+      - link "Data Health" [ref=e14] [cursor=pointer]:
+        - /url: "#health"
+    - main [ref=e15]:
+      - heading "Overview" [level=1] [ref=e16]

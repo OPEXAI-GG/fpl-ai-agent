@@ -35,19 +35,46 @@ jobs:
     if: ${{ needs.gate.outputs.fresh == 'true' && vars.AGENT_MODE == 'live' && vars.FPL_ENTRY_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: fpl-auth
+      cancel-in-progress: false
     env:
-      GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}   # stores the rotated token
       AGENT_MODE: ${{ vars.AGENT_MODE }}
       AGENT_ENABLED: ${{ vars.AGENT_ENABLED || 'true' }}
       FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
-      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
-      FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
-      FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
-      FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
-      - run: |
+      - env:
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT || github.token }}
+          FPL_REFRESH_TOKEN: ${{ secrets.FPL_REFRESH_TOKEN }}
+          FPL_TOKEN_URL: ${{ vars.FPL_TOKEN_URL }}
+          FPL_CLIENT_ID: ${{ vars.FPL_CLIENT_ID }}
+          FPL_AUTH_FRESHNESS_REQUIRED: "true"
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+        run: |
           set -o pipefail
           uv run fpl-agent token-check | tee -a "$GITHUB_STEP_SUMMARY"
+  # Deadline coverage: on this workflow's own clock (not the plan's), raise a Discord alarm when
+  # the deadline is under 3 hours away and no run has produced a plan (dry) or verified moves
+  # (live), e.g. because scheduled plan runs were delayed or skipped. Reads the database only.
+  coverage:
+    if: ${{ vars.FPL_ENTRY_ID != '' && vars.AGENT_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AGENT_MODE: ${{ vars.AGENT_MODE || 'dry' }}
+      FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
+      NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK || secrets.Discord_webhook }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Restore database
+        run: scripts/data_restore.sh data_cache/export
+      - name: Check deadline coverage
+        run: |
+          uv run fpl-agent coverage-check --db data_cache/football.duckdb \
+            --import-dir data_cache/export --notify | tee -a "$GITHUB_STEP_SUMMARY" || true

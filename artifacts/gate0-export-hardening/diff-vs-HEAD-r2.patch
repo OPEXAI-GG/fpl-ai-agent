@@ -1,0 +1,861 @@
+diff --git a/scripts/data_publish.sh b/scripts/data_publish.sh
+index 76c2b1b..8f9c42b 100755
+--- a/scripts/data_publish.sh
++++ b/scripts/data_publish.sh
+@@ -4,23 +4,68 @@
+ # (football-db-<stamp>.tar.zst) so an earlier database can be restored (DATA_ASSET=...).
+ # Dated copies are never deleted here; the run lists any beyond KEEP_ARCHIVES (default 10) so
+ # they can be pruned by hand. GH and VERIFY can be overridden (tests use stand-ins).
++# Order, so a failure never replaces the asset readers use: verify the folder (every declared
++# table, manifest intact), build the archive, check its members (check_archive.sh, the same
++# rule restore applies), unpack it and verify it again, check its size, upload the dated copy
++# and confirm the release lists it at that size, and only then replace football-db.tar.zst
++# and confirm that too. MAX_ARCHIVE_BYTES (default 1.9 GB, under GitHub's 2 GiB asset limit)
++# bounds what one publish may upload.
++# If the rolling replacement fails part way, `gh --clobber` may have removed the old asset:
++# data_restore.sh then falls back to the newest dated copy, which this run has already
++# uploaded and confirmed.
+ set -euo pipefail
++# verified only on Linux with zstd (CI's shell tests); anywhere else refuse before touching the
++# release, rather than run an archive path nobody has tested there
++if [ "$(uname -s)" != Linux ] || ! command -v zstd >/dev/null 2>&1; then
++  echo "unsupported environment ($(uname -s), zstd: $(command -v zstd || echo missing)): this script is verified only on Linux with zstd" >&2
++  exit 2
++fi
+ dir="${1:-data_cache/export}"
+ GH="${GH:-gh}"
+-VERIFY="${VERIFY:-uv run fpl-agent verify-export}"
++# --no-sync: run the environment the job already installed (uv sync --frozen); a check must
++# never install or change packages
++VERIFY="${VERIFY:-uv run --no-sync fpl-agent verify-export}"
+ keep="${KEEP_ARCHIVES:-10}"
++max_bytes="${MAX_ARCHIVE_BYTES:-1900000000}"
++here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++
++listed_size() {  # size of release asset $1 as the release reports it, empty when absent
++  $GH release view data --json assets --jq '.assets[] | "\(.name) \(.size)"' |
++    awk -v n="$1" '$1 == n { print $2 }'
++}
+ 
+-$VERIFY "$dir"
++$VERIFY --complete "$dir"
+ tmp="$(mktemp -d)"
+ trap 'rm -rf "$tmp"' EXIT
+ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+ tar --zstd -cf "$tmp/football-db.tar.zst" -C "$dir" .
+-cp "$tmp/football-db.tar.zst" "$tmp/football-db-$stamp.tar.zst"
++bash "$here/check_archive.sh" "$tmp/football-db.tar.zst"
++# what is uploaded is what was checked: the archive itself is unpacked and verified
++mkdir "$tmp/check"
++tar --zstd -xf "$tmp/football-db.tar.zst" -C "$tmp/check"
++$VERIFY --complete "$tmp/check"
++size="$(stat -c %s "$tmp/football-db.tar.zst")"
++if [ "$size" -gt "$max_bytes" ]; then
++  echo "archive is $size bytes, over MAX_ARCHIVE_BYTES=$max_bytes: nothing published" >&2
++  exit 1
++fi
++dated="football-db-$stamp.tar.zst"
++cp "$tmp/football-db.tar.zst" "$tmp/$dated"
+ $GH release view data >/dev/null 2>&1 || $GH release create data --title "football database" \
+   --notes "Latest export of the football database (parquet + manifest), with dated copies."
+-$GH release upload data "$tmp/football-db-$stamp.tar.zst"
++# no --clobber: an existing dated copy is never overwritten (the upload fails instead)
++$GH release upload data "$tmp/$dated"
++if [ "$(listed_size "$dated")" != "$size" ]; then
++  echo "dated copy $dated is not on the release at $size bytes: football-db.tar.zst left unchanged" >&2
++  exit 1
++fi
+ $GH release upload data "$tmp/football-db.tar.zst" --clobber
+-echo "published football-db.tar.zst and football-db-$stamp.tar.zst"
++if [ "$(listed_size football-db.tar.zst)" != "$size" ]; then
++  echo "football-db.tar.zst is not on the release at $size bytes after replacement;" \
++    "restore falls back to the newest dated copy ($dated)" >&2
++  exit 1
++fi
++echo "published football-db.tar.zst and $dated ($size bytes each)"
+ old="$($GH release view data --json assets --jq '.assets[].name' | grep '^football-db-' | sort | head -n -"$keep" || true)"
+ if [ -n "$old" ]; then
+   echo "dated archives beyond the newest $keep (not deleted; prune by hand if wanted):"
+diff --git a/scripts/data_restore.sh b/scripts/data_restore.sh
+index 6046764..4aeee2a 100755
+--- a/scripts/data_restore.sh
++++ b/scripts/data_restore.sh
+@@ -1,22 +1,42 @@
+ #!/usr/bin/env bash
+ # Download the football database export from the `data` release into $1 (default
+-# data_cache/export). Only a release or asset that does not exist yet means "first run, start
+-# empty"; an auth, network, download, unpack or checksum failure stops the job, so a broken
+-# restore can never be mistaken for an empty database and published over the good one.
++# data_cache/export). Only a release with no export at all means "first run, start empty"; an
++# auth, network, download, unpack or checksum failure stops the job, so a broken restore can
++# never be mistaken for an empty database and published over the good one.
+ # DATA_ASSET picks an older dated archive (football-db-<stamp>.tar.zst) to roll back to.
++# Without it, the rolling football-db.tar.zst is used; if that is absent while dated copies
++# exist (a publish that failed while replacing it), the newest dated copy is used instead.
+ # GH and VERIFY can be overridden (tests use stand-ins).
++# The archive must pass check_archive.sh (only manifest.json and <table>.parquet files at its
++# top level) before it is unpacked. A legacy archive without a manifest is accepted if it holds
++# at least one table. Files reach $1 only complete: they are assembled in a sibling folder that
++# is renamed into place.
+ set -euo pipefail
++# verified only on Linux with zstd (CI's shell tests); anywhere else refuse before touching the
++# release, rather than run an archive path nobody has tested there
++if [ "$(uname -s)" != Linux ] || ! command -v zstd >/dev/null 2>&1; then
++  echo "unsupported environment ($(uname -s), zstd: $(command -v zstd || echo missing)): this script is verified only on Linux with zstd" >&2
++  exit 2
++fi
+ dir="${1:-data_cache/export}"
+ asset="${DATA_ASSET:-football-db.tar.zst}"
+ GH="${GH:-gh}"
+-VERIFY="${VERIFY:-uv run fpl-agent verify-export}"
++# --no-sync: a check must never install or change packages
++VERIFY="${VERIFY:-uv run --no-sync fpl-agent verify-export}"
++here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ 
++# the name is also a download pattern: only the rolling asset or a dated copy
++if ! [[ "$asset" =~ ^football-db(-[0-9]{8}T[0-9]{6}Z)?\.tar\.zst$ ]]; then
++  echo "DATA_ASSET must be football-db.tar.zst or football-db-<YYYYMMDDTHHMMSSZ>.tar.zst" >&2
++  exit 1
++fi
+ if [ -d "$dir" ] && [ -n "$(ls -A "$dir")" ]; then
+   echo "refusing to restore into non-empty $dir" >&2
+   exit 1
+ fi
+ tmp="$(mktemp -d)"
+-trap 'rm -rf "$tmp"' EXIT
++stage=""
++trap 'rm -rf "$tmp"; [ -z "$stage" ] || rm -rf "$stage"' EXIT
+ 
+ if ! assets="$($GH release view data --json assets --jq '.assets[].name' 2>"$tmp/err")"; then
+   if grep -qi "release not found" "$tmp/err"; then
+@@ -31,18 +51,31 @@ if ! grep -qxF "$asset" <<<"$assets"; then
+     echo "asset $asset is not on the data release" >&2
+     exit 1
+   fi
+-  echo "data release has no export yet; starting empty"
+-  exit 0
++  newest="$(grep -E '^football-db-[0-9]{8}T[0-9]{6}Z\.tar\.zst$' <<<"$assets" | sort | tail -n 1 || true)"
++  if [ -z "$newest" ]; then
++    echo "data release has no export yet; starting empty"
++    exit 0
++  fi
++  echo "football-db.tar.zst is missing; falling back to the newest dated copy $newest" >&2
++  asset="$newest"
+ fi
+ 
+ $GH release download data --pattern "$asset" --dir "$tmp"
++bash "$here/check_archive.sh" "$tmp/$asset"
+ mkdir "$tmp/x"
+ tar --zstd -xf "$tmp/$asset" -C "$tmp/x"
+ if [ -f "$tmp/x/manifest.json" ]; then
+   $VERIFY "$tmp/x"
+-else
++elif ls "$tmp/x" | grep -q '\.parquet$'; then
+   echo "legacy export without a manifest: accepted (the next publish adds one)"
++else
++  echo "archive holds no tables" >&2
++  exit 1
+ fi
+-mkdir -p "$dir"
+-cp -R "$tmp/x/." "$dir/"
++mkdir -p "$(dirname "$dir")"
++stage="$(mktemp -d "$(dirname "$dir")/.restore-XXXXXX")"
++cp -R "$tmp/x/." "$stage/"
++[ ! -d "$dir" ] || rmdir "$dir"
++mv "$stage" "$dir"
++stage=""
+ echo "restored $(ls "$dir" | grep -c '\.parquet$') tables into $dir from $asset"
+diff --git a/src/fpl_agent/cli.py b/src/fpl_agent/cli.py
+index e8879df..d6f560d 100644
+--- a/src/fpl_agent/cli.py
++++ b/src/fpl_agent/cli.py
+@@ -84,7 +84,7 @@ def db_update(args: argparse.Namespace) -> int:
+         players=args.players,
+         player_limit=args.limit,
+         export=Path(args.export) if args.export else None,
+-        repairs=not args.no_repairs,
++        repairs=args.repairs and not args.no_repairs,
+     )
+     db = _open_db(args)
+     result = run_update(db, opts)
+@@ -107,7 +107,7 @@ def backfill(args: argparse.Namespace) -> int:
+         sources=tuple(s for s in args.sources.split(",") if s),
+         export=Path(args.export) if args.export else None,
+         max_minutes=args.max_minutes,
+-        repairs=not args.no_repairs,
++        repairs=args.repairs and not args.no_repairs,
+     )
+     db = _open_db(args)
+     result = run_backfill(db, opts)
+@@ -123,6 +123,8 @@ def _open_db(args: argparse.Namespace):
+ 
+     db = FootballDB(args.db)
+     _OPENED.append(db)
++    if db.created_tables:  # the one schema change an open makes, said out loud
++        print(f"schema: created missing tables {db.created_tables} in {args.db}", file=sys.stderr)
+     if getattr(args, "import_dir", None):
+         db.import_parquet(args.import_dir)
+     return db
+@@ -327,13 +329,27 @@ def send_cmd(args: argparse.Namespace) -> int:
+     return 0 if notify.send(message) else 1
+ 
+ 
++_EVAL_LABEL = {
++    True: "VALIDATED: eligible gameweeks only, excluded matches removed",
++    False: "EXPLORATORY: not restricted to eligible gameweeks (see db-eligibility)",
++}
++
++
+ def backtest_cmd(args: argparse.Namespace) -> int:
+     from fpl_agent.model import backtest
+     from fpl_agent.model.simulate import SimConfig
+ 
+     db = _open_db(args)
++    from fpl_agent.db.eligibility import NotEligible
++
+     gws = list(range(args.from_gw, args.to_gw + 1))
+-    res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples))
++    try:
++        res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples),
++                                           validated=args.validated)  # fmt: skip
++    except NotEligible as e:
++        print(f"not validated: {e}")
++        return 1
++    print(_EVAL_LABEL[args.validated])
+     if res.empty:
+         print("no gameweeks could be back-tested (not enough history in the database)")
+         return 2
+@@ -354,10 +370,17 @@ def replay_cmd(args: argparse.Namespace) -> int:
+     cfg = replay.tuned(cfg, args.set or [])
+     if args.set:
+         print("settings: " + ", ".join(args.set))
++    from fpl_agent.db.eligibility import NotEligible
++
+     gws = list(range(args.from_gw, (args.to_gw or 38) + 1))
+-    res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
+-        f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
+-        + (f", {w.chip}" if w.chip else ""), flush=True))  # fmt: skip
++    print(_EVAL_LABEL[args.validated])
++    try:
++        res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
++            f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
++            + (f", {w.chip}" if w.chip else ""), flush=True), validated=args.validated)  # fmt: skip
++    except NotEligible as e:
++        print(f"not validated: {e}")
++        return 1
+     if not res.weeks:
+         print("no gameweeks could be replayed (no points for that season in the database)")
+         return 2
+@@ -440,9 +463,13 @@ def fit_translations_cmd(args: argparse.Namespace) -> int:
+ 
+ def verify_export_cmd(args: argparse.Namespace) -> int:
+     """Check an export folder against its manifest; non-zero when it must not be published."""
+-    from fpl_agent.db.database import verify_export
++    from fpl_agent.db.database import missing_tables, verify_export
+ 
+     problems = verify_export(args.dir)
++    if args.complete and not problems:
++        # a fresh export must hold every declared table (empty ones too); only an older export
++        # being restored may lack tables added since
++        problems = [f"{n}: declared table not in the export" for n in missing_tables(args.dir)]
+     for p in problems:
+         print(f"export problem: {p}")
+     if not problems:
+@@ -450,10 +477,121 @@ def verify_export_cmd(args: argparse.Namespace) -> int:
+     return 1 if problems else 0
+ 
+ 
++def db_schema_cmd(args: argparse.Namespace) -> int:
++    """Read-only migration preflight: JSON of missing/extra tables and column differences.
++    Exit 0 = current, 3 = an open would create tables or a migration is needed, 1 = no file."""
++    from pathlib import Path
++
++    from fpl_agent.db.database import schema_status
++
++    if not Path(args.db).exists():
++        print(json.dumps({"db": args.db, "error": "no such file"}))
++        return 1
++    st = schema_status(args.db)
++    print(json.dumps({"db": args.db, **st}, indent=1))
++    return 0 if st["current"] else 3
++
++
++def _read_db(path: str):
++    from fpl_agent.db.database import FootballDB
++
++    return FootballDB(path, schema="read")  # read-only: a report never writes
++
++
++def source_health_cmd(args: argparse.Namespace) -> int:
++    """Per-source state (failed / stale / ok_zero / ok / never) and data checks, as JSON.
++    Exit 0 = healthy, 1 = degraded, 2 = blocked (decisions must not rely on the data)."""
++    from fpl_agent.db.source_health import report
++
++    db = _read_db(args.db)
++    try:
++        r = report(db, int(args.season))
++    finally:
++        db.close()
++    print(json.dumps(r, indent=1))
++    return {"healthy": 0, "degraded": 1, "blocked": 2}[r["overall"]]
++
++
++def eligibility_cmd(args: argparse.Namespace) -> int:
++    """Which past gameweeks are genuine decision-time evidence (eligible), rebuilt
++    (reconstructed) or missing (unavailable), and which matches are excluded, as JSON."""
++    from fpl_agent.db.eligibility import manifest
++
++    db = _read_db(args.db)
++    try:
++        m = manifest(db, int(args.season))
++    finally:
++        db.close()
++    print(json.dumps(m, indent=1, default=str))
++    return 0
++
++
++def links_cmd(args: argparse.Namespace) -> int:
++    """How much of a season's FPL playing time has FotMob detail joined, and who is unlinked
++    and why, as JSON (read-only). `--propose`: the evidence links the conservative rule would
++    accept or rejects, from evidence before `--cutoff` (also read-only: nothing is applied).
++    `--apply` (optionally `--reviewed file`) writes the accepted links as one batch and
++    `--undo BATCH` rolls one back; both need an explicit `--db`, never the default file.
++    Exit 1 = refused, nothing changed."""
++    from datetime import UTC, datetime
++    from pathlib import Path
++
++    from fpl_agent.db.link_audit import coverage as link_coverage
++
++    cutoff = datetime.fromisoformat(args.cutoff) if args.cutoff else datetime.now(UTC)
++    cutoff = cutoff.replace(tzinfo=None)
++    if args.apply or args.undo:
++        from fpl_agent.db import player_links
++        from fpl_agent.db.database import FootballDB
++
++        if not args.db:
++            print("not applied: name the database with --db (links are never applied implicitly)")
++            return 1
++        db = FootballDB(args.db)
++        try:
++            if args.undo:
++                n = player_links.undo(db, args.undo)
++                r = {"batch_id": args.undo, "rolled_back": n}
++            else:
++                reviewed = None
++                if args.reviewed:
++                    reviewed = json.loads(Path(args.reviewed).read_text(encoding="utf-8"))
++                    reviewed = reviewed.get("accepted", reviewed)
++                r = player_links.apply(db, int(args.season), cutoff, reviewed)
++        except player_links.LinkConflict as e:
++            print(f"not applied: {e}")
++            return 1
++        finally:
++            db.close()
++        print(json.dumps(r, indent=1, default=str))
++        return 0 if not args.undo or r["rolled_back"] else 1
++    db = _read_db(args.db or "data_cache/football.duckdb")
++    try:
++        if args.propose:
++            from fpl_agent.db.link_candidates import history
++
++            r = history(db, int(args.season), cutoff)
++        elif args.batches:
++            from fpl_agent.db.player_links import batches
++
++            r = [] if "player_links" in db.missing_tables else batches(db)
++        else:
++            r = link_coverage(db, int(args.season), limit=args.limit)
++    finally:
++        db.close()
++    text = json.dumps(r, indent=1, default=str)
++    if args.out:
++        Path(args.out).write_text(text, encoding="utf-8")
++        print(f"wrote {args.out}")
++    else:
++        print(text)
++    return 0
++
++
+ def repair_undo_cmd(args: argparse.Namespace) -> int:
+     """Without an id: the journal of automatic repairs (read only). With one: undo that repair
+     exactly, or change nothing and exit 1 when the data changed since."""
+-    from fpl_agent.db.database import FootballDB
++    from fpl_agent.db.database import FootballDB, SchemaError
+     from fpl_agent.db.quality import RepairConflict, rollback_repair
+ 
+     if not args.repair_id:
+@@ -475,7 +613,11 @@ def repair_undo_cmd(args: argparse.Namespace) -> int:
+         if not rows:
+             print("no journalled repairs")
+         return 0
+-    db = FootballDB(args.db)
++    try:
++        db = FootballDB(args.db, schema="require")  # an undo never migrates the file
++    except SchemaError as e:
++        print(f"not undone: {e}")
++        return 1
+     try:
+         restored = rollback_repair(db, args.repair_id)
+     except RepairConflict as e:
+@@ -483,6 +625,9 @@ def repair_undo_cmd(args: argparse.Namespace) -> int:
+         return 1
+     finally:
+         db.close()
++    if not restored:
++        print(f"{args.repair_id} was already undone; nothing changed")
++        return 0
+     print(f"undone {args.repair_id}: restored {restored}")
+     return 0
+ 
+@@ -530,10 +675,12 @@ def main(argv: list[str] | None = None) -> int:
+         "with --points (repairs history stored by older code; back up first)",
+     )
+     d.add_argument(
+-        "--no-repairs",
++        "--repairs",
+         action="store_true",
+-        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
++        help="apply needed automatic repair/quarantine changes (journalled; see repair-undo). "
++        "Without it they are only probed and the run stops (exit 3) if one is needed",
+     )
++    d.add_argument("--no-repairs", action="store_true", help="the default; kept for old scripts")
+     d.add_argument("--players", action="store_true", help="also load Understat player histories")
+     d.add_argument("--limit", type=int, default=25, help="max players for --players")
+     d.add_argument("--export", default=None, help="write parquet files to this directory")
+@@ -557,10 +704,12 @@ def main(argv: list[str] | None = None) -> int:
+     b.add_argument("--export", default=None)
+     b.add_argument("--import-dir", default=None)
+     b.add_argument(
+-        "--no-repairs",
++        "--repairs",
+         action="store_true",
+-        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
++        help="apply needed automatic repair/quarantine changes (journalled; see repair-undo). "
++        "Without it they are only probed and the run stops (exit 3) if one is needed",
+     )
++    b.add_argument("--no-repairs", action="store_true", help="the default; kept for old scripts")
+     pl = sub.add_parser(
+         "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
+     )
+@@ -613,6 +762,11 @@ def main(argv: list[str] | None = None) -> int:
+     bt.add_argument("--to-gw", type=int, default=20)
+     bt.add_argument("--samples", type=int, default=600)
+     bt.add_argument("--out", default=None)
++    bt.add_argument(
++        "--validated",
++        action="store_true",
++        help="eligible gameweeks only, excluded matches removed (db-eligibility)",
++    )
+     rp = sub.add_parser("replay", help="run the agent through a past season, scored on real points")
+     rp.add_argument("--db", default="data_cache/football.duckdb")
+     rp.add_argument("--import-dir", default=None)
+@@ -624,6 +778,11 @@ def main(argv: list[str] | None = None) -> int:
+     rp.add_argument("--no-chips", action="store_true")
+     rp.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
+     rp.add_argument("--out", default=None)
++    rp.add_argument(
++        "--validated",
++        action="store_true",
++        help="eligible gameweeks only, excluded matches removed (db-eligibility)",
++    )
+     rt = sub.add_parser(
+         "retro", help="what the agent would decide for a gameweek, against your team"
+     )
+@@ -659,6 +818,33 @@ def main(argv: list[str] | None = None) -> int:
+     ft.add_argument("--validate", action="store_true", help="also print the leave-one-out check")
+     ve = sub.add_parser("verify-export", help="check an export folder against its manifest")
+     ve.add_argument("dir")
++    ve.add_argument(
++        "--complete",
++        action="store_true",
++        help="also require every declared table (used before publishing)",
++    )
++    ds = sub.add_parser("db-schema", help="read-only: does a database match the declared schema")
++    ds.add_argument("--db", default="data_cache/football.duckdb")
++    sh = sub.add_parser("source-health", help="read-only: each source's state and data checks")
++    sh.add_argument("--db", default="data_cache/football.duckdb")
++    sh.add_argument("--season", type=int, default=2026)
++    el = sub.add_parser("db-eligibility",
++                        help="read-only: which past gameweeks are genuine evidence")  # fmt: skip
++    el.add_argument("--db", default="data_cache/football.duckdb")
++    el.add_argument("--season", type=int, default=2026)
++    lk = sub.add_parser("db-links", help="FPL players and minutes linked to FotMob (read-only "
++                        "unless --apply/--undo)")  # fmt: skip
++    lk.add_argument("--db", default=None, help="default data_cache/football.duckdb (reads only)")
++    lk.add_argument("--season", type=int, default=2026)
++    lk.add_argument("--limit", type=int, default=None, help="cap the unlinked list")
++    lk.add_argument("--propose", action="store_true",
++                    help="propose evidence links (read-only; nothing is applied)")  # fmt: skip
++    lk.add_argument("--cutoff", default=None, help="ISO time: use only evidence before it")
++    lk.add_argument("--out", default=None, help="write the JSON here instead of printing")
++    lk.add_argument("--apply", action="store_true", help="write the accepted links as a batch")
++    lk.add_argument("--reviewed", default=None, help="with --apply: only these reviewed pairs")
++    lk.add_argument("--undo", default=None, metavar="BATCH", help="roll back one batch")
++    lk.add_argument("--batches", action="store_true", help="list applied batches")
+     ru = sub.add_parser(
+         "repair-undo", help="list journalled repairs, or undo one exactly (back up first)"
+     )
+@@ -706,6 +892,14 @@ def _dispatch(args: argparse.Namespace) -> int:
+         return verify_export_cmd(args)
+     if args.cmd == "repair-undo":
+         return repair_undo_cmd(args)
++    if args.cmd == "db-schema":
++        return db_schema_cmd(args)
++    if args.cmd == "source-health":
++        return source_health_cmd(args)
++    if args.cmd == "db-eligibility":
++        return eligibility_cmd(args)
++    if args.cmd == "db-links":
++        return links_cmd(args)
+     settings = Settings.from_env()
+     if args.cmd == "dashboard":
+         return dashboard_cmd(args)
+diff --git a/tests/test_persistence.py b/tests/test_persistence.py
+index d297320..66bc03d 100644
+--- a/tests/test_persistence.py
++++ b/tests/test_persistence.py
+@@ -201,7 +201,8 @@ def test_a_table_file_the_manifest_does_not_list_is_refused(tmp_path, change):
+     if change == "added":
+         (out / "decisions.parquet").rename(out / "stray.parquet")
+         shutil.copy(out / "stray.parquet", out / "decisions.parquet")
+-    del m["tables"]["matches"]
++    else:
++        del m["tables"]["matches"]
+     (out / "manifest.json").write_text(json.dumps(m), encoding="utf-8")
+     if change == "tampered":
+         with open(out / "matches.parquet", "ab") as f:
+@@ -281,6 +282,146 @@ def test_opening_names_the_tables_it_had_to_create(tmp_path):
+     assert FootballDB(path).created_tables == []
+ 
+ 
++def _every_table_filled(db: FootballDB, rows: int = 2) -> None:
++    """Distinct synthetic rows in every declared table (journals and attempts included), every
++    column set, NULLs too, so a restore that drops a table, column or value shows."""
++    from fpl_agent.db.database import declared_types
++
++    lit = {"BIGINT": "{i}", "INTEGER": "{i}", "DOUBLE": "{i}.25", "BOOLEAN": "{b}",
++           "DATE": "DATE '2026-09-0{i}'", "TIMESTAMP": "TIMESTAMP '2026-09-0{i} 10:00:00.123456'",
++           "VARCHAR": "'{t}-{i} it''s'", "JSON": "'{{\"k\": {i}, \"s\": \"x y\"}}'"}  # fmt: skip
++    for table, cols in declared_types().items():
++        for i in range(1, rows + 1):
++            vals = [lit[ty].format(i=i, b=str(i % 2 == 0).lower(), t=table) for _, ty in cols]
++            if i == rows:  # a NULL in every nullable column of the last row (keys stay set)
++                key = db.con.execute(
++                    "SELECT constraint_column_names FROM duckdb_constraints() WHERE "
++                    "table_name = ? AND constraint_type = 'PRIMARY KEY'", [table]).fetchone()  # fmt: skip
++                keep = set(key[0]) if key else set()
++                vals = [v if c in keep else "NULL" for (c, _), v in zip(cols, vals, strict=True)]
++            db.con.execute(f"INSERT INTO {table} VALUES ({', '.join(vals)})")
++
++
++def _rows(db: FootballDB, table: str) -> list:
++    return sorted(map(repr, db.con.execute(f"SELECT * FROM {table}").fetchall()))
++
++
++def test_a_full_restore_reproduces_every_current_table_exactly(tmp_path):
++    """Restore = import into an empty database. Every declared table, the operational ones
++    (repair journal, source attempts, migration log, ingest markers) included, comes back with
++    the same rows and values; the only addition is the import's own marker."""
++    from fpl_agent.db.schema import TABLES
++
++    src = FootballDB()
++    _every_table_filled(src)
++    src.export_parquet(tmp_path / "out")
++    dst = FootballDB()
++    dst.import_parquet(tmp_path / "out", require_manifest=True)
++    for t in TABLES:
++        got = _rows(dst, t)
++        if t == "ingest_state":
++            got = [r for r in got if not r.startswith("('import',")]
++        assert got == _rows(src, t), t
++    assert {"repair_log", "source_attempts", "migration_log"} <= set(TABLES)
++    assert all(_rows(src, t) for t in TABLES)  # none was empty, so none passed vacuously
++
++
++def test_an_import_interrupted_part_way_leaves_nothing(tmp_path, monkeypatch):
++    from fpl_agent.db import database
++
++    src = FootballDB()
++    _every_table_filled(src)
++    src.export_parquet(tmp_path / "out")
++    dst = FootballDB()
++    real = database._undeclared
++    seen = []
++
++    def power_cut(name, cols):
++        seen.append(name)
++        if len(seen) == 10:  # nine tables already inserted in this transaction
++            raise OSError("disk went away")
++        return real(name, cols)
++
++    monkeypatch.setattr(database, "_undeclared", power_cut)
++    with pytest.raises(OSError):
++        dst.import_parquet(tmp_path / "out", require_manifest=True)
++    assert all(n == 0 for n in dst.counts().values())  # no rows, no "imported" marker either
++    monkeypatch.setattr(database, "_undeclared", real)
++    assert dst.import_parquet(tmp_path / "out", require_manifest=True) > 0  # a retry works
++
++
++def test_a_file_replaced_after_verification_cannot_be_imported(tmp_path, monkeypatch):
++    """Verification and loading read one private copy: swapping a verified file in the export
++    folder (here the moment verification returns) changes nothing that is loaded."""
++    from fpl_agent.db import database
++
++    good = seeded()
++    good.export_parquet(tmp_path / "out")
++    evil = FootballDB()
++    evil.con.execute("INSERT INTO teams VALUES (999, 'Planted', 'planted')")
++    evil.export_parquet(tmp_path / "evil")
++    real = database.verify_export
++
++    def then_swap(d):
++        problems = real(d)
++        shutil.copyfile(tmp_path / "evil" / "teams.parquet", tmp_path / "out" / "teams.parquet")
++        return problems
++
++    monkeypatch.setattr(database, "verify_export", then_swap)
++    dst = FootballDB()
++    dst.import_parquet(tmp_path / "out", require_manifest=True)
++    assert dst.con.execute("SELECT count(*) FROM teams WHERE team_id = 999").fetchone()[0] == 0
++    assert dst.counts()["teams"] == good.counts()["teams"]
++    monkeypatch.setattr(database, "verify_export", real)
++    with pytest.raises(ExportError, match="checksum"):  # the swapped folder itself is refused
++        FootballDB().import_parquet(tmp_path / "out")
++
++
++def test_schema_require_refuses_without_writing_and_init_names_what_it_creates(tmp_path):
++    import duckdb
++
++    from fpl_agent.db.database import SchemaError, schema_status
++
++    path = tmp_path / "old.duckdb"
++    db = FootballDB(path)
++    db.con.execute("DROP TABLE source_attempts")
++    db.close()
++    st = schema_status(path)
++    assert st["missing_tables"] == ["source_attempts"] and not st["current"]
++    before = path.read_bytes()
++    with pytest.raises(SchemaError, match="missing declared tables"):
++        FootballDB(path, schema="require")
++    assert path.read_bytes() == before  # refused before any write
++    assert FootballDB(path).created_tables == ["source_attempts"]  # explicit, and named
++    assert schema_status(path)["current"]
++    # a changed existing table is never altered by an open, in either mode
++    con = duckdb.connect(str(path))
++    con.execute("ALTER TABLE lessons DROP COLUMN rule")
++    con.close()
++    for mode in ("init", "require"):
++        with pytest.raises(SchemaError, match="columns differ"):
++            FootballDB(path, schema=mode)
++    assert "lessons" in schema_status(path)["column_differences"]
++    with pytest.raises(ValueError):
++        FootballDB(schema="migrate")
++
++
++def test_db_schema_command_is_read_only(tmp_path, capsys):
++    path = tmp_path / "old.duckdb"
++    db = FootballDB(path)
++    db.con.execute("DROP TABLE repair_log")
++    db.close()
++    before = path.read_bytes()
++    assert main(["db-schema", "--db", str(path)]) == 3
++    out = json.loads(capsys.readouterr().out)
++    assert out["missing_tables"] == ["repair_log"] and out["current"] is False
++    assert path.read_bytes() == before
++    FootballDB(path).close()
++    assert main(["db-schema", "--db", str(path)]) == 0
++    assert main(["db-schema", "--db", str(tmp_path / "absent.duckdb")]) == 1
++    assert not (tmp_path / "absent.duckdb").exists()
++
++
+ # ---- the shell scripts, against a stand-in `gh` (Linux CI; needs bash, tar and zstd) ----------
+ ROOT = Path(__file__).parent.parent
+ needs_shell = pytest.mark.skipif(
+@@ -288,15 +429,29 @@ needs_shell = pytest.mark.skipif(
+     reason="needs bash, tar and zstd (checked in Linux CI)",
+ )
+ FAKE_GH = r"""#!/usr/bin/env bash
+-# stand-in for the GitHub CLI: FAKE_MODE = missing | auth | ok ; archives live in $FAKE_STORE
++# stand-in for the GitHub CLI: FAKE_MODE = missing | auth | ok | dropdated | badrolling ;
++# archives live in $FAKE_STORE
+ echo "$*" >> "$FAKE_STORE/calls"
+ case "$1 $2" in
+   "release view")
+     if [ "$FAKE_MODE" = missing ]; then echo "release not found" >&2; exit 1; fi
+     if [ "$FAKE_MODE" = auth ]; then echo "HTTP 401: Bad credentials" >&2; exit 1; fi
+-    ls "$FAKE_STORE" | grep '\.tar\.zst$' || true ;;
++    for f in "$FAKE_STORE"/*.tar.zst; do
++      [ -e "$f" ] || continue
++      case "$*" in
++        *size*) echo "$(basename "$f") $(stat -c %s "$f")" ;;
++        *) basename "$f" ;;
++      esac
++    done ;;
+   "release download") cp "$FAKE_STORE/$5" "$7/" ;;
+-  "release upload") cp "$4" "$FAKE_STORE/" ;;
++  "release upload")
++    # dropdated: the dated upload "succeeds" but never appears on the release
++    if [ "$FAKE_MODE" = dropdated ] && [[ "$(basename "$4")" == football-db-* ]]; then exit 0; fi
++    # badrolling: the rolling replacement is cut short (an interrupted --clobber)
++    if [ "$FAKE_MODE" = badrolling ] && [ "$(basename "$4")" = football-db.tar.zst ]; then
++      head -c 10 "$4" > "$FAKE_STORE/football-db.tar.zst"; exit 0
++    fi
++    cp "$4" "$FAKE_STORE/" ;;
+   "release create") ;;
+ esac
+ """
+@@ -439,3 +594,131 @@ def test_a_briefly_locked_folder_is_retried(tmp_path, monkeypatch):
+     monkeypatch.setattr(database.time, "sleep", lambda s: None)
+     db.export_parquet(out)
+     assert denied["n"] == 2 and verify_export(out) == []
++
++
++def _drop_from_export(out: Path, table: str) -> None:
++    """An internally consistent export that simply lacks `table` (an older export)."""
++    m = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
++    del m["tables"][table]
++    (out / "manifest.json").write_text(json.dumps(m), encoding="utf-8")
++    (out / f"{table}.parquet").unlink()
++
++
++def test_verify_export_complete_requires_every_declared_table(tmp_path, capsys):
++    seeded().export_parquet(tmp_path / "out")
++    assert main(["verify-export", "--complete", str(tmp_path / "out")]) == 0
++    _drop_from_export(tmp_path / "out", "transfers")
++    assert main(["verify-export", str(tmp_path / "out")]) == 0  # still a valid older export
++    assert main(["verify-export", "--complete", str(tmp_path / "out")]) == 1
++    assert "transfers: declared table not in the export" in capsys.readouterr().out
++
++
++def test_a_fresh_export_lists_every_declared_table_even_when_empty(tmp_path):
++    from fpl_agent.db.database import missing_tables
++    from fpl_agent.db.schema import TABLES
++
++    FootballDB().export_parquet(tmp_path / "out")
++    m = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
++    assert set(m["tables"]) == set(TABLES)
++    assert all(t["rows"] == 0 for t in m["tables"].values())
++    assert missing_tables(tmp_path / "out") == [] and verify_export(tmp_path / "out") == []
++
++
++@needs_shell
++def test_publish_refuses_an_export_lacking_a_declared_table(tmp_path, fake_gh):
++    store, env = fake_gh
++    seeded().export_parquet(tmp_path / "out")
++    _drop_from_export(tmp_path / "out", "transfers")
++    res = sh("data_publish.sh", tmp_path / "out", env)
++    assert res.returncode != 0
++    assert "transfers: declared table not in the export" in res.stdout + res.stderr
++    assert not list(store.glob("*.tar.zst"))
++
++
++@needs_shell
++def test_publish_refuses_an_archive_over_the_size_bound(tmp_path, fake_gh):
++    store, env = fake_gh
++    seeded().export_parquet(tmp_path / "out")
++    res = sh("data_publish.sh", tmp_path / "out", {**env, "MAX_ARCHIVE_BYTES": "10"})
++    assert res.returncode != 0 and "MAX_ARCHIVE_BYTES" in res.stderr
++    assert not list(store.glob("*.tar.zst"))
++
++
++@needs_shell
++def test_publish_keeps_the_rolling_asset_when_the_dated_copy_is_missing(tmp_path, fake_gh):
++    store, env = fake_gh
++    (store / "football-db.tar.zst").write_bytes(b"previous good asset")
++    seeded().export_parquet(tmp_path / "out")
++    res = sh("data_publish.sh", tmp_path / "out", {**env, "FAKE_MODE": "dropdated"})
++    assert res.returncode != 0 and "left unchanged" in res.stderr
++    assert (store / "football-db.tar.zst").read_bytes() == b"previous good asset"
++
++
++@needs_shell
++def test_restore_accepts_a_legacy_archive_without_a_manifest(tmp_path, fake_gh):
++    store, env = fake_gh
++    out = tmp_path / "out"
++    seeded().export_parquet(out)
++    (out / "manifest.json").unlink()
++    subprocess.run(["tar", "--zstd", "-cf", str(store / "football-db.tar.zst"), "-C", str(out),
++                    "."], check=True)  # fmt: skip
++    res = sh("data_restore.sh", tmp_path / "restored", env)
++    assert res.returncode == 0 and "legacy export" in res.stdout, res.stderr
++    db = FootballDB()
++    assert db.import_parquet(tmp_path / "restored") > 0
++
++
++@needs_shell
++@pytest.mark.parametrize("member", ["link", "nested"])
++def test_restore_refuses_an_archive_with_unexpected_members(tmp_path, fake_gh, member):
++    store, env = fake_gh
++    out = tmp_path / "out"
++    seeded().export_parquet(out)
++    if member == "link":
++        (out / "evil.parquet").symlink_to("/etc/passwd")
++    else:
++        (out / "sub").mkdir()
++        (out / "sub" / "x.parquet").write_bytes(b"x")
++    subprocess.run(["tar", "--zstd", "-cf", str(store / "football-db.tar.zst"), "-C", str(out),
++                    "."], check=True)  # fmt: skip
++    res = sh("data_restore.sh", tmp_path / "restored", env)
++    assert res.returncode != 0 and "not allowed" in res.stderr
++    assert not (tmp_path / "restored").exists()
++
++
++@needs_shell
++def test_restore_refuses_an_asset_name_that_is_not_an_export(tmp_path, fake_gh):
++    store, env = fake_gh
++    res = sh("data_restore.sh", tmp_path / "r", {**env, "DATA_ASSET": "*"})
++    assert res.returncode != 0 and "DATA_ASSET must be" in res.stderr
++    assert not (store / "calls").exists()  # refused before asking the release anything
++
++
++@needs_shell
++def test_publish_refuses_a_folder_restore_would_refuse(tmp_path, fake_gh):
++    store, env = fake_gh
++    seeded().export_parquet(tmp_path / "out")
++    (tmp_path / "out" / "notes.txt").write_text("stray", encoding="utf-8")
++    res = sh("data_publish.sh", tmp_path / "out", env)
++    assert res.returncode != 0 and "not allowed" in res.stderr
++    assert not list(store.glob("*.tar.zst"))
++
++
++@needs_shell
++def test_publish_checks_the_rolling_asset_and_restore_falls_back_to_the_dated_copy(
++    tmp_path, fake_gh
++):
++    store, env = fake_gh
++    seeded().export_parquet(tmp_path / "out")
++    res = sh("data_publish.sh", tmp_path / "out", {**env, "FAKE_MODE": "badrolling"})
++    assert res.returncode != 0 and "falls back to the newest dated copy" in res.stderr
++    (store / "football-db.tar.zst").unlink()  # the clobber removed it and never finished
++    res = sh("data_restore.sh", tmp_path / "restored", env)
++    assert res.returncode == 0 and "falling back" in res.stderr, res.stderr
++    assert verify_export(tmp_path / "restored") == []
++
++
++def test_default_verify_never_syncs_packages():
++    for script in ("data_publish.sh", "data_restore.sh"):
++        text = (ROOT / "scripts" / script).read_text(encoding="utf-8")
++        assert 'VERIFY="${VERIFY:-uv run --no-sync fpl-agent verify-export}"' in text
+diff --git a/scripts/check_archive.sh b/scripts/check_archive.sh
+new file mode 100644
+index 0000000..b99ff39
+--- /dev/null
++++ b/scripts/check_archive.sh
+@@ -0,0 +1,17 @@
++#!/usr/bin/env bash
++# Refuse an export archive ($1, .tar.zst) holding anything but the `./` folder and top-level
++# regular files named manifest.json or <table>.parquet: no links, subfolders, paths or other
++# files. Publish and restore both run it, so whatever one accepts the other accepts too.
++# Reads GNU tar's verbose listing (mode owner size date time name); another tar's listing does
++# not match and is refused, never accepted.
++set -euo pipefail
++archive="$1"
++list="$(tar --zstd -tvf "$archive")"
++while read -r mode _ _ _ _ name; do
++  case "$mode" in
++    d*) if [ "$name" = "./" ] || [ "$name" = "." ]; then continue; fi ;;
++    -*) if [[ "$name" =~ ^(\./)?(manifest\.json|[a-z0-9_]+\.parquet)$ ]]; then continue; fi ;;
++  esac
++  echo "archive member not allowed: $mode $name" >&2
++  exit 1
++done <<<"$list"

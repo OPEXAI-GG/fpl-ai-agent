@@ -1,0 +1,34 @@
+ M TASK.md
+ M docs/football-intelligence.md
+ M src/fpl_agent/agent.py
+ M src/fpl_agent/cli.py
+ M src/fpl_agent/dashboard/service.py
+ M src/fpl_agent/db/database.py
+ M src/fpl_agent/db/ingest_fpl.py
+ M src/fpl_agent/db/quality.py
+ M src/fpl_agent/db/schema.py
+ M src/fpl_agent/lessons.py
+ M src/fpl_agent/model/features.py
+ M src/fpl_agent/model/project.py
+ M src/fpl_agent/model/simulate.py
+ M src/fpl_agent/pipeline.py
+ M src/fpl_agent/review.py
+ M tests/test_db.py
+ M tests/test_lessons.py
+ M tests/test_minutes.py
+ M tests/test_pipeline.py
+ M tests/test_quality.py
+ M tests/test_simulate.py
+?? artifacts/codex-db-review-r2-604dd0fef9/
+?? artifacts/codex-r1-export-probe-86fb868b/
+?? artifacts/db-audit-20261022/
+?? artifacts/db-hardening-20261023T143050Z/
+?? artifacts/db-migration-rehearsal-20261022T143033Z-r1/
+?? artifacts/db-migration-rehearsal-20261022T150213Z-r1/
+?? artifacts/db-migration-rehearsal-20261022T150303Z-r1/
+?? artifacts/db-migration-rehearsal-20261023T115912Z-r1/
+?? artifacts/deadline-20261023/
+?? artifacts/scheduled-review-20261023/
+?? src/fpl_agent/db/fpl_identity.py
+?? tests/test_fpl_identity.py
+?? tests/test_fpl_identity_evidence.py

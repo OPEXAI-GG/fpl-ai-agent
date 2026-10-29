@@ -1,0 +1,28 @@
+fpl-agent weekly plan (DRY mode)
+GW8: roll the free transfer  (expected 46.4 pts)
+  captain Francisco Evanilson de Lima Barbosa, vice Riccardo Calafiori
+  captain options (expected / haul chance): Francisco Evanilson de Lima Barbosa 4.4 / 9%; Riccardo Calafiori 4.2 / 7%; Bryan Mbeumo 4.2 / 10%; Cole Palmer 4.1 / 9%
+  XI: Riccardo Calafiori, Bryan Mbeumo, Leif Davis, David Raya Martín, Enzo Le Fée, Brandon Thomas-Asante, Francisco Evanilson de Lima Barbosa, Maxim De Cuyper, Cole Palmer, Pascal Groß, Harvey Barnes
+  bench: Erling Haaland, Adrien Truffert, James Tarkowski, Bernd Leno
+  holding freehit: best gain +4.8 below the 8-point threshold
+  holding bboost: best gain +12.0 below the 14-point threshold
+  warning: kept for ownership (popular players are not sold without your OK): Riccardo Calafiori 97%, Pascal Groß 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Martín 58%
+  warning: held Adrien Truffert -> Ezri Konsa Ngoyo: it beat rolling the transfer in only 48% of simulated worlds (+0.1 pts over the horizon)
+  field: captain xP tradeoff: 0.00 below the highest-xP starter; ownership/rotation policy may prefer this captain
+  field: popular players you don't own (risk if they haul): João Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%
+  field: your differentials (under 5% owned, upside): Brandon Thomas-Asante 0%, Enzo Le Fée 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%
+plan for the next weeks (1 free transfer a week, re-checked every run):
+  GW9: 2 transfer(s): Bryan Mbeumo -> Diego Gómez Amarilla, Brandon Thomas-Asante -> João Pedro Junqueira de Jesus; captain Erling Haaland; expected 46.5 pts (2 free)
+  GW10: 1 transfer(s): Adrien Truffert -> Ezri Konsa Ngoyo; captain Erling Haaland; expected 48.8 pts (1 free)
+  GW11: roll the transfer; captain Erling Haaland; expected 46.9 pts (1 free)
+  GW12: 2 transfer(s): James Tarkowski -> Tarik Muharemović, Harvey Barnes -> Morgan Rogers; captain Erling Haaland; expected 44.0 pts (2 free)
+  GW13: roll the transfer; captain Erling Haaland; expected 44.1 pts (1 free)
+  GW14: roll the transfer; captain Erling Haaland; expected 43.1 pts (2 free)
+  GW15: roll the transfer; captain Erling Haaland; expected 42.5 pts (3 free)
+vs. no moves: +0.0 expected points this week
+dry-run: would set captain Francisco Evanilson de Lima Barbosa, vice Riccardo Calafiori
+note: odds skipped: no ODDS_API_KEY
+note: scout skipped: no ANTHROPIC_API_KEY
+note: ownership: top-10k sample of 200 managers
+note: player-rate coverage: 668/668 players use position priors (no usable detailed appearance history); treat these forecasts cautiously
+note: rank target top 10,000: overall rank 4,559,299, 129 points behind (4.2 a week over 31 gameweeks); the captain is the least-captained option within 0.6 expected points of the best

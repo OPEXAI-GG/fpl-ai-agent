@@ -65,7 +65,7 @@ def team_key(title: str) -> str:
 def load_overrides(path: Path = OVERRIDES_PATH) -> dict[int, int]:
     if not path.exists():
         return {}
-    with path.open() as fh:
+    with path.open(encoding="utf-8") as fh:
         return {int(r["understat_id"]): int(r["fpl_id"]) for r in csv.DictReader(fh)}
 
 

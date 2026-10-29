@@ -20,13 +20,15 @@ GW, SEASON = 10, 2024
 class FakeFPL:
     def __init__(self, pool, squad_ids, deadline):
         self.pool, self.squad, self.deadline = pool, squad_ids, deadline
-        self.calls = []
+        self.calls, self.boot_gets, self.boot_parses = [], 0, 0
 
-    def bootstrap(self):
+    def bootstrap(self, raw=None):
+        self.boot_parses += 1
         ev = SimpleNamespace(id=GW, is_next=True, deadline_time=self.deadline)
         return SimpleNamespace(events=[ev])
 
     def bootstrap_raw(self):
+        self.boot_gets += 1
         codes = {"GKP": 1, "DEF": 2, "MID": 3, "FWD": 4}
         return {
             "elements": [
@@ -144,6 +146,7 @@ def test_a_second_run_in_the_same_window_does_not_notify_again(env, monkeypatch)
     monkeypatch.setattr("fpl_agent.agent.notify.send", lambda m, *a, **k: sent.append(m) or True)
     w = env[0]
     w.db.con.execute("DELETE FROM decisions")
+    w.db.con.execute("DELETE FROM runs")
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))
     assert len(sent) == 1
@@ -166,6 +169,7 @@ def test_a_forced_run_that_failed_its_moves_still_notifies(env, monkeypatch):
     monkeypatch.setattr("fpl_agent.agent.notify.send", lambda m, *a, **k: sent.append(m) or True)
     w = env[0]
     w.db.con.execute("DELETE FROM decisions")
+    w.db.con.execute("DELETE FROM runs")
     run_weekly(w.db, Settings(), opts(notify=True, force=True), fpl=fake(env))  # first: notifies
     monkeypatch.setattr(
         "fpl_agent.agent.execute", lambda *a, **k: Outcome(mode="live", errors=["sign-in failed"])
@@ -220,7 +224,10 @@ def test_scheduled_run_holds_moves_for_team_news(env, monkeypatch):
 
     monkeypatch.setattr(agent.timing, "hold_moves", hold)
     res = run_weekly(env[0].db, Settings(), opts(), fpl=fake(env, hours=20))
-    assert res.status == "ok" and res.outcome.done == [] and 19 < seen[0] < 21
+    assert res.status == "ok" and 19 < seen[0] < 21
+    # transfers wait; the squad already owned still gets its lineup and captain (TASK A06)
+    assert not any("transfer" in x for x in res.outcome.done)
+    assert any("captain" in x for x in res.outcome.done)
     assert "moves held for team news" in res.report
     seen.clear()
     res = run_weekly(env[0].db, Settings(), opts(force=True), fpl=fake(env, hours=20))
@@ -240,3 +247,105 @@ def test_the_plan_reads_the_lessons_memory(env):
     assert res.status == "ok", res.notes
     assert any(n.startswith("memory: act now (weight 1.00)") for n in res.notes)
     assert any("lesson from GW9: move now" in n for n in res.notes)
+
+
+@pytest.mark.parametrize("held,verified,done", [
+    (True, None, False),  # held for team news: nothing was sent
+    (False, False, False),  # sent, but FPL's read-back did not match
+    (False, None, False),  # nothing could be checked
+    (False, True, True),
+])  # fmt: skip
+def test_only_a_verified_live_run_is_recorded_as_done(env, monkeypatch, held, verified, done):
+    from dataclasses import replace as dc_replace
+
+    from fpl_agent import agent
+    from fpl_agent.execution.execute import Outcome
+
+    monkeypatch.setattr(agent, "read_live", lambda state, *a, **k: (
+        dc_replace(state), object(), False, "live team read"))  # fmt: skip
+    monkeypatch.setattr(agent.timing, "hold_moves", lambda *a: (held, "held" if held else ""))
+    monkeypatch.setattr(agent, "execute", lambda *a, **k: Outcome(
+        "live", done=["set captain"], verified=verified))  # fmt: skip
+    w = env[0]
+    w.db.con.execute("DELETE FROM decisions")
+    w.db.con.execute("DELETE FROM runs")
+    run_weekly(w.db, Settings(mode="live"), opts(), fpl=fake(env))
+    modes = {r[0] for r in w.db.con.execute("SELECT mode FROM decisions").fetchall()}
+    assert (agent.DONE in modes) is done
+
+
+def test_after_a_free_hit_the_plan_starts_from_the_squad_before_it(env):
+    class AfterFreeHit(FakeFPL):
+        def entry_picks_raw(self, entry, gw):
+            self.calls.append(gw)
+            return super().entry_picks_raw(entry, gw)
+
+        def entry_history_raw(self, entry):
+            return {"chips": [{"name": "freehit", "event": GW - 1}], "current": []}
+
+    f = AfterFreeHit(env[1], env[2], datetime.now(UTC) + timedelta(hours=3))
+    res = run_weekly(env[0].db, Settings(), opts(), fpl=f)
+    assert res.status == "ok" and GW - 2 in f.calls and GW - 1 not in f.calls
+
+
+def test_a_plan_fetches_the_bootstrap_once(env):
+    f = fake(env)
+    res = run_weekly(env[0].db, Settings(), opts(), fpl=f)
+    assert res.status == "ok" and f.boot_gets == 1
+
+
+def test_the_client_parses_an_already_fetched_bootstrap_without_a_request():
+    import httpx
+
+    from fpl_agent.data.fpl_client import FPLClient
+    from tests.helpers import fixture
+
+    def no_network(request):
+        raise AssertionError("no request expected")
+
+    c = FPLClient(client=httpx.Client(transport=httpx.MockTransport(no_network)))
+    assert c.bootstrap(fixture("bootstrap-static.json")).events
+
+
+def _attempt(db, source, ok, at, critical):
+    db.con.execute("INSERT INTO source_attempts VALUES (?, 1, 'data update', ?, ?, ?, NULL, ?, "
+                   "?, ?, ?)", [f"t-{source}-{at.isoformat()}", source, ok, critical,
+                                None if ok else "HTTP 503", at, at, 0 if ok else 2])  # fmt: skip
+
+
+@pytest.mark.parametrize("case", ["critical_after", "critical_before", "optional"])
+def test_a_critical_source_failing_after_the_snapshot_makes_the_plan_diagnostic(env, case):
+    """End to end with a fake FPL, dry: a critical refresh that failed after the snapshot the
+    plan uses is a rail in every mode; the plan is reported as a diagnostic (exit 3, run
+    blocked), not a recommendation. A failure older than the snapshot, or of an optional
+    source, only adds a note."""
+    w = env[0]
+    snap = w.db.con.execute("SELECT max(snapshot_at) FROM fpl_players_gw WHERE season = ? "
+                            "AND gw = ?", [SEASON, GW]).fetchone()[0]  # fmt: skip
+    now = datetime.now(UTC).replace(tzinfo=None)
+    started = now - timedelta(seconds=1)  # decisions.created_at is naive UTC too
+    try:
+        for src in ("fpl:bootstrap", "fpl:fixtures", "fpl:players"):
+            _attempt(w.db, src, True, snap - timedelta(days=2), True)
+        if case == "critical_after":
+            _attempt(w.db, "fpl:players", False, now - timedelta(hours=1), True)
+        elif case == "critical_before":
+            _attempt(w.db, "fpl:players", False, snap - timedelta(days=1), True)
+        else:
+            _attempt(w.db, "understat:league", False, now - timedelta(hours=1), False)
+        res = run_weekly(w.db, Settings(), opts(force=True), fpl=fake(env))
+        assert res.status == "ok" and res.outcome.mode == "dry", res.notes
+        if case == "critical_after":
+            assert res.data_blocked and res.exit_code == 3 and res.run_status == "blocked"
+            assert any("critical_source_failed" in b and "fpl:players" in b
+                       for b in res.outcome.blocked)  # fmt: skip
+            assert "DIAGNOSTIC ONLY, NOT A RECOMMENDATION" in res.report.splitlines()[0]
+            assert not res.outcome.done  # nothing presented as "would ..."
+        else:
+            assert not res.data_blocked and res.exit_code == 0, res.outcome.blocked
+            assert "DIAGNOSTIC" not in res.report
+            if case == "optional":
+                assert any("understat:league failed" in n for n in res.notes)
+    finally:
+        w.db.con.execute("DELETE FROM source_attempts")
+        w.db.con.execute("DELETE FROM decisions WHERE created_at >= ?", [started])

@@ -1,0 +1,13 @@
+3dc271523c56637463a91a00d1b149e2acef399406004b94ce9898b15127c69f  $G3/store/football-db-20261028T163713Z.tar.zst
+3dc271523c56637463a91a00d1b149e2acef399406004b94ce9898b15127c69f  $G3/store/football-db.tar.zst
+== P5: check_archive.sh on the pinned legacy archive
+exit 0
+22
+drwxr-xr-x runner/runner     0 2026-10-28 16:37 ./
+-rw-r--r-- runner/runner 1936670 2026-10-28 16:36 ./team_match.parquet
+-rw-r--r-- runner/runner 4103869 2026-10-28 16:37 ./fpl_points_gw.parquet
+== restore legacy (patched data_restore.sh, no DATA_ASSET)
+legacy export without a manifest: accepted (the next publish adds one)
+restored 21 tables into $G3/w/legacy from football-db.tar.zst
+exit 0
+21

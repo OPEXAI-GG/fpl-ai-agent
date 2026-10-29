@@ -1,0 +1,25 @@
+# Codex review of r3 closure — 2026-10-24
+
+**Changes needed. Database-to-model gate remains open.** Recovery and validation work has advanced, but eligibility and source-health correctness still have specific defects; the final candidate also lacks a completed full coverage gate. No production or live approval.
+
+## Required corrections
+
+1. **High — eligibility coverage counts the wrong population.** `db/eligibility.py:47-64` divides all distinct observed snapshot FPL IDs by scoring-player count without intersecting the IDs. The independent synthetic probe has scoring players 1/2 and pre-deadline snapshots only for players 3/4: `class=eligible`, no reasons, despite zero scoring players covered. Join on season, GW and player identity; report covered, required and missing identities/counts. Test extra non-scoring snapshot players, partial overlap, zero overlap and threshold boundaries. Consider snapshot-version coherence explicitly so combining partial fetches does not accidentally claim a complete decision-time snapshot. Current production may have no eligible GWs, but the defect becomes material as prospective observations accrue.
+
+2. **Medium — source health ignores its observation cutoff.** `db/source_health.py:sources` reads all attempts and its failure count also lacks `finished_at <= at`. A critical failure at 11:00 followed by recovery at 13:00 is reported `ok` by a 12:00 report, with future last-success/attempt timestamps. Apply the requested time consistently to attempt selection, last success/failure and failures-since-success; define treatment of unfinished/missing-time attempts. Select fields from the same latest row rather than letting null-skipping arg_max mix older values. Test later recovery/failure invariance and same-time ordering.
+
+3. **High — critical health is advisory in the planning consumer.** Code inspection: `agent.py:255-258` adds blocked/degraded reasons only to notes; `:380-417` builds a safety Context without health and continues to execute. `execution/safety.py:Context` has snapshot age but no critical-source outcome. The existing snapshot-age rail therefore cannot reject a recent snapshot with a newer failed fixtures/bootstrap update. Enforce the defined critical-input contract before normal recommendations/execution, or supply a specifically validated last-good snapshot with explicit identity and policy. Exploratory dry diagnostics must be separately labelled, not normal successful recommendations. Add an end-to-end regression with fresh data and a failed critical source; optional-source failure must remain an honest degraded case. No real authenticated/live test or deployment is authorized.
+
+## Evidence and scope
+
+Frozen copy in `repo/`; hashes/fingerprint in `checkpoint.json`. Independent synthetic probes: `probes.py`, `probes.json`, exit 0 (records findings, not an all-pass gate). No production DB connection. Findings 1/2 are reproduced; finding 3 is independently traced code, not a live execution test.
+
+The independent quality/persistence/source-health suite completed: **104 passed, 4 skipped, 147.49 s, exit 0** (`result.json`, `tests.log`). Existing regressions do not cover the newly demonstrated populations/timestamps. Source hashes remained unchanged through review. Production SHA256 matches the protected baseline `9bc925c102c1bc108948de1ba9acd153d07f09550a02a7b7ec8780fa66305e1d` (`end-stability.json`). Review appended to TASK.md; its diff whitespace check passed.
+
+Inspected Claude evidence: `r3-closure/ledger-current.json` records 276 classified columns and 44 model-input columns; `chain.json` records 33 restored tables, no differences, identity rollback and unchanged source snapshot. These are inspected results, not independent full real-data rehearsals. New code contains schema read/require/init modes, idempotent rollback handling and private-copy manifest imports. Passing targeted recovery tests only accepts their tested scope.
+
+The r2 93% coverage evidence predates this candidate. The r3 coverage log stops in batch 1, so it is not a final pass. The script's prior exit-code masking is fixed. Complete the final gate after correcting these defects, with resource-bounded batches and a consistent code fingerprint. Do not relaunch the same memory-heavy batch repeatedly. Retain Linux archive verification as open unless independently verified or explicitly blocked outside supported deployments; runbook advice alone is not enforcement.
+
+Eligibility exclusions currently live in a report. Before any model experiment claims validated results, the evaluation runner must consume eligible GWs and excluded match IDs and prove exclusions reached model inputs; merely printing a manifest is not filtering. Until then existing replay remains exploratory. F-16's external truth does not need invention; conservative tested exclusions are an acceptable resolution for model experiments.
+
+Claude should correct these issues and finish the already-authorized final gate without another routine approval loop. No new research, schema redesign or speculative optimization requested. Codex changed review artifacts/TASK.md only.

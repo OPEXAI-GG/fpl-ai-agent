@@ -1,0 +1,170 @@
+{
+ "gw8": {
+  "players": 668,
+  "changed": 471,
+  "rate_source_link": {
+   "pl": 399,
+   "prior": 233,
+   "translated": 36
+  },
+  "rate_source_orig": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  },
+  "sample": [
+   {
+    "player_id": 8,
+    "xpts_link": 4.757500171661377,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 590.0,
+    "xpts_orig": 4.922500133514404,
+    "rate_source_orig": "pl",
+    "evidence_minutes_orig": 590.0
+   },
+   {
+    "player_id": 13,
+    "xpts_link": 3.5975000858306885,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 774.0,
+    "xpts_orig": 3.6024999618530273,
+    "rate_source_orig": "pl",
+    "evidence_minutes_orig": 774.0
+   },
+   {
+    "player_id": 19,
+    "xpts_link": 0.3400000035762787,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 97.0,
+    "xpts_orig": 0.35499998927116394,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 43,
+    "xpts_link": 1.6549999713897705,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 438.0,
+    "xpts_orig": 1.715000033378601,
+    "rate_source_orig": "pl",
+    "evidence_minutes_orig": 438.0
+   },
+   {
+    "player_id": 63,
+    "xpts_link": 0.06499999761581421,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.05999999865889549,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 64,
+    "xpts_link": 1.4225000143051147,
+    "rate_source_link": "translated",
+    "evidence_minutes_link": 156.0,
+    "xpts_orig": 1.3925000429153442,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 65,
+    "xpts_link": 0.019999999552965164,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.017500000074505806,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 68,
+    "xpts_link": 0.0,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.02500000037252903,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 70,
+    "xpts_link": 3.309999942779541,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 714.0,
+    "xpts_orig": 3.184999942779541,
+    "rate_source_orig": "pl",
+    "evidence_minutes_orig": 714.0
+   },
+   {
+    "player_id": 75,
+    "xpts_link": 0.4699999988079071,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.4325000047683716,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 122,
+    "xpts_link": 0.13750000298023224,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.06499999761581421,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 132,
+    "xpts_link": 0.6725000143051147,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 180.0,
+    "xpts_orig": 0.6499999761581421,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 140,
+    "xpts_link": 4.152500152587891,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 614.0,
+    "xpts_orig": 4.21750020980835,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 173,
+    "xpts_link": 3.877500057220459,
+    "rate_source_link": "pl",
+    "evidence_minutes_link": 522.0,
+    "xpts_orig": 4.074999809265137,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   },
+   {
+    "player_id": 187,
+    "xpts_link": 0.10750000178813934,
+    "rate_source_link": "prior",
+    "evidence_minutes_link": 0.0,
+    "xpts_orig": 0.10999999940395355,
+    "rate_source_orig": "prior",
+    "evidence_minutes_orig": 0.0
+   }
+  ]
+ },
+ "past": {
+  "players": 668,
+  "changed": 0,
+  "rate_source_link": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  },
+  "rate_source_orig": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  },
+  "sample": []
+ },
+ "undone_links": 131,
+ "after_undo_identical_to_original": true
+}

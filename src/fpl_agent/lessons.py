@@ -124,6 +124,9 @@ def _hand_moves(w: Week) -> list[Mistake]:
         lesson = ("your moves lost points against keeping the old players this week; the bot's "
                   "hold was right this time, so nothing changes")  # fmt: skip
         return [Mistake("hand_transfers", float(gain), what, lesson)]
+    if gain == 0:  # a break-even week is no evidence either way: it must not lower the bar
+        lesson = "your moves broke even against keeping the old players, so nothing changes"
+        return [Mistake("hand_transfers", 0.0, what, lesson)]
     why = []
     if later:
         why.append(f"the bot planned {', '.join(later)} for a later week anyway")

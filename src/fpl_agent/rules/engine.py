@@ -9,7 +9,10 @@ from typing import Any
 
 import yaml
 
-RULES_DIR = Path(__file__).resolve().parents[3] / "rules"
+# installed wheels carry the rules inside the package (pyproject force-include); a source
+# checkout reads them from the repository's rules/ folder
+_PACKAGED = Path(__file__).resolve().parent / "data"
+RULES_DIR = _PACKAGED if _PACKAGED.is_dir() else Path(__file__).resolve().parents[3] / "rules"
 
 
 @dataclass(frozen=True)
@@ -22,7 +25,7 @@ class Rules:
         matches = sorted(d.glob(f"{season}_*.yaml"))
         if not matches:
             raise FileNotFoundError(f"no rules file for season {season} in {d}")
-        return cls(yaml.safe_load(matches[0].read_text()))
+        return cls(yaml.safe_load(matches[0].read_text(encoding="utf-8")))
 
     @classmethod
     def nearest(cls, season: int, directory: Path | None = None) -> Rules:
@@ -48,7 +51,13 @@ def score(stats: dict[str, Any], position: str, rules: Rules) -> dict[str, int]:
     minutes = g("minutes")
     out: dict[str, int] = {}
     if minutes <= 0:
-        return {"total": 0}
+        # a card shown without playing (from the bench) still costs its points: FPL's official
+        # results score these rows -1 / -3 with 0 minutes (14 cases in 2017/18-2025/26)
+        cards = {"yellow_cards": g("yellow_cards") * sc["yellow_card"],
+                 "red_cards": g("red_cards") * sc["red_card"]}  # fmt: skip
+        out = {k: v for k, v in cards.items() if v != 0}
+        out["total"] = sum(out.values())
+        return out
     out["minutes"] = sc["minutes_long"] if minutes >= 60 else sc["minutes_short"]
     out["goals_scored"] = g("goals_scored") * sc["goal"][position]
     out["assists"] = g("assists") * sc["assist"]
@@ -99,23 +108,32 @@ def _valid_formation(positions: list[str], rules: Rules) -> bool:
     )
 
 
+def participated(player: Any, minutes: dict[Any, int], cards: dict[Any, int] | None = None) -> bool:
+    """Did the player take part, for automatic substitutions and the captaincy? Minutes on the
+    pitch, or a card received without playing (from the bench), which FPL counts as having
+    played. `cards` (yellow + red per player) is optional: without it only minutes count."""
+    return minutes.get(player, 0) > 0 or bool(cards and cards.get(player, 0) > 0)
+
+
 def auto_sub(
     xi: list[Any],
     bench: list[Any],
     minutes: dict[Any, int],
     position: dict[Any, str],
     rules: Rules,
+    cards: dict[Any, int] | None = None,
 ) -> list[Any]:
     """Final XI after FPL's automatic substitutions. Bench is in priority order; a bench player
-    who played 0 minutes can't come on; the GK only swaps with the bench GK; formation limits
-    must hold after each swap. Players with 0 minutes are replaced in squad-slot order."""
+    who did not take part can't come on; the GK only swaps with the bench GK; formation limits
+    must hold after each swap. Starters who did not take part (`participated`: no minutes and
+    no card) are replaced in squad-slot order."""
     final = list(xi)
     used: set[Any] = set()
     for starter in list(xi):
-        if minutes.get(starter, 0) > 0:
+        if participated(starter, minutes, cards):
             continue
         for sub in bench:
-            if sub in used or minutes.get(sub, 0) <= 0:
+            if sub in used or not participated(sub, minutes, cards):
                 continue
             if (position[starter] == "GKP") != (position[sub] == "GKP"):
                 continue
@@ -128,7 +146,9 @@ def auto_sub(
 
 
 def effective_captain(captain: Any, vice: Any, minutes: dict[Any, int]) -> Any | None:
-    """The vice-captain takes the armband only if the captain played 0 minutes."""
+    """The vice-captain takes the armband only if the captain played 0 minutes. Minutes only:
+    the 2026/27 rules hand over the armband when the captain "plays no minutes", while a card
+    without minutes counts as playing only for automatic substitutions (`participated`)."""
     if minutes.get(captain, 0) > 0:
         return captain
     return vice if minutes.get(vice, 0) > 0 else None

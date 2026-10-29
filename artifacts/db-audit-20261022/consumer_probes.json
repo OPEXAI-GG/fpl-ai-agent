@@ -1,0 +1,73 @@
+[
+ {
+  "probe": "features.player_gw_frame",
+  "rows": 4551,
+  "grain": [
+   "player_id",
+   "fixture_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": "",
+  "current_season_rows": 4551,
+  "null_position": 4551,
+  "null_price": 4551,
+  "null_status": 4551,
+  "null_team_id": 4551,
+  "null_position_share": 1.0,
+  "finding": "snapshot join is ON (season, gw, fpl_id) and snapshots exist for GW8 only, so every GW1-7 row has NULL position/price/status/team: the minutes features see NaN for pos_code, price, price_vs_best on this file (the archive supplies them only for older seasons)"
+ },
+ {
+  "probe": "features.match_frame",
+  "rows": 6862,
+  "grain": [
+   "match_id",
+   "player_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": ""
+ },
+ {
+  "probe": "project.current_pool(2026, 8)",
+  "rows": 668,
+  "grain": [
+   "player_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": ""
+ },
+ {
+  "probe": "replay.pool_as_of(2026, 8)",
+  "rows": 668,
+  "grain": [
+   "player_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": ""
+ },
+ {
+  "probe": "replay.pool_as_of(2026, 5)",
+  "rows": 0,
+  "grain": [
+   "player_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": "gw 5 is before the only snapshots (GW8)",
+  "finding": "returns zero rows for a gameweek before the first snapshot: no fallback"
+ },
+ {
+  "probe": "review._positions(2026, 8)",
+  "rows": 668,
+  "grain": [
+   "player_id"
+  ],
+  "duplicate_grain_rows": 0,
+  "note": ""
+ },
+ {
+  "probe": "review._field_core(2026, 8)",
+  "rows": 9,
+  "grain": "set of player_id",
+  "duplicate_grain_rows": 0,
+  "note": "joins field_ownership to fpl_players_gw on (season, fpl_id); 2 snapshots multiply rows but the DISTINCT in the query removes them"
+ }
+]

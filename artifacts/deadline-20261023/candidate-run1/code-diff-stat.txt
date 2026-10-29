@@ -1,0 +1,20 @@
+ TASK.md                            | 1322 ++++++++++++++++++++++++++++++++++++
+ docs/football-intelligence.md      |   13 +
+ src/fpl_agent/agent.py             |   12 +
+ src/fpl_agent/cli.py               |    6 +
+ src/fpl_agent/dashboard/service.py |   11 +-
+ src/fpl_agent/db/database.py       |    4 +-
+ src/fpl_agent/db/ingest_fpl.py     |   29 +-
+ src/fpl_agent/db/quality.py        |   45 +-
+ src/fpl_agent/db/schema.py         |   12 +
+ src/fpl_agent/model/features.py    |   15 +-
+ src/fpl_agent/model/project.py     |   15 +-
+ src/fpl_agent/model/simulate.py    |   13 +-
+ src/fpl_agent/pipeline.py          |   25 +-
+ src/fpl_agent/review.py            |    5 +-
+ tests/test_db.py                   |    2 +-
+ tests/test_minutes.py              |   36 +
+ tests/test_pipeline.py             |   18 +
+ tests/test_quality.py              |   38 +-
+ tests/test_simulate.py             |   24 +
+ 19 files changed, 1606 insertions(+), 39 deletions(-)

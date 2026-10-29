@@ -32,10 +32,15 @@ jobs:
       - name: Restore database
         run: scripts/data_restore.sh data_cache/export
       - name: Backfill
+        env:  # manual inputs as data, checked before use
+          IN_START: ${{ github.event.inputs.start || '2017' }}
+          IN_COMPS: ${{ github.event.inputs.competitions }}
         run: |
+          [[ "$IN_START" =~ ^20[0-9]{2}$ ]] || { echo "start must be a year, got: $IN_START"; exit 1; }
+          [[ "$IN_COMPS" =~ ^[A-Z0-9,]*$ ]] || { echo "competitions must be ids like ENG1,ENG2"; exit 1; }
           uv run fpl-agent backfill --db data_cache/football.duckdb --import-dir data_cache/export \
-            --export data_cache/out --start "${{ github.event.inputs.start || '2017' }}" \
-            --competitions "${{ github.event.inputs.competitions }}" --fotmob-matches 400 \
+            --export data_cache/out --start "$IN_START" \
+            --competitions "$IN_COMPS" --fotmob-matches 400 \
             --max-minutes 240  # leaves time to save before the job's 300-minute limit
       - name: Publish database
         run: scripts/data_publish.sh data_cache/out

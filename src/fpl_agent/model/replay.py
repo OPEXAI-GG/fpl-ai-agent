@@ -8,13 +8,15 @@ then scored with the official points: automatic substitutions, the vice-captain 
 rule. This is the scoreboard every later change to the planner is judged on.
 
 History has no ownership, status or news, so the ownership rails and the rank-risk term are off,
-and every player is treated as available. The first gameweek's squad is the planner's free pick
+and every player is treated as available (a validated replay keeps the availability of the
+observed pre-deadline snapshot). The first gameweek's squad is the planner's free pick
 with £100m.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields, replace
+from datetime import datetime
 
 import pandas as pd
 
@@ -119,14 +121,18 @@ class ReplayResult:
         )
 
 
-def pool_as_of(db: FootballDB, season: int, gw: int) -> pd.DataFrame:
-    """Every player's latest FPL row at or before `gw` (so a player who blanks is still there)."""
+def pool_as_of(
+    db: FootballDB, season: int, gw: int, cutoff: datetime | None = None
+) -> pd.DataFrame:
+    """Every player's latest FPL row at or before `gw` (so a player who blanks is still there);
+    with `cutoff`, only rows snapshotted by then (a late or corrected snapshot is not seen)."""
     df = db.query(
         "SELECT player_id, team_id, position, now_cost AS price, status, chance_next AS chance, "
         "news, fpl_id, selected_by_percent AS owned, raw, gw FROM fpl_players_gw "
         "WHERE season = ? AND gw <= ? AND player_id IS NOT NULL AND team_id IS NOT NULL "
+        "AND (CAST(? AS TIMESTAMP) IS NULL OR snapshot_at <= ?) "
         "QUALIFY row_number() OVER (PARTITION BY player_id ORDER BY gw DESC, snapshot_at DESC) = 1",
-        [season, gw],
+        [season, gw, cutoff, cutoff],
     )
     return df.drop(columns="gw").reset_index(drop=True)
 
@@ -142,10 +148,24 @@ def actual_week(db: FootballDB, season: int, gw: int) -> tuple[dict[int, int], d
             dict(zip(ids, df["mins"].astype(int), strict=True)))  # fmt: skip
 
 
+def actual_cards(db: FootballDB, season: int, gw: int) -> dict[int, int]:
+    """Cards (yellow + red) per player in the gameweek, from the official per-fixture stats:
+    a card without minutes still counts as taking part (`rules.engine.participated`)."""
+    df = db.query(
+        "SELECT player_id, sum(coalesce(TRY_CAST(json_extract(stats, '$.yellow_cards') AS INT), 0)"
+        " + coalesce(TRY_CAST(json_extract(stats, '$.red_cards') AS INT), 0)) AS cards "
+        "FROM fpl_points_gw WHERE season = ? AND gw = ? AND player_id IS NOT NULL "
+        "GROUP BY player_id",
+        [season, gw],
+    )
+    return {int(p): int(c) for p, c in zip(df["player_id"], df["cards"], strict=True) if c}
+
+
 def score_week(wk: WeekPlan, pts: dict[int, int], mins: dict[int, int], pos: dict[int, str],
-               rules: Rules) -> tuple[int, int, int]:  # fmt: skip
+               rules: Rules,
+               cards: dict[int, int] | None = None) -> tuple[int, int, int]:  # fmt: skip
     """(points before hits, captain's points, bench points left) for one week."""
-    final = auto_sub(wk.xi, wk.bench, mins, pos, rules)
+    final = auto_sub(wk.xi, wk.bench, mins, pos, rules, cards)
     cap = effective_captain(wk.captain, wk.vice, mins)
     total = sum(pts.get(p, 0) for p in final)
     cap_pts = pts.get(cap, 0) if cap is not None else 0
@@ -168,9 +188,19 @@ def _first_squad(proj: project.Projection, cfg: PlannerConfig) -> WeekPlan:
 def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                   cfg: ReplayConfig | None = None, rules: Rules | None = None,
                   progress=None, start: SquadState | None = None,
-                  pool_fn=None) -> ReplayResult:  # fmt: skip
+                  pool_fn=None, cutoff_fn=None,
+                  validated: bool = False) -> ReplayResult:  # fmt: skip
     """`start` begins from a real squad (canonical player ids) instead of a free first pick, and
-    `pool_fn(db, season, gw)` replaces the default pool (every player available)."""
+    `pool_fn(db, season, gw)` replaces the default pool (every player available).
+    `cutoff_fn(gw)` gives the exact decision time when known; otherwise each week is cut 90
+    minutes before its first kickoff (FPL's usual deadline; historical deadlines are not
+    stored), and no data, odds or translation fit from after the cut is used.
+    `validated`: only eligible gameweeks (else NotEligible), cut at their official deadline,
+    excluded matches removed from the model inputs (`db.eligibility.validated_inputs`), the
+    pool taken from snapshots observed by the cutoff with FPL's availability kept, and only odds
+    observed by the cutoff; decisions are still scored on FPL's official points. Without it the
+    replay is exploratory. In both modes every fit sees only the history visible at the
+    cutoff."""
     cfg = cfg or ReplayConfig()
     rules = rules or Rules.nearest(season)
     last = int(db.con.execute(
@@ -180,6 +210,11 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
     frame = features.player_gw_frame(db)
     pm = features.match_frame(db)
     matches = strength.load_matches(db)
+    if validated:
+        from fpl_agent.db.eligibility import validated_inputs
+
+        frame, pm, cuts, _ = validated_inputs(db, season, gws, frame, pm)
+        cutoff_fn = cuts.get
     sim = SimConfig(n=cfg.samples)
 
     squad: list[SquadPlayer] = list(start.squad) if start else []
@@ -193,17 +228,22 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
         if not hz or hz[0] != gw:
             continue
         fx = project.fixtures_for(db, season, [gw])
-        as_of = pd.Timestamp(fx["kickoff"].min()).date()
-        history = frame[
-            (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
-        ]
+        cutoff = cutoff_fn(gw) if cutoff_fn else project.approx_deadline(fx["kickoff"].min())
+        as_of = cutoff.date()
         if model is None or fitted_at is None or gw - fitted_at >= cfg.refit_every:
-            model, fitted_at = minutes.MinutesModel.fit(history), gw
-        pool = (pool_fn(db, season, gw) if pool_fn
-                else pool_as_of(db, season, gw).assign(status="a", chance=None))  # fmt: skip
+            # fitted on what the cutoff could see; reused weeks have later cutoffs
+            model = minutes.MinutesModel.fit(project.history_as_of(frame, db, season, gw, cutoff))
+            fitted_at = gw
+        if pool_fn:
+            pool = pool_fn(db, season, gw)
+        elif validated:  # the observed pre-deadline snapshot, availability as FPL showed it
+            pool = pool_as_of(db, season, gw, cutoff)
+        else:  # exploratory: archive rows are kickoff-stamped, so not cut by observation time
+            pool = pool_as_of(db, season, gw).assign(status="a", chance=None)
         proj = project.build_projection(
             db, season, hz, as_of=as_of, cfg=sim, rules=rules, minutes_model=model,
             ratings=strength.fit_ratings(matches, as_of), pool=pool, frame=frame, pm=pm,
+            cutoff=cutoff, known_at_odds=validated,
         )  # fmt: skip
         price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))
         team = dict(zip(pool["player_id"].astype(int), pool["team_id"].astype(int), strict=True))
@@ -237,7 +277,9 @@ def replay_season(db: FootballDB, season: int, gws: list[int] | None = None,
                 ft = min(cfg.planner.max_free, ft - min(n_in, ft) + 1)
         pts, mins = actual_week(db, season, gw)
         week_pos = {**{p.player_id: p.position for p in squad}, **pos}
-        got, cap_pts, bench = score_week(wk, pts, mins, week_pos, rules)
+        got, cap_pts, bench = score_week(
+            wk, pts, mins, week_pos, rules, actual_cards(db, season, gw)
+        )
         res = ReplayWeek(gw, got - HIT * wk.hits, wk.hits, wk.chip, n_in, wk.captain, cap_pts,
                          bench, round(wk.xp, 1),
                          {"plan": wk, "ins": ins, "outs": outs,

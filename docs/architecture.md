@@ -22,8 +22,8 @@ sources ──► L1 database ──► L2 team strength ─┐
 | L3 minutes | `model/minutes.py` | Gradient-boosted P(start), P(60+), cameo minutes from recent usage, rest, price and position; availability overlay from FPL's status/chance flags with a recovery hazard over the horizon. |
 | L4 player rates | `model/players.py`, `model/translation.py` | Shares of team xG/xA, finishing, DefCon (negative binomial), cards - with shrinkage to position priors. Rates from other leagues are translated to Premier League level with factors estimated from players who moved between leagues. |
 | L5 simulator | `model/simulate.py`, `model/project.py` | Vectorised match simulation: a shared team goal intensity, goals/assists allocated to players on the pitch, clean sheets, saves, DefCon, BPS and the 3-2-1 bonus with FPL's tie rules. Output is a distribution of points per player per gameweek (doubles sum, blanks are zero), so risk and upside are first-class. |
-| L6 planner | `solver/planner.py`, `solver/chips.py`, `solver/decide.py` | A MILP (HiGHS) over a 6-gameweek horizon: legal squad every week, selling prices, three-per-club, free-transfer banking to five (a banked transfer is valued by how many are banked), hits only if they buy `4 + buffer` points. Chips are scenarios (one solve per chip x gameweek) judged on expected points *and* on how often they win across sampled worlds; a Wildcard needs 70%. Windows that close inside the horizon make a chip must-use. |
-| L7 safety + execution | `execution/` | Rails (kill switch, stale data, hit caps, availability, chip guard, transfer count, budget, legal squad, human edits not overwritten) run on our plan and again on FPL's preview. **Dry mode makes no authenticated request at all.** Live path: refresh-token exchange with rotation write-back, preview -> confirm -> lineup -> read-back verify. |
+| L6 planner | `solver/planner.py`, `solver/chips.py`, `solver/decide.py` | A MILP (HiGHS) over an 8-gameweek horizon by default (`--horizon`): legal squad every week, selling prices, three-per-club, free-transfer banking to five (a banked transfer is valued by how many are banked), hits only if they buy `4 + buffer` points. Chips are scenarios (one solve per chip x gameweek) judged on expected points *and* on how often they win across sampled worlds; a Wildcard needs 70%. Windows that close inside the horizon make a chip must-use. |
+| L7 safety + execution | `execution/` | Rails (kill switch, stale data, hit caps, availability, chip guard, transfer count, budget, legal squad, human edits not overwritten) run on our plan and against the freshly read account squad. **Dry mode makes no authenticated request at all.** Live path: refresh-token exchange with rotation write-back, preflight -> one binding transfer submission -> lineup -> complete read-back verification. |
 | L8 review | `review.py` | After each gameweek: prediction error by position and by scoring component, top-20 calibration, drift flags; decision review (captain regret, transfer gain after hits, XI points vs. predicted). Written to the `reviews` table. It reports and flags; it never edits a model by itself. |
 | L9 lessons | `lessons.py` | After each gameweek, from your real team (hand moves included) and the recorded decisions: transfers you had to make yourself, moves the bot held that paid at once, captain, bench order, goalkeeper, hits that lost, field-core hauls you missed. Each mistake is stored in `lessons` with its cost and lesson. Before the next plan, `memory()` turns recent lessons into small capped switches (banked transfers worth up to 30% less and a 5-point lower robustness bar after held moves paid; +1 hit buffer after a bot hit lost), fading by 0.6 a week unless repeated; projections of the top-10k's core are scaled by their learned residual (shrunk, capped 10%). Watched mistakes seen in 3 of 6 weeks are flagged for a model change. Every switch shows as a `memory:` line in the report. |
 | Scout | `scout.py` | One bounded Claude call over players with injury/news text. Output is validated, can move a player's availability at most 35 points from FPL's own flag, and never revives a player FPL lists as gone. No key = no-op. |
@@ -46,3 +46,21 @@ Tables: `competitions teams players matches team_match appearances player_match_
 * Positions `GKP/DEF/MID/FWD`; seasons are start years (2026 = 2026/27); money in tenths of £m.
 * Competition ids: `ENG1 ENG2 ENG3 ESP1 ITA1 GER1 FRA1 NED1 POR1 BEL1 SCO1 BRA1 UCL UEL UECL`.
 * Each source has recorded real responses under `tests/fixtures/` and a contract in `contracts.py`; a daily canary workflow checks the live sources still match.
+
+
+## Authentication coordination
+
+The plan job and token-check job share the `fpl-auth` concurrency lease. Backfill uses the
+separate data lease and cannot hold authentication for hours. Cancellation does not interrupt
+an auth job. A manual dry run uses a separate lease and never calls OAuth.
+
+The lease alone is insufficient: repository secrets are captured when a workflow is queued.
+Immediately before OAuth, configured workflow auth checks the repository secret's `updated_at`
+against the run's `created_at`. If the token changed after queuing, or metadata cannot be
+verified, authentication fails closed and a new workflow run is needed. The PAT needs permission
+to read secret metadata as well as persist the rotated token. Secret values are never read by
+this guard. Local manual live users outside these workflows are not coordinated by Actions;
+local dashboard operations remain dry-only.
+
+See [secret snapshot timing](https://docs.github.com/en/actions/reference/security/secrets#when-github-actions-reads-secrets), [GitHub concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+and [secret metadata API](https://docs.github.com/en/rest/actions/secrets#get-a-repository-secret).

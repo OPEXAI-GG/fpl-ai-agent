@@ -1,0 +1,8 @@
+{
+ "exported_tables": 30,
+ "verify_export_problems": [],
+ "restored_rows": 30,
+ "tables_differing": [],
+ "ingest_state_equal_excluding_import_marker": true,
+ "pass": true
+}

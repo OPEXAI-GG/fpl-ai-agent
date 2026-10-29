@@ -1,0 +1,60 @@
+{
+  "matching_seasons_false_conflicts": [
+    {
+      "match_id": 40,
+      "season": 2026,
+      "player_id": 1,
+      "kinds": [
+        "goals"
+      ],
+      "fpl": {
+        "goals": 1.0,
+        "minutes": 90
+      },
+      "fotmob": {
+        "goals": 0.0,
+        "minutes": null
+      }
+    },
+    {
+      "match_id": 50,
+      "season": 2025,
+      "player_id": 1,
+      "kinds": [
+        "goals"
+      ],
+      "fpl": {
+        "goals": 0.0,
+        "minutes": 90
+      },
+      "fotmob": {
+        "goals": 1.0,
+        "minutes": null
+      }
+    }
+  ],
+  "matching_seasons_false_exclusions": [
+    [
+      2025,
+      11
+    ],
+    [
+      2026,
+      11
+    ]
+  ],
+  "backtest_fit_history": {
+    "rows": 1938,
+    "unchanged": false,
+    "changed_positions": 102
+  },
+  "replay_fit_history": {
+    "rows": 1938,
+    "unchanged": false,
+    "changed_positions": 102
+  },
+  "replay_pool_late_prices": {
+    "changed_players": 102,
+    "gameweek_still_eligible": "eligible"
+  }
+}

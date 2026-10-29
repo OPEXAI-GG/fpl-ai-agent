@@ -180,3 +180,57 @@ def test_same_seed_same_result_and_different_seed_differs():
     b = simulate_fixture(team(100), team(200), 1.4, 1.4, RULES, SimConfig(n=500, seed=9))
     c = simulate_fixture(team(100), team(200), 1.4, 1.4, RULES, SimConfig(n=500, seed=10))
     assert np.array_equal(a.points, b.points) and not np.array_equal(a.points, c.points)
+
+
+def _keeper_starts(p_starts, n=40_000):
+    from fpl_agent.model.simulate import _minutes
+
+    specs = [PlayerSpec(i, "GKP", p, 1.0, 0.0) for i, p in enumerate(p_starts)]
+    return _minutes(np.random.default_rng(3), specs, n, SimConfig()) > 0
+
+
+def test_near_zero_keepers_are_not_promoted_to_starters():
+    played = _keeper_starts([0.0001, 0.0001])  # used to be ~0.5 each
+    assert played.mean(axis=0).max() < 0.002
+
+
+def test_a_doubtful_first_choice_keeper_keeps_his_own_start_chance():
+    played = _keeper_starts([0.6, 0.1])  # used to be renormalised to ~0.86 / ~0.14
+    assert np.allclose(played.mean(axis=0), [0.6, 0.1], atol=0.01)
+    assert played.sum(axis=1).max() == 1  # never two keepers
+
+
+def test_keeper_chances_above_one_still_give_exactly_one_starter():
+    played = _keeper_starts([0.95, 0.3])
+    assert (played.sum(axis=1) == 1).all()
+    assert np.allclose(played.mean(axis=0), [0.95 / 1.25, 0.3 / 1.25], atol=0.01)
+
+
+def _sheet(specs, n=20000, seed=0):
+    from fpl_agent.model.simulate import _minutes
+
+    mins = _minutes(np.random.default_rng(seed), specs, n, SimConfig())
+    return mins, np.array([s.position == "GKP" for s in specs])
+
+
+def test_a_team_sheet_never_has_more_than_ten_outfield_starters_or_five_subs():
+    """Audit case: 19 outfield players whose start chances sum above ten. Independent draws
+    put more than ten of them on the pitch in ~41% of worlds (up to 19); a legal sheet never
+    has more than ten outfield starters, one keeper and five substitutes."""
+    rng = np.random.default_rng(0)
+    assert ((rng.random((20000, 19)) < 10 / 19).sum(1) > 10).mean() > 0.3  # the old defect
+    keeper = [PlayerSpec(1, "GKP", 0.95, 0.95, 0.0)]
+    # no cameos: everyone on the pitch started
+    mins, gk = _sheet(keeper + [PlayerSpec(10 + i, "MID", 0.55, 0.8, 0.0) for i in range(19)])
+    starters = (mins[:, ~gk] > 0).sum(1)
+    assert starters.max() == 10 and starters.mean() > 9.0
+    assert ((mins[:, gk] > 0).sum(1) <= 1).all()
+    # a sure starter is (almost) never the one left out
+    sure = keeper + [PlayerSpec(2, "FWD", 1.0, 0.9, 0.0)]
+    mins, _ = _sheet(sure + [PlayerSpec(10 + i, "MID", 0.6, 0.8, 0.0) for i in range(19)])
+    assert (mins[:, 1] > 0).mean() > 0.99
+    # substitutes: twelve likely cameos, never more than five come on
+    bench = keeper + [PlayerSpec(10 + i, "DEF", 0.9, 0.9, 0.0) for i in range(10)]
+    bench += [PlayerSpec(40 + i, "MID", 0.0, 0.0, 0.8) for i in range(12)]
+    mins, _ = _sheet(bench)
+    assert (mins[:, 11:] > 0).sum(1).max() == 5

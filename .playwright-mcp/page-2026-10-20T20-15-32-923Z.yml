@@ -1,0 +1,76 @@
+- generic [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "Matchroom overview" [ref=e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=e6]:
+          - text: M
+          - generic [ref=e7]: ↗
+        - generic [ref=e8]:
+          - text: MATCHROOM
+          - generic [ref=e9]: FPL AGENT / LOCAL
+      - generic [ref=e10]: YOUR COMMAND CENTER
+      - navigation "Sections" [ref=e11]:
+        - link "Overview" [ref=e12] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=e13]: ◫
+          - text: Overview
+        - link "My Team" [ref=e14] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=e15]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=e16] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=e17]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=e18] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=e19]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=e20] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=e21]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=e22] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=e23]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=e24] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=e25]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=e26] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=e27]: ♡
+          - text: Data Health
+      - generic [ref=e28]:
+        - text: PRIVATE WORKSPACE
+        - paragraph [ref=e30]: On your machine.Built for the next gameweek.
+        - generic [ref=e31]: DRY RUN CONTROLS
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]: WORKSPACE / Data Health
+        - generic [ref=e35]:
+          - generic [ref=e36]: LOCAL CONNECTION
+          - link "Open agent settings" [ref=e38] [cursor=pointer]:
+            - /url: "#controls"
+            - text: FA
+      - main [active] [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: FANTASY PREMIER LEAGUE
+            - heading "Data Health" [level=1] [ref=e68]
+            - paragraph [ref=e44]: Know what is fresh, what is missing, and what needs attention.
+          - link "Open operations" [ref=e45] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=e46]: ↗
+        - status [ref=e47]:
+          - generic [ref=e69]: "database busy: showing the last view"
+          - text: · data read 10/21/2026, 12:09:12 AM
+        - generic [ref=e53]:
+          - text: FPL AGENT
+          - generic [ref=e54]: Independent analysis. Informed decisions.
+          - generic [ref=e55]: 127.0.0.1 · LOCAL WORKSPACE

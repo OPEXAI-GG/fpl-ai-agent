@@ -114,6 +114,29 @@ def test_cards_shrink_to_position_mean(inputs):
     assert rates.yellow90.between(0, 1).all() and rates.red90.between(0, 0.2).all()
 
 
+def test_missing_assists_and_defensive_stats_do_not_count_as_zero_exposure(inputs):
+    pm, frame, positions = inputs
+    pid = next(pid for pid, pos in positions.items() if pos == "MID")
+    missing = pm.copy()
+    missing.loc[missing.player_id == pid, ["xa", "cbit", "cbirt"]] = np.nan
+    rates = players.fit_player_rates(missing, frame, positions, 2024).set_index("player_id")
+    prior = players.position_priors(missing)
+    assert rates.loc[pid, "xa_share"] == pytest.approx(prior["xa_share"]["MID"])
+    assert rates.loc[pid, "cbit_mu"] == pytest.approx(prior["cbit"]["MID"])
+
+
+def test_missing_xg_does_not_discard_observed_assists(inputs):
+    pm, frame, positions = inputs
+    pid = next(pid for pid, pos in positions.items() if pos == "MID")
+    missing = pm.copy()
+    missing.loc[missing.player_id == pid, "xg"] = np.nan
+    missing.loc[missing.player_id == pid, "xa"] = 0.0
+    rates = players.fit_player_rates(missing, frame, positions, 2024).set_index("player_id")
+    prior = players.position_priors(missing)
+    assert rates.loc[pid, "xg_share"] == pytest.approx(prior["share"]["MID"])
+    assert rates.loc[pid, "xa_share"] < prior["xa_share"]["MID"]
+
+
 # ---- league translation -----------------------------------------------------------------
 def movers(n=30, factor=0.6, seed=0, minutes=900):
     """Players whose xG share in the Championship is 1/factor of their Premier League share."""
@@ -199,3 +222,17 @@ def test_new_signing_rates_use_translated_foreign_history():
     adj = players.fit_player_rates(foreign, frame, {999: "MID"}, 2024, translations=tr)
     assert adj.iloc[0].xg_share < raw.iloc[0].xg_share  # a Championship share is discounted
     assert adj.iloc[0].source == "translated"
+
+
+def test_assist_and_goal_priors_are_measured_separately():
+    rows = []
+    for i in range(400):  # forwards take the goals, midfielders make the assists
+        for pos, xg, xa in (("FWD", 0.40, 0.05), ("MID", 0.05, 0.30)):
+            rows.append({"comp": "ENG1", "minutes": 90, "team_xg": 1.5, "position": pos,
+                         "xg": xg, "xa": xa, "cbit": 1.0, "cbirt": 1.0})  # fmt: skip
+    pri = players.position_priors(pd.DataFrame(rows))
+    assert pri["share"]["FWD"] == pytest.approx(0.40 / 1.5)
+    assert pri["xa_share"]["FWD"] == pytest.approx(0.05 / 1.5)  # not 0.8 x the goal share
+    assert pri["xa_share"]["MID"] == pytest.approx(0.30 / 1.5)
+    fallback = players.position_priors(pd.DataFrame(rows[:10]))  # too little data: defaults
+    assert fallback["xa_share"]["MID"] == pytest.approx(0.8 * fallback["share"]["MID"])

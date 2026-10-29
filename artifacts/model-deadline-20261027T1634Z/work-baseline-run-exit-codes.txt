@@ -1,0 +1,2 @@
+﻿run=1 source=work-data.duckdb gws=3-7 samples=200 SimConfig.seed=0 exit=1
+run=2 source=work-data.duckdb gws=3-7 samples=200 SimConfig.seed=0 exit=1

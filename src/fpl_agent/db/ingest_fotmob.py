@@ -88,10 +88,9 @@ class FotMobIngestor:
         if existing:
             return existing[0]
         key = normalise(name)
-        cands = self._by_name.get(key, [])
-        # Link by name only when it is unambiguous and not a mononym ("Andre"): a wrong link would
-        # silently mix two people's records, an unlinked player is merely a second row.
-        link = cands[0] if len(cands) == 1 and len(key.split()) >= 2 else None
+        # a wrong link silently mixes two people's records; an unlinked player is merely a
+        # second row: see FootballDB.name_link for the conditions
+        link = self.db.name_link(self._by_name.get(key, []), name, position, SOURCE)
         pid = self.db.player_id(SOURCE, fm_id, name, position, link_to=link)
         if link is None:
             self._by_name[key].append(pid)
@@ -253,9 +252,12 @@ def _minutes(p: dict[str, Any], s: dict[str, float], started: bool, length: int)
 
 def _stat_rows(mid, pid, s, pos, cards, stamp) -> list[dict[str, Any]]:
     vals = {name: s[key] for key, name in PLAYER_STATS.items() if key in s}
-    cbit = sum(vals.get(k, 0.0) for k in ("clearances", "blocks", "interceptions", "tackles"))
-    vals["cbit"] = cbit  # DEF threshold quantity (10)
-    vals["cbirt"] = cbit + vals.get("recoveries", 0.0)  # MID/FWD threshold quantity (12)
+    defensive = ("clearances", "blocks", "interceptions", "tackles")
+    # Missing provider fields are unknown, not zero defensive actions.
+    if all(k in vals for k in defensive):
+        vals["cbit"] = sum(vals[k] for k in defensive)
+        if "recoveries" in vals:
+            vals["cbirt"] = vals["cbit"] + vals["recoveries"]
     vals["yellow_cards"], vals["red_cards"] = float(cards[0]), float(cards[1])
     return [
         {"match_id": mid, "player_id": pid, "source": SOURCE, "stat": k, "value": float(v),

@@ -1,0 +1,71 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]: ◆ FPL Agent local
+    - status [ref=e5]: data read 10/20/2026, 7:42:25 PM
+  - generic [ref=e6]:
+    - navigation "Sections" [ref=e7]:
+      - link "Overview" [ref=e8] [cursor=pointer]:
+        - /url: "#overview"
+      - link "My Team" [ref=e9] [cursor=pointer]:
+        - /url: "#team"
+      - link "Recommendations" [ref=e10] [cursor=pointer]:
+        - /url: "#recommendations"
+      - link "Players" [ref=e11] [cursor=pointer]:
+        - /url: "#players"
+      - link "Planning" [ref=e12] [cursor=pointer]:
+        - /url: "#planning"
+      - link "Activity" [ref=e13] [cursor=pointer]:
+        - /url: "#activity"
+      - link "Controls" [ref=e14] [cursor=pointer]:
+        - /url: "#controls"
+      - link "Data Health" [ref=e15] [cursor=pointer]:
+        - /url: "#health"
+    - main [ref=e16]:
+      - heading "Overview" [level=1] [ref=e17]
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e22]:
+            - generic [ref=e23]: Season / next GW
+            - generic [ref=e24]: 2026/27 · GW8
+          - generic [ref=e26]:
+            - generic [ref=e27]: FPL snapshot
+            - generic [ref=e28]: 54 min ago
+            - generic [ref=e29]: fresh
+          - generic [ref=e32]:
+            - generic [ref=e33]: First kickoff
+            - generic [ref=e34]: 10/23/2026, 11:00:00 PM
+            - generic [ref=e35]: in 3.1 days
+          - generic [ref=e37]:
+            - generic [ref=e38]: Latest plan
+            - generic [ref=e39]: none
+            - generic [ref=e40]: run a dry plan from Controls
+        - generic [ref=e41]:
+          - heading "What is stored" [level=2] [ref=e42]
+          - table [ref=e44]:
+            - rowgroup [ref=e45]:
+              - row [ref=e46]:
+                - columnheader "Item" [ref=e47]
+                - columnheader "Count" [ref=e48]
+            - rowgroup [ref=e49]:
+              - row [ref=e50]:
+                - cell "players" [ref=e51]
+                - cell "668" [ref=e52]
+              - row [ref=e53]:
+                - cell "decisions" [ref=e54]
+                - cell "0" [ref=e55]
+              - row [ref=e56]:
+                - cell "projection runs" [ref=e57]
+                - cell "1" [ref=e58]
+              - row [ref=e59]:
+                - cell "reviews" [ref=e60]
+                - cell "0" [ref=e61]
+              - row [ref=e62]:
+                - cell "lessons" [ref=e63]
+                - cell "0" [ref=e64]
+        - generic [ref=e65]:
+          - heading "Notes" [level=2] [ref=e66]
+          - paragraph [ref=e67]: Times are shown in your browser's time zone. the exact FPL deadline is not stored locally; FPL usually sets it about 90 minutes before the first kickoff.
+          - paragraph [ref=e68]: "Run history: not recorded yet: the agent stores decisions, not run records, so skipped or failed runs are not visible here."
+          - paragraph [ref=e69]: "Last data load: 10/20/2026, 6:48:58 PM."

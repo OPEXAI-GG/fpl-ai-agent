@@ -93,3 +93,46 @@ def test_settings_default_dry(monkeypatch):
     monkeypatch.setenv("AGENT_MODE", "live")
     monkeypatch.setenv("AGENT_ENABLED", "false")
     assert not Settings.from_env().is_live
+
+
+def test_retry_after_is_honoured_and_capped(monkeypatch):
+    import httpx
+
+    from fpl_agent.data import fpl_client
+    from fpl_agent.data.fpl_client import FPLClient
+
+    waits = []
+    monkeypatch.setattr(fpl_client.time, "sleep", waits.append)
+    replies = iter([httpx.Response(429, headers={"Retry-After": "7"}),
+                    httpx.Response(503, headers={"Retry-After": "600"}),
+                    httpx.Response(200, json={"ok": 1})])  # fmt: skip
+    c = FPLClient(client=httpx.Client(transport=httpx.MockTransport(lambda r: next(replies))))
+    assert c._get("x") == {"ok": 1}
+    assert waits == [7.0, FPLClient.MAX_WAIT]
+
+
+def test_only_a_client_it_created_is_closed():
+    import httpx
+
+    from fpl_agent.data.fpl_client import FPLClient
+
+    mine = httpx.Client()
+    with FPLClient(client=mine):
+        pass
+    assert not mine.is_closed  # an injected client stays open for its owner
+    own = FPLClient()
+    own.close()
+    assert own._http.is_closed
+
+
+def test_retry_after_date_and_negative_delay_are_bounded():
+    import httpx
+
+    from fpl_agent.data.fpl_client import FPLClient
+
+    with FPLClient() as client:
+        req = httpx.Request("GET", "https://fixture.example")
+        for header, expected in [("-3", 0), ("Thu, 01 Jan 2099 00:00:00 GMT", client.MAX_WAIT)]:
+            res = httpx.Response(429, request=req, headers={"Retry-After": header})
+            err = httpx.HTTPStatusError("fixture", request=req, response=res)
+            assert client._wait(err, 0) == expected

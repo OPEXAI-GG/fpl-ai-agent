@@ -13,7 +13,7 @@ from fpl_agent.config import Settings
 from fpl_agent.data.entry import SquadState
 from fpl_agent.rules import Rules
 from fpl_agent.solver.decide import Decision
-from fpl_agent.solver.inputs import MIN_CHANCE  # noqa: F401  (never buy/start below this chance)
+from fpl_agent.solver.inputs import _buyable, _startable
 
 MAX_TRANSFERS_OUTSIDE_CHIP = 3
 MAX_HITS_PER_GW = 1
@@ -46,6 +46,12 @@ class Context:
     recent_hits: dict[int, int] = field(default_factory=dict)  # gw -> hits taken (last 4 GWs)
     projected_share: float = 1.0  # share of the pool with a projection
     double_gw_players: frozenset[int] = frozenset()
+    # age of the FPL snapshot the plan used; None = unknown. The agent always passes the real
+    # age; a live run refuses to write from unknown or too old data
+    snapshot_age_hours: float | None = 0.0
+    # critical sources (FPL bootstrap/fixtures/players) whose newest refresh failed after the
+    # snapshot the plan uses (source_health.critical_failures_after): nothing newer validates it
+    critical_source_failures: tuple[str, ...] = ()
 
 
 @dataclass
@@ -60,7 +66,7 @@ class Verdict:
         return not self.violations
 
 
-def _bad_availability(pool: pd.DataFrame, ids: list[int]) -> list[int]:
+def _bad_availability(pool: pd.DataFrame, ids: list[int], *, starting: bool = False) -> list[int]:
     rows = pool.set_index("player_id")
     bad = []
     for i in ids:
@@ -68,8 +74,8 @@ def _bad_availability(pool: pd.DataFrame, ids: list[int]) -> list[int]:
             bad.append(i)
             continue
         r = rows.loc[i]
-        chance = 100.0 if pd.isna(r["chance"]) else float(r["chance"])
-        if r["status"] != "a" or chance < MIN_CHANCE:
+        allowed = _startable if starting else _buyable
+        if not allowed(r["status"], r["chance"]):
             bad.append(i)
     return bad
 
@@ -94,6 +100,14 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
             "stale_data",
             f"plan is for GW{d.gw} but FPL's next gameweek is GW{ctx.bootstrap_next_gw}",
         )
+    age = ctx.snapshot_age_hours
+    if s.is_live and (age is None or age > s.max_snapshot_hours):
+        seen = "unknown" if age is None else f"{age:.1f}h old"
+        add("global", "stale_snapshot",
+            f"FPL data is {seen} (limit {s.max_snapshot_hours:g}h): refresh first")  # fmt: skip
+    if ctx.critical_source_failures:  # every mode: a dry plan on such data is diagnostic only
+        add("global", "critical_source_failed",
+            "; ".join(ctx.critical_source_failures) + ": refresh before deciding")  # fmt: skip
     if (1 - ctx.projected_share) > MAX_MISSING_PROJECTIONS:
         add(
             "global", "missing_projections", f"{1 - ctx.projected_share:.0%} of players unprojected"
@@ -140,14 +154,19 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
         add("transfers", "availability_buy", f"buying unavailable/doubtful players {bad_in}")
 
     # lineup
-    bad_xi = _bad_availability(ctx.pool, d.xi)
+    bad_xi = _bad_availability(ctx.pool, d.xi, starting=True)
     if bad_xi:
-        add("lineup", "availability_start", f"starting unavailable/doubtful players {bad_xi}")
+        add("lineup", "availability_start", f"starting unavailable players {bad_xi}")
 
     # chips
+    if ctx.state.active_chip and d.chip != ctx.state.active_chip:
+        planned = d.chip or "no chip"
+        add("global", "second_chip", f"{ctx.state.active_chip} already active: {planned} planned")
     if d.chip:
         avail = ctx.state.chips_available(rules)
-        active = d.chip == "wildcard" and ctx.state.wildcard_active  # already played by the entry
+        active = d.chip == ctx.state.active_chip or (
+            d.chip == "wildcard" and ctx.state.wildcard_active
+        )  # already played by the entry for this deadline
         if not active and (d.chip not in avail or not avail[d.chip][0] <= d.gw <= avail[d.chip][1]):
             add("global", "chip_unavailable", f"{d.chip} is not available in GW{d.gw}")
         if d.chip == "wildcard" and not active:

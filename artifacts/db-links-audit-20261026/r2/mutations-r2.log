@@ -1,0 +1,17 @@
+M2 drop n_p agreement: KILLED | [] | 1 failed, 102 passed in 54.03s
+M5 history no reset: KILLED | [] | 1 failed, 102 passed in 52.67s
+M8 absent check off: KILLED | [] | 1 failed, 102 passed in 53.28s
+M15 audit ignores valid_from: KILLED | [] | 1 failed, 102 passed in 52.52s
+W1 reader ignores recorded_at: KILLED | [] | 4 failed, 99 passed in 53.73s
+W2 reader ignores blocked: KILLED | [] | 2 failed, 101 passed in 53.05s
+W3 project drops blocked: KILLED | [] | 1 failed, 102 passed in 53.42s
+W4 revalidate keeps links: KILLED | [] | 5 failed, 98 passed in 52.27s
+W5 revalidate timed (drops untimed): KILLED | [] | 1 failed, 102 passed in 53.85s
+W6 reconstructed snapshots allowed: KILLED | [] | 1 failed, 102 passed in 54.05s
+W7 propose ignores FotMob ingested: KILLED | [] | 1 failed, 102 passed in 53.42s
+W8 conflicts ignore links: KILLED | [] | 53 failed, 50 passed in 58.12s
+W10 orphan check off: KILLED | [] | 1 failed, 102 passed in 53.93s
+W11 batch id no suffix: KILLED | [] | 1 failed, 102 passed in 53.51s
+W12 coverage ignores unsupported: KILLED | [] | 2 failed, 101 passed in 54.65s
+restored: rrm src == repo src
+W9 coverage ignores season (run separately; dropped from the batch by a harness edit): KILLED | test_coverage_is_per_season_and_the_reader_follows_identity_across_seasons | 1 failed, 37 passed

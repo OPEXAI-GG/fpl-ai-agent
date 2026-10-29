@@ -1,0 +1,4 @@
+100755 b99ff3957ec45a74ab589b5c704c398e1039cd01 0	scripts/check_archive.sh
+100755 8f9c42b71c9f927386247a5b45a1f063b99e8361 0	scripts/data_publish.sh
+100755 fb4f32b1d9ba2541d0b4ef7b9eb98dc312bc53e5 0	scripts/data_restore.sh
+100755 34d5765777c0d47638b2d0b8c56aa8b3add8b4cd 0	scripts/plan_publish.sh

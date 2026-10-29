@@ -34,9 +34,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/fpl_agent"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"rules" = "fpl_agent/rules/data"  # the scoring rules, so an installed CLI works outside the repo
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = ["artifacts"]  # review evidence snapshots, kept verbatim
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

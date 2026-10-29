@@ -1,0 +1,47 @@
+{
+ "declared_tables": 23,
+ "patched_module": "C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\5f4810dd-2bab-4621-af08-adf1aa533cf6\\scratchpad\\g3\\src51\\src\\fpl_agent\\db\\database.py",
+ "restored_equals_FAA7_hashes": false,
+ "require_manifest_refuses_legacy": "ExportError: legacy: no manifest.json",
+ "imported_rows": 21,
+ "export_counts": {
+  "competitions": 15,
+  "teams": 512,
+  "team_ids": 883,
+  "players": 32063,
+  "player_ids": 36061,
+  "matches": 51236,
+  "match_ids": 66239,
+  "team_match": 147472,
+  "match_odds": 42431,
+  "appearances": 1751156,
+  "player_match_stats": 24416545,
+  "shots": 719517,
+  "transfers": 0,
+  "fpl_players_gw": 310779,
+  "fpl_points_gw": 235431,
+  "projections": 157452,
+  "field_ownership": 310,
+  "decisions": 36,
+  "reviews": 4,
+  "ingest_log": 49154,
+  "ingest_state": 43745,
+  "league_translation": 0,
+  "lessons": 3
+ },
+ "export_files": 24,
+ "parquet_files": 23,
+ "has_manifest": true,
+ "manifest_keys": [
+  "created_at",
+  "tables",
+  "version"
+ ],
+ "verify_export": [],
+ "missing_tables": [],
+ "row_mismatch_vs_FAA7": {},
+ "empty_tables_exported": [
+  "league_translation",
+  "transfers"
+ ]
+}

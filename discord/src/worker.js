@@ -12,6 +12,7 @@ const PLAN_RELEASE = "plan"; // release the plan workflow uploads latest.md / la
 const BUSY = ["plan", "data", "review", "backfill"]; // workflows that share the database
 const DEFERRED = { type: 5 }; // "the bot is thinking..."
 const EPHEMERAL = 64;
+const ANSWER_TOKENS = 1000; // an answer is under 1500 characters: ~400 tokens, with headroom
 
 export default {
   async fetch(request, env, ctx) {
@@ -110,14 +111,50 @@ const COMMANDS = {
 
 // ---- Claude ----
 
+// The plan as the model sees it: the report (which already names every player) plus the few
+// facts only the JSON holds (mode, what was done or blocked, chips held), and how old it is.
+// The JSON's id lists repeat the report and are left out.
+export function planContext(plan, now = Date.now()) {
+  if (!plan.md) return "No plan has been published yet.";
+  const lines = [`Latest plan report:\n${plan.md}`];
+  let data = null;
+  try {
+    data = plan.json ? JSON.parse(plan.json) : null;
+  } catch {
+    data = null;
+  }
+  if (data) {
+    const d = data.decision || {};
+    const o = data.outcome || {};
+    const extra = {
+      mode: data.mode,
+      gw: d.gw,
+      chip: d.chip ?? null,
+      held_chips: d.held || {},
+      done: o.done || [],
+      blocked: o.blocked || [],
+      errors: o.errors || [],
+      verified: o.verified ?? null,
+    };
+    lines.push(`Plan facts: ${JSON.stringify(extra)}`);
+  }
+  if (plan.updatedAt) {
+    const hours = (now - Date.parse(plan.updatedAt)) / 36e5;
+    lines.push(
+      `Data age: published ${plan.updatedAt} (${hours.toFixed(1)} hours before this question).`,
+    );
+  } else {
+    lines.push("Data age: unknown (no publish time).");
+  }
+  return lines.join("\n\n");
+}
+
 async function claude(env, question, plan) {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 25_000, maxRetries: 0 });
-  const context = plan.md
-    ? `Latest plan report:\n${plan.md}\n\nLatest plan data (JSON):\n${plan.json || "(none)"}`
-    : "No plan has been published yet.";
+  const context = planContext(plan);
   const res = await client.beta.messages.create({
     model: env.CLAUDE_MODEL || "claude-opus-5-5",
-    max_tokens: 4000,
+    max_tokens: ANSWER_TOKENS,
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
     output_config: { effort: "low" },
@@ -184,6 +221,7 @@ async function latestPlan(env, fetchFn) {
   for (const [key, file] of [["md", "latest.md"], ["json", "latest.json"]]) {
     const asset = assets.find((a) => a.name === file);
     if (asset) out[key] = await download(env, fetchFn, asset.id);
+    if (asset?.updated_at && key === "md") out.updatedAt = asset.updated_at;
   }
   return out;
 }

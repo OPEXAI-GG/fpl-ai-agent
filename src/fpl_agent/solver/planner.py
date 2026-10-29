@@ -20,6 +20,7 @@ squad is a separate one-week team (valued by `free_hit_value`) and the real squa
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from fpl_agent.solver.mip import Infeasible, Model
 
@@ -71,6 +72,7 @@ class Candidate:
     price: int
     xp: list[float]  # expected points per gameweek of the horizon
     sd: list[float] | None = None  # spread of those points (standard deviation), if known
+    start_allowed: list[bool] | None = None  # first-week availability rail, by horizon week
 
 
 @dataclass
@@ -110,6 +112,7 @@ class Plan:
     objective: float
     bank: int
     ft_end: int
+    solve: Any = None  # mip.SolveInfo of the solve that produced it
 
     @property
     def first(self) -> WeekPlan:
@@ -147,7 +150,8 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         frozen = t in fh or t in forced_roll
         for i in ids:
             m.var(("s", i, t))
-            m.var(("x", i, t))
+            allowed = cands[i].start_allowed
+            m.var(("x", i, t), ub=1.0 if allowed is None or allowed[t] else 0.0)
             m.var(("c", i, t))
             m.var(("in", i, t), ub=0.0 if frozen else 1.0)
             locked = (t == 0 and i in pi.locked) or i in pi.kept
@@ -262,6 +266,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
     constant = sum(cfg.decay**t * pi.free_hit_values.get(pi.gws[t], 0.0) for t in fh)
 
     sol, obj = m.solve(cfg.time_limit, cfg.gap)
+    solved = m.info
     on = lambda k: sol[k] > 0.5  # noqa: E731
     weeks = []
     ft_prev = ft0
@@ -285,7 +290,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             + xp_t(cap) * (2.0 if t in tc else 1.0),
         ))  # fmt: skip
         ft_prev = round(sol[("ft", t + 1)])
-    return Plan(weeks, obj + constant, round(sol[("bank", H - 1)]), ft_prev)
+    return Plan(weeks, obj + constant, round(sol[("bank", H - 1)]), ft_prev, solved)
 
 
 def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerConfig,
@@ -297,7 +302,8 @@ def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerCon
     m = Model()
     for i in ids:
         m.var(("s", i))
-        m.var(("x", i))
+        allowed = cd[i].start_allowed
+        m.var(("x", i), ub=1.0 if allowed is None or allowed[t] else 0.0)
         m.var(("c", i))
     for i in outfield:
         for k in range(3):

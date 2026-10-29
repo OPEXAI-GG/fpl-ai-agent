@@ -1,0 +1,5 @@
+fotmob:ENG1:2026: ok rows=70
+fotmob:UCL:2026: ok rows=38
+fotmob:UEL:2026: ok rows=36
+fotmob:UECL:2026: ok rows=18
+quality: no issues

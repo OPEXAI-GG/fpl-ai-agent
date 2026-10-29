@@ -1,0 +1,158 @@
+valid_from Counter({'2026-10-21': 131})
+    4 Gabriel dos Santos Magalhães       |   732 Gabriel                      | 7/7/7
+   10 Benjamin White                     |   730 Ben White                    | 6/6/6
+   12 Bukayo Saka                        |   734 Bukayo Saka                  | 7/7/7
+   16 Noni Madueke                       |   735 Noni Madueke                 | 4/4/4
+   17 Mikel Merino Zazón                 |   736 Mikel Merino                 | 7/7/7
+   19 Martín Zubimendi Ibáñez            |   737 Martín Zubimendi             | 5/5/5
+   28 Bruno Guimarães Rodriguez Moura    |   733 Bruno Guimarães              | 5/5/5
+   29 Christos Tzolis                    |   815 Christos Tzolis              | 5/5/5
+   37 Victor Lindelöf                    |   798 Victor Nilsson Lindelöf      | 7/7/7
+   40 Emiliano Buendía Stati             |   800 Emiliano Buendía             | 7/7/7
+   42 John McGinn                        |   801 John McGinn                  | 7/7/7
+   49 Alysson Edward Franco da Rocha dos |   799 Alysson Edward               | 6/6/6
+   54 Alejandro Garnacho Ferreyra        |   807 Alejandro Garnacho           | 3/3/3
+   64 Ibrahim Mbaye                      |   802 Ibrahim Mbaye                | 4/4/4
+   66 Đorđe Petrović                     |   690 Djordje Petrović             | 7/7/7
+   76 Rayan Vitor Simplício Rocha        |   692 Rayan                        | 7/7/7
+   77 Marcus Tavernier                   |   693 Marcus Tavernier             | 7/7/7
+   83 David Brooks                       |   697 David Brooks                 | 5/5/5
+   88 Francisco Evanilson de Lima Barbos |   694 Evanilson                    | 7/7/7
+   91 António João Pereira de Albuquerqu |   691 António Silva                | 7/7/7
+   99 Keane Lewis-Potter                 |   750 Keane Lewis-Potter           | 7/7/7
+  106 Kevin Schade                       |   754 Kevin Schade                 | 7/7/7
+  107 Dango Ouattara                     |   751 Dango Ouattara               | 7/7/7
+  115 Jaidon Anthony                     |   752 Jaidon Anthony               | 7/7/7
+  116 Igor Thiago Nascimento Rodrigues   |   753 Igor Thiago                  | 7/7/7
+  120 El Hadji Malick Diouf              |   755 Malick Diouf                 | 4/4/4
+  132 João Pedro Loureiro da Costa       |   680 Costinha                     | 6/6/6
+  139 Matt O'Riley                       |   681 Matthew O'Riley              | 2/2/2
+  140 Diego Gómez Amarilla               |   678 Diego Gómez                  | 7/7/7
+  154 Ibrahim Osman                      |   682 Ibrahim Osman                | 3/3/3
+  155 Malick Yalcouyé                    |   679 Malick Junior Yalcouyé       | 7/7/7
+  158 José María Andrés Baixauli         |   677 Chema Andrés                 | 4/4/4
+  161 Emiliano Martínez Romero           |   783 Emiliano Martínez            | 6/6/6
+  173 Levi Samuels Colwill               |   784 Levi Colwill                 | 6/6/6
+  176 Marco Palestra                     |   788 Marco Palestra               | 2/2/2
+  178 Pedro Lomba Neto                   |   786 Pedro Neto                   | 7/7/7
+  179 Estêvão Almeida de Oliveira Gonçal |   790 Estêvão                      | 5/5/5
+  181 Moisés Caicedo Corozo              |   785 Moisés Caicedo               | 3/3/3
+  184 Geovany Quenda                     |   789 Geovany Quenda               | 3/3/3
+  185 João Pedro Junqueira de Jesus      |   787 João Pedro                   | 6/6/6
+  212 Tatsuhiro Sakamoto                 |   673 Tatsuhiro Sakamoto           | 3/3/3
+  213 Ephron Mason-Clark                 |   674 Ephron Mason-Clark           | 6/6/6
+  217 Loum Tchaouna                      |   814 Loum Tchaouna                | 4/4/4
+  227 Gustavo Hamer                      |   675 Gustavo Hamer                | 4/4/4
+  232 Evann Guessand                     |   804 Evann Guessand               | 2/2/2
+  238 Tyrick Mitchell                    |   684 Tyrick Mitchell              | 7/7/7
+  241 Oscar Mingueza                     |   689 Óscar Mingueza               | 2/2/2
+  244 Yéremy Pino Santos                 |   685 Yéremi Pino                  | 7/7/7
+  246 Jefferson Lerma Solís              |   687 Jefferson Lerma              | 4/4/4
+  257 Eddie Nketiah                      |   688 Edward Nketiah               | 6/6/6
+  259 Dwight McNeil                      |   686 Dwight McNeil                | 4/4/4
+  262 Anan Khalaili                      |   683 Anan Khalaili                | 7/7/7
+  269 Brennan Johnson                    |   779 Brennan Johnson              | 7/7/7
+  277 Vitalii Mykolenko                  |   775 Vitaliy Mykolenko            | 6/6/6
+  281 Jack Grealish                      |   777 Jack Grealish                | 5/6/6
+  283 Tyrique George                     |   778 Tyrique George               | 7/7/7
+  284 Carlos Alcaraz Durán               |   780 Charly Alcaraz               | 3/3/3
+  286 Tyler Dibling                      |   782 Tyler Dibling                | 2/2/2
+  287 Merlin Röhl                        |   776 Merlin Röhl                  | 4/4/4
+  289 Norberto Bercique Gomes Betuncal   |   834 Beto                         | 2/2/2
+  304 Kevin Santos Lopes de Macedo       |   770 Kevin                        | 5/5/5
+  305 Oscar Bobb                         |   766 Oscar Bobb                   | 7/7/7
+  308 Josh King                          |   767 Joshua King                  | 7/7/7
+  311 Rodrigo Muniz Carvalho             |   771 Rodrigo Muniz                | 5/5/5
+  314 César Palacios                     |   768 César Palacios               | 5/5/5
+  335 Mohamed Belloumi                   |   773 Mohamed Belloumi             | 7/7/7
+  336 Liam Millar                        |   836 Liam Millar                  | 2/2/2
+  358 Mohamed-Ali Cho                    |   819 Mohamed-Ali Cho              | 4/4/4
+  361 Brooke Norton-Cuffy                |   772 Brooke Norton-Cuffy          | 3/3/3
+  362 Sorba Thomas                       |   774 Sorba Thomas                 | 5/5/5
+  379 Jack Clarke                        |   748 Jack Clarke                  | 6/6/6
+  382 Emersonn Correia da Silva          |   745 Emersonn                     | 7/7/7
+  384 Jaden Philogene                    |   749 Jaden Philogene-Bidace       | 3/3/3
+  386 Chuba Akpom                        |   747 Chuba Akpom                  | 5/5/5
+  389 Kasey McAteer                      |   827 Kasey McAteer                | 3/3/3
+  392 Daizen Maeda                       |   744 Daizen Maeda                 | 7/7/7
+  394 Florentino Ibrain Morris Luís      |   743 Florentino                   | 4/4/4
+  400 Harry Wilson                       |   710 Harry Wilson                 | 5/5/5
+  405 Gabriel Gudmundsson                |   708 Gabriel Gudmundsson          | 5/5/5
+  410 Noah Okafor                        |   709 Noah Okafor                  | 7/7/7
+  416 Daniel James                       |   811 Daniel James                 | 3/3/3
+  418 Tanaka Ao                          |   707 Ao Tanaka                    | 6/6/6
+  430 Jean-Mattéo Bahoya                 |   711 Jean-Mattéo Bahoya           | 2/2/2
+  440 Joe Gomez                          |   761 Joseph Gomez                 | 2/2/2
+  445 Kostas Tsimikas                    |   763 Konstantinos Tsimikas        | 2/2/2
+  447 Florian Wirtz                      |   758 Florian Wirtz                | 7/7/7
+  448 Cody Gakpo                         |   765 Cody Gakpo                   | 5/5/5
+  450 Rio Ngumoha                        |   760 Rio Ngumoha                  | 5/5/5
+  458 Victor Munoz                       |   757 Víctor Muñoz                 | 7/7/7
+  462 Lewis Koumas                       |   762 Lewis Koumas                 | 5/5/5
+  466 Bradley Barcola                    |   759 Bradley Barcola              | 5/5/5
+  474 Rúben dos Santos Gato Alves Dias   |   738 Rúben Dias                   | 7/7/7
+  481 Antoine Semenyo                    |   741 Antoine Semenyo              | 7/7/7
+  484 Jérémy Doku                        |   740 Jérémy Doku                  | 3/3/3
+  496 Ryan McAidoo                       |   826 Ryan McAidoo                 | 2/2/2
+  502 Andrey Nascimento dos Santos       |   713 Andrey Santos                | 4/4/4
+  507 Patrick Dorgu                      |   812 Patrick Dorgu                | 5/5/5
+  509 Diogo Dalot Teixeira               |   712 Diogo Dalot                  | 7/7/7
+  518 Bruno Borges Fernandes             |   715 Bruno Fernandes              | 7/7/7
+  519 Bryan Mbeumo                       |   716 Bryan Mbeumo                 | 7/7/7
+  520 Matheus Santos Carneiro da Cunha   |   717 Matheus Cunha                | 7/7/7
+  521 Marcus Rashford                    |   719 Marcus Rashford              | 6/6/6
+  523 Amad Diallo                        |   714 Amad Diallo                  | 2/2/2
+  534 Nico González Iglesias             |   791 Nico González                | 5/5/5
+  541 Dan Burn                           |   796 Daniel Burn                  | 2/2/2
+  543 Tino Livramento                    |   822 Valentino Livramento         | 2/2/2
+  545 Harvey Barnes                      |   794 Harvey Barnes                | 7/7/7
+  546 Anthony Elanga                     |   825 Anthony Elanga               | 3/3/3
+  548 Jacob Murphy                       |   797 Jacob Murphy                 | 6/6/6
+  549 Joelinton Cássio Apolinário de Lir |   792 Joelinton                    | 2/2/2
+  551 Joe Willock                        |   793 Joseph Willock               | 7/7/7
+  552 Bazoumana Touré                    |   795 Bazoumana Touré              | 5/5/5
+  569 Daniel Muñoz Mejía                 |   723 Daniel Muñoz                 | 5/6/6
+  575 Murillo Costa dos Santos           |   722 Murillo                      | 7/7/7
+  577 Jair Paula da Cunha Filho          |   721 Jair Cunha                   | 5/5/5
+  581 Luca Netz                          |   728 Luca Netz                    | 3/3/3
+  584 Callum Hudson-Odoi                 |   726 Callum Hudson-Odoi           | 3/3/3
+  585 Dan Ndoye                          |   724 Dan Ndoye                    | 7/7/7
+  593 Igor Jesus Maciel da Cruz          |   813 Igor Jesus                   | 5/5/5
+  594 Arnaud Kalimuendo                  |   725 Arnaud Kalimuendo-Muinga     | 3/3/3
+  601 Sávio Moreira de Oliveira          |   810 Sávio                        | 4/4/4
+  607 Marcos Senesi Barón                |   672 Marcos Senesi                | 2/2/2
+  608 Pedro Porro Sauceda                |   820 Pedro Porro                  | 3/3/3
+  619 Mohammed Kudus                     |   669 Mohammed Kudus               | 6/6/6
+  621 Mathys Tel                         |   671 Mathys Tel                   | 5/5/5
+  630 Mikey Moore                        |   835 Mikey Moore                  | 2/2/2
+  633 Dominic Solanke-Mitchell           |   670 Dominic Solanke              | 7/7/7
+  658 Chris Rigg                         |   699 Chris Rigg                   | 3/3/3
+  661 Nilson Angulo                      |   705 Nilson Angulo                | 6/6/6
+  664 Dayann Méthalie                    |   701 Dayann Méthalie              | 2/2/2
+  666 Malick Fofana                      |   704 Malick Fofana                | 4/4/4
+--- rejected
+ambiguous: another FotMob record also fits | David Raya Martín | David Raya 7 7 7 0 0 [731]
+ambiguous: the FotMob record also fits another FPL player | Ezri Konsa Ngoyo | Ezri Konsa 6 6 6 0 0 []
+too few appearances | Julio Soler Barreto | Julio Soler 1 1 1 0 0 []
+too few appearances | Amine Adli | Amine Adli 1 1 1 0 0 []
+too few appearances | Fábio Freitas Gouveia Carvalho | Fábio Carvalho 1 1 1 0 0 []
+too few appearances | Zadok Yohanna | Ibrahim Osman 1 1 3 0 2 []
+too few appearances | Robert Lynch Sánchez | Robert Sánchez 1 1 1 0 0 []
+too few appearances | Chadi Riad Dnanou | Chadi Riad 1 1 1 0 0 []
+too few appearances | Jorge Cuenca Barreno | Jorge Cuenca 1 1 1 0 0 []
+too few appearances | Manuel Ángel Morán Ibáñez | Manuel Ángel 1 1 1 0 0 []
+contradicted by the evidence | Abdul Fatawu | Abdul Fatawu 5 6 6 1 0 []
+contradicted by the evidence | Jayden Bogle | Jayden Bogle 6 7 7 1 0 []
+too few appearances | Federico Chiesa | Joseph Gomez 1 1 2 0 1 []
+agreement below threshold | Iliman Ndiaye | Iliman Ndiaye 5 7 7 0 0 []
+too few appearances | Vitor de Oliveira Nunes dos Reis | Kaden Braithwaite 1 1 1 0 0 []
+too few appearances | Allan Andrade Elias | Allan 1 1 1 0 0 []
+too few appearances | Shea Lacey | Diogo Dalot 1 1 7 0 6 []
+too few appearances | Richarlison de Andrade | Mikey Moore 1 1 2 0 1 []
+too few appearances | Mykhailo Mudryk | Mykhaylo Mudryk 1 1 1 0 0 []
+contradicted by the evidence | Reinildo Mandava | Reinildo 5 6 6 1 0 []
+too few appearances | Romaine Mundle | Romaine Mundle 1 1 1 0 0 []
+too few appearances | Chemsdine Talbi | Chemsdine Talbi 1 1 1 0 0 []
+too few appearances | Djiamgone Jocelin Ta Bi | Dayann Méthalie 1 1 2 0 1 []
+too few appearances | Juan Angulo | Juan Riquelme Angulo 1 1 1 0 0 []
+too few appearances | Tymur Tutierov | Timur Tuterov 1 1 1 0 0 []

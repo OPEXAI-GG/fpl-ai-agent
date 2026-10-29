@@ -1,0 +1,191 @@
+{
+ "undeclared_files": [],
+ "tables": {
+  "competitions": {
+   "present": true,
+   "columns": 4,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "teams": {
+   "present": true,
+   "columns": 3,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "team_ids": {
+   "present": true,
+   "columns": 4,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "players": {
+   "present": true,
+   "columns": 4,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "player_ids": {
+   "present": true,
+   "columns": 4,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "matches": {
+   "present": true,
+   "columns": 13,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "match_ids": {
+   "present": true,
+   "columns": 3,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "team_match": {
+   "present": true,
+   "columns": 15,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "match_odds": {
+   "present": true,
+   "columns": 13,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "appearances": {
+   "present": true,
+   "columns": 8,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "player_match_stats": {
+   "present": true,
+   "columns": 6,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "shots": {
+   "present": true,
+   "columns": 15,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "transfers": {
+   "present": false
+  },
+  "fpl_players_gw": {
+   "present": true,
+   "columns": 17,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "fpl_points_gw": {
+   "present": true,
+   "columns": 13,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "projections": {
+   "present": true,
+   "columns": 8,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "field_ownership": {
+   "present": true,
+   "columns": 7,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "decisions": {
+   "present": true,
+   "columns": 5,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "reviews": {
+   "present": true,
+   "columns": 5,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "ingest_log": {
+   "present": true,
+   "columns": 5,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "ingest_state": {
+   "present": true,
+   "columns": 5,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "league_translation": {
+   "present": false
+  },
+  "match_odds_log": {
+   "present": false
+  },
+  "scout_cache": {
+   "present": false
+  },
+  "scout_calls": {
+   "present": false
+  },
+  "runs": {
+   "present": false
+  },
+  "lessons": {
+   "present": true,
+   "columns": 8,
+   "missing_columns": [],
+   "extra_columns": [],
+   "type_differences": {}
+  },
+  "news_evidence": {
+   "present": false
+  },
+  "player_codes": {
+   "present": false
+  },
+  "migration_log": {
+   "present": false
+  },
+  "repair_log": {
+   "present": false
+  },
+  "source_attempts": {
+   "present": false
+  },
+  "fpl_deadlines": {
+   "present": false
+  },
+  "player_links": {
+   "present": false
+  }
+ }
+}

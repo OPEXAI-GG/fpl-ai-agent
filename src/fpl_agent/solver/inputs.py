@@ -24,7 +24,16 @@ def to_canonical(state: SquadState, pool: pd.DataFrame) -> SquadState:
     return replace(state, squad=squad, base_squad=base)
 
 
-MIN_CHANCE = 75  # never buy or start a player below this chance of playing (also a safety rail)
+MIN_CHANCE = 75  # transfer threshold; owned doubts use probability-weighted projections
+
+
+def _startable(status, chance) -> bool:
+    """A doubt is not an absence. Never apply the buying policy to an owned starter.
+
+    Probabilities already reduce simulated minutes; applying another hard exclusion would
+    double-penalise a 75% doubt. Confirmed injuries/suspensions and zero chance stay blocked.
+    """
+    return status in ("a", "d") and (chance is None or pd.isna(chance) or float(chance) > 0)
 
 
 def _buyable(status, chance) -> bool:
@@ -48,6 +57,7 @@ def build_candidates(proj: Projection, squad: list[SquadPlayer]) -> list[Candida
             int(r.price),
             mean[i].tolist(),
             sd[i].tolist(),
+            [_startable(r.status, r.chance)] + [r.status not in ("n", "u")] * (len(proj.gws) - 1),
         )
         for i, r in enumerate(proj.meta.itertuples())
         if int(r.player_id) in owned or _buyable(r.status, r.chance)

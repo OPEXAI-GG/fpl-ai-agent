@@ -1,0 +1,223 @@
+- generic [ref=f1e1]:
+  - link "Skip to content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f1e3]:
+    - complementary [ref=f1e4]:
+      - link "Matchroom overview" [ref=f1e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=f1e6]:
+          - text: M
+          - generic [ref=f1e7]: ↗
+        - generic [ref=f1e8]:
+          - text: MATCHROOM
+          - generic [ref=f1e9]: FPL AGENT / LOCAL
+      - navigation "Sections" [ref=f1e11]:
+        - link "Overview" [ref=f1e12] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=f1e13]: ◫
+          - text: Overview
+        - link "My Team" [ref=f1e14] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=f1e15]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=f1e16] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=f1e17]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=f1e18] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=f1e19]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=f1e20] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=f1e21]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=f1e22] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=f1e23]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=f1e24] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=f1e25]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=f1e26] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=f1e27]: ♡
+          - text: Data Health
+    - generic [ref=f1e32]:
+      - banner [ref=f1e33]:
+        - generic [ref=f1e34]: WORKSPACE / AI Decisions
+        - generic [ref=f1e35]: LOCAL CONNECTION
+      - main [active] [ref=f1e39]:
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]:
+            - generic [ref=f1e42]: FANTASY PREMIER LEAGUE
+            - heading "AI Decisions" [level=1] [ref=f1e579]
+            - paragraph [ref=f1e44]: The agent's stored decisions, projections and risk warnings.
+          - link "Open operations" [ref=f1e45] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=f1e46]: ↗
+        - status [ref=f1e47]: data read 10/21/2026, 12:22:48 AM
+        - generic [ref=f1e584]:
+          - generic [ref=f1e585]:
+            - generic [ref=f1e586]:
+              - heading "GW8 · 10/21/2026, 12:16:10 AM" [level=2] [ref=f1e587]
+              - generic [ref=f1e588]: dry run
+            - paragraph [ref=f1e589]: "planned (dry run: nothing sent to FPL)"
+            - generic [ref=f1e590]:
+              - generic [ref=f1e591]: 49.5 xP
+              - generic [ref=f1e592]: 49.5 xP without moves
+              - generic [ref=f1e593]: no chip
+              - generic [ref=f1e594]: no hits
+              - generic [ref=f1e595]: bank £0.2m
+            - heading "Decision context" [level=3] [ref=f1e596]
+            - paragraph [ref=f1e597]: Stored plan projects 0.0 more points than the no-transfer lineup. These are predictions, not guaranteed returns.
+            - paragraph [ref=f1e598]: The proposed lineup is shown in My Team. Values below are stored model comparisons, not guarantees.
+            - paragraph [ref=f1e599]: "value watch: Diego Gómez Amarilla; GBP5.0m, 3.8% overall ownership; 17.0 predicted points/4 GWs, +4.3 vs same-position peers at this price or cheaper; 76 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e600]: "value watch: James Hill; GBP5.5m, 0.8% overall ownership; 16.5 predicted points/4 GWs, +3.5 vs same-position peers at this price or cheaper; 77 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e601]: "value watch: Luka Vušković; GBP5.1m, 5.6% overall ownership; 16.2 predicted points/4 GWs, +3.3 vs same-position peers at this price or cheaper; 76 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e602]: "value watch: Enzo Le Fée; GBP5.7m, 2.9% overall ownership; 16.3 predicted points/4 GWs, +3.2 vs same-position peers at this price or cheaper; 76 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e603]: "value watch: Daichi Kamada; GBP5.0m, 0.7% overall ownership; 15.5 predicted points/4 GWs, +2.8 vs same-position peers at this price or cheaper; 78 expected minutes/GW; pl. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e604]: "captain xP tradeoff: 0.00 below the highest-xP starter; ownership/rotation policy may prefer this captain"
+            - paragraph [ref=f1e605]: "popular players you don't own (risk if they haul): João Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%"
+            - paragraph [ref=f1e606]: "your differentials (under 5% owned, upside): Enzo Le Fée 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%"
+            - paragraph [ref=f1e607]: "Passed check: doubtful-player lineup/bench refinement: 51.62 -> 51.62 simulated points including legal auto-subs and captain fallback (1000 worlds; before final captain policy). Headline xP remains starting XI plus captain, excluding auto-sub cover."
+            - paragraph [ref=f1e608]: "freehit: expires GW19; best stored scenario GW8; projected gain forgone if used now: 0.0 pts."
+            - paragraph [ref=f1e609]: "bboost: expires GW19; best stored scenario GW8; projected gain forgone if used now: 0.0 pts."
+            - heading "Transfers" [level=3] [ref=f1e610]
+            - paragraph [ref=f1e611]: "No transfers: roll the free transfer."
+            - heading "Captaincy" [level=3] [ref=f1e612]
+            - paragraph [ref=f1e613]: Captain Riccardo Calafiori · vice David Raya Martín
+            - paragraph [ref=f1e614]: "Options: Riccardo Calafiori 5.1, David Raya Martín 4.4, Enzo Le Fée 4.2, Cole Palmer 4.2"
+            - generic [ref=f1e615]:
+              - heading "Planned next weeks" [level=3] [ref=f1e616]
+              - list [ref=f1e617]:
+                - listitem [ref=f1e618]: "GW9: Bryan Mbeumo, Harvey Barnes → Diego Gómez Amarilla, Morgan Rogers"
+                - listitem [ref=f1e619]: "GW10: Leif Davis → Ezri Konsa Ngoyo"
+            - paragraph [ref=f1e620]: "Chips held for later: freehit (\"best gain +6.0 below the 8-point threshold\"), bboost (\"best gain +10.5 below the 14-point threshold\")"
+            - generic [ref=f1e621]:
+              - heading "Warnings" [level=3] [ref=f1e622]
+              - list [ref=f1e623]:
+                - listitem [ref=f1e624]: "kept for ownership (popular players are not sold without your OK): Riccardo Calafiori 97%, Pascal Groß 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Martín 58%"
+                - listitem [ref=f1e625]: "held Adrien Truffert -> Ezri Konsa Ngoyo: it beat rolling the transfer in only 45% of simulated worlds (-0.4 pts over the horizon)"
+                - listitem [ref=f1e626]: "Erling Haaland starts as a doubt: playing risk is already included in projected minutes. Zero minutes allows the first legal bench substitute; any cameo prevents that cover. Recheck club news at deadline."
+            - paragraph [ref=f1e627]: "Projection run: aa41fa953903. Entry: unknown (decisions are not stored per FPL entry)."
+          - generic [ref=f1e628]:
+            - generic [ref=f1e629]:
+              - heading "GW8 · 10/21/2026, 12:03:59 AM" [level=2] [ref=f1e630]
+              - generic [ref=f1e631]: dry run
+            - paragraph [ref=f1e632]: "planned (dry run: nothing sent to FPL)"
+            - generic [ref=f1e633]:
+              - generic [ref=f1e634]: 47.1 xP
+              - generic [ref=f1e635]: 47.3 xP without moves
+              - generic [ref=f1e636]: no chip
+              - generic [ref=f1e637]: no hits
+              - generic [ref=f1e638]: bank £0.2m
+            - heading "Decision context" [level=3] [ref=f1e639]
+            - paragraph [ref=f1e640]: Stored plan projects -0.2 more points than the no-transfer lineup. These are predictions, not guaranteed returns.
+            - paragraph [ref=f1e641]: The proposed lineup is shown in My Team. Values below are stored model comparisons, not guarantees.
+            - paragraph [ref=f1e642]: "value watch: Diego Gómez Amarilla; GBP5.0m, 3.8% overall ownership; 15.7 predicted points/4 GWs, +3.5 vs same-position peers at this price or cheaper; 77 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e643]: "value watch: Charalampos Kostoulas; GBP5.7m, 9.8% overall ownership; 17.8 predicted points/4 GWs, +2.6 vs same-position peers at this price or cheaper; 68 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e644]: "value watch: Rúben dos Santos Gato Alves Dias; GBP5.5m, 2.0% overall ownership; 14.3 predicted points/4 GWs, +2.6 vs same-position peers at this price or cheaper; 77 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e645]: "value watch: Francisco Evanilson de Lima Barbosa; GBP6.1m, 4.4% overall ownership; 17.8 predicted points/4 GWs, +2.4 vs same-position peers at this price or cheaper; 78 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e646]: "value watch: Yasin Ayari; GBP5.4m, 0.5% overall ownership; 15.0 predicted points/4 GWs, +2.4 vs same-position peers at this price or cheaper; 76 expected minutes/GW; position prior; unvalidated gem. Watchlist only: check role, news and transfer opportunity cost."
+            - paragraph [ref=f1e647]: "captain xP tradeoff: 0.07 below the highest-xP starter; ownership/rotation policy may prefer this captain"
+            - paragraph [ref=f1e648]: "popular players you don't own (risk if they haul): João Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%"
+            - paragraph [ref=f1e649]: "your differentials (under 5% owned, upside): Enzo Le Fée 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%"
+            - paragraph [ref=f1e650]: "freehit: expires GW19; best stored scenario GW12; projected gain forgone if used now: 1.0 pts."
+            - paragraph [ref=f1e651]: "bboost: expires GW19; best stored scenario GW10; projected gain forgone if used now: — pts."
+            - heading "Transfers" [level=3] [ref=f1e652]
+            - paragraph [ref=f1e653]: "No transfers: roll the free transfer."
+            - heading "Captaincy" [level=3] [ref=f1e654]
+            - paragraph [ref=f1e655]: Captain Francisco Evanilson de Lima Barbosa · vice Erling Haaland
+            - paragraph [ref=f1e656]: "Options: Erling Haaland 4.4, Francisco Evanilson de Lima Barbosa 4.3, Riccardo Calafiori 4.2, Bryan Mbeumo 4.2"
+            - generic [ref=f1e657]:
+              - heading "Planned next weeks" [level=3] [ref=f1e658]
+              - list [ref=f1e659]:
+                - listitem [ref=f1e660]: "GW9: Bryan Mbeumo, Brandon Thomas-Asante → Diego Gómez Amarilla, João Pedro Junqueira de Jesus"
+                - listitem [ref=f1e661]: "GW10: Adrien Truffert → Ezri Konsa Ngoyo"
+            - paragraph [ref=f1e662]: "Chips held for later: freehit (\"best gain +5.6 below the 8-point threshold\"), bboost (\"best gain +7.9 below the 14-point threshold\")"
+            - generic [ref=f1e663]:
+              - heading "Warnings" [level=3] [ref=f1e664]
+              - list [ref=f1e665]:
+                - listitem [ref=f1e666]: "kept for ownership (popular players are not sold without your OK): Riccardo Calafiori 97%, Pascal Groß 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Martín 58%"
+                - listitem [ref=f1e667]: the planner stopped at its 60s limit with the best plan found so far, not a proven best, gap 0.4%
+                - listitem [ref=f1e668]: "Erling Haaland starts as a doubt: playing risk is already included in projected minutes. Zero minutes allows the first legal bench substitute; any cameo prevents that cover. Recheck club news at deadline."
+            - paragraph [ref=f1e669]: "Projection run: 8e40bab6d7f2. Entry: unknown (decisions are not stored per FPL entry)."
+          - generic [ref=f1e670]:
+            - generic [ref=f1e671]:
+              - heading "GW8 · 10/20/2026, 10:30:05 PM" [level=2] [ref=f1e672]
+              - generic [ref=f1e673]: dry run
+            - paragraph [ref=f1e674]: "planned (dry run: nothing sent to FPL)"
+            - generic [ref=f1e675]:
+              - generic [ref=f1e676]: 46.5 xP
+              - generic [ref=f1e677]: 46.5 xP without moves
+              - generic [ref=f1e678]: no chip
+              - generic [ref=f1e679]: no hits
+              - generic [ref=f1e680]: bank £0.2m
+            - heading "Decision context" [level=3] [ref=f1e681]
+            - paragraph [ref=f1e682]: Stored plan projects 0.0 more points than the no-transfer lineup. These are predictions, not guaranteed returns.
+            - paragraph [ref=f1e683]: The proposed lineup is shown in My Team. Values below are stored model comparisons, not guarantees.
+            - paragraph [ref=f1e684]: "captain xP tradeoff: 0.00 below the highest-xP starter; ownership/rotation policy may prefer this captain"
+            - paragraph [ref=f1e685]: "popular players you don't own (risk if they haul): João Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%"
+            - paragraph [ref=f1e686]: "your differentials (under 5% owned, upside): Brandon Thomas-Asante 0%, Enzo Le Fée 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%"
+            - paragraph [ref=f1e687]: "freehit: expires GW19; best stored scenario GW8; projected gain forgone if used now: 0.0 pts."
+            - paragraph [ref=f1e688]: "bboost: expires GW19; best stored scenario GW8; projected gain forgone if used now: 0.0 pts."
+            - heading "Transfers" [level=3] [ref=f1e689]
+            - paragraph [ref=f1e690]: "No transfers: roll the free transfer."
+            - heading "Captaincy" [level=3] [ref=f1e691]
+            - paragraph [ref=f1e692]: Captain Francisco Evanilson de Lima Barbosa · vice Riccardo Calafiori
+            - paragraph [ref=f1e693]: "Options: Francisco Evanilson de Lima Barbosa 4.3, Riccardo Calafiori 4.2, Bryan Mbeumo 4.2, Cole Palmer 4.1"
+            - generic [ref=f1e694]:
+              - heading "Planned next weeks" [level=3] [ref=f1e695]
+              - list [ref=f1e696]:
+                - listitem [ref=f1e697]: "GW9: Bryan Mbeumo, Brandon Thomas-Asante → Diego Gómez Amarilla, João Pedro Junqueira de Jesus"
+                - listitem [ref=f1e698]: "GW10: Adrien Truffert → Ezri Konsa Ngoyo"
+            - paragraph [ref=f1e699]: "Chips held for later: freehit (\"best gain +4.8 below the 8-point threshold\"), bboost (\"best gain +12.0 below the 14-point threshold\")"
+            - generic [ref=f1e700]:
+              - heading "Warnings" [level=3] [ref=f1e701]
+              - list [ref=f1e702]:
+                - listitem [ref=f1e703]: "kept for ownership (popular players are not sold without your OK): Riccardo Calafiori 97%, Pascal Groß 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Martín 58%"
+                - listitem [ref=f1e704]: "held Adrien Truffert -> Ezri Konsa Ngoyo: it beat rolling the transfer in only 48% of simulated worlds (+0.1 pts over the horizon)"
+            - paragraph [ref=f1e705]: "Projection run: afe90cebfee3. Entry: unknown (decisions are not stored per FPL entry)."
+          - generic [ref=f1e706]:
+            - generic [ref=f1e707]:
+              - heading "GW8 · 10/20/2026, 10:18:45 PM" [level=2] [ref=f1e708]
+              - generic [ref=f1e709]: dry run
+            - paragraph [ref=f1e710]: "planned (dry run: nothing sent to FPL)"
+            - generic [ref=f1e711]:
+              - generic [ref=f1e712]: 47.1 xP
+              - generic [ref=f1e713]: 47.3 xP without moves
+              - generic [ref=f1e714]: no chip
+              - generic [ref=f1e715]: no hits
+              - generic [ref=f1e716]: bank £0.2m
+            - heading "Decision context" [level=3] [ref=f1e717]
+            - paragraph [ref=f1e718]: Stored plan projects -0.2 more points than the no-transfer lineup. These are predictions, not guaranteed returns.
+            - paragraph [ref=f1e719]: The proposed lineup is shown in My Team. Values below are stored model comparisons, not guarantees.
+            - paragraph [ref=f1e720]: "captain xP tradeoff: 0.07 below the highest-xP starter; ownership/rotation policy may prefer this captain"
+            - paragraph [ref=f1e721]: "popular players you don't own (risk if they haul): João Pedro Junqueira de Jesus 100%, Morgan Rogers 82%, Ezri Konsa Ngoyo 66%"
+            - paragraph [ref=f1e722]: "your differentials (under 5% owned, upside): Enzo Le Fée 2%, Francisco Evanilson de Lima Barbosa 3%, Leif Davis 4%"
+            - paragraph [ref=f1e723]: "freehit: expires GW19; best stored scenario GW12; projected gain forgone if used now: 0.5 pts."
+            - paragraph [ref=f1e724]: "bboost: expires GW19; best stored scenario GW8; projected gain forgone if used now: 0.0 pts."
+            - heading "Transfers" [level=3] [ref=f1e725]
+            - paragraph [ref=f1e726]: "No transfers: roll the free transfer."
+            - heading "Captaincy" [level=3] [ref=f1e727]
+            - paragraph [ref=f1e728]: Captain Francisco Evanilson de Lima Barbosa · vice Erling Haaland
+            - paragraph [ref=f1e729]: "Options: Erling Haaland 4.4, Francisco Evanilson de Lima Barbosa 4.3, Riccardo Calafiori 4.2, Bryan Mbeumo 4.2"
+            - generic [ref=f1e730]:
+              - heading "Planned next weeks" [level=3] [ref=f1e731]
+              - list [ref=f1e732]:
+                - listitem [ref=f1e733]: "GW9: Bryan Mbeumo, Brandon Thomas-Asante → Diego Gómez Amarilla, João Pedro Junqueira de Jesus"
+                - listitem [ref=f1e734]: "GW10: Adrien Truffert → Ezri Konsa Ngoyo"
+            - paragraph [ref=f1e735]: "Chips held for later: freehit (\"best gain +4.6 below the 8-point threshold\"), bboost (\"best gain +10.2 below the 14-point threshold\")"
+            - generic [ref=f1e736]:
+              - heading "Warnings" [level=3] [ref=f1e737]
+              - list [ref=f1e738]:
+                - listitem [ref=f1e739]: "kept for ownership (popular players are not sold without your OK): Riccardo Calafiori 97%, Pascal Groß 96%, Maxim De Cuyper 91%, Cole Palmer 64%, David Raya Martín 58%"
+                - listitem [ref=f1e740]: "held Adrien Truffert -> Ezri Konsa Ngoyo: it beat rolling the transfer in only 48% of simulated worlds (+0.9 pts over the horizon)"
+            - paragraph [ref=f1e741]: "Projection run: fb8af00ee3bd. Entry: unknown (decisions are not stored per FPL entry)."
+        - generic [ref=f1e445]:
+          - text: FPL AGENT
+          - generic [ref=f1e446]: Independent analysis. Informed decisions.
+          - generic [ref=f1e447]: 127.0.0.1 · LOCAL WORKSPACE

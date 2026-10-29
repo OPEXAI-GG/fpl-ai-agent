@@ -1,0 +1,13 @@
+{
+  "cutoff_invariance": {
+    "before": "MID",
+    "after": "MID",
+    "pass_": true
+  },
+  "unlisted_file": {
+    "verification_problems": [
+      "teams.parquet: file not listed in the manifest"
+    ],
+    "unlisted_rows_imported": 0
+  }
+}

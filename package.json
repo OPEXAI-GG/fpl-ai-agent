@@ -1,0 +1,29 @@
+{
+  "name": "fpl-ai-agent-1",
+  "version": "1.0.0",
+  "description": "An FPL manager that plans your team every week from a simulation of how each player actually scores: minutes, team goals for and against, clean sheets, saves, defensive contributions, goals, assists, bonus and cards. It plans transfers and chips over a six-gameweek horizon, picks the XI and captain, checks everything against safety rails, and reports what it would do.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test:dashboard": "playwright test -c playwright.dashboard.config.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OPEXAI-GG/fpl-ai-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/OPEXAI-GG/fpl-ai-agent/issues"
+  },
+  "homepage": "https://github.com/OPEXAI-GG/fpl-ai-agent#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5"
+  }
+}

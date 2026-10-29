@@ -1,0 +1,211 @@
+- generic [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "Matchroom overview" [ref=e5] [cursor=pointer]:
+        - /url: "#overview"
+        - generic [aria-hidden] [ref=e6]:
+          - text: M
+          - generic [ref=e7]: ↗
+        - generic [ref=e8]:
+          - text: MATCHROOM
+          - generic [ref=e9]: FPL AGENT / LOCAL
+      - generic [ref=e10]: YOUR COMMAND CENTER
+      - navigation "Sections" [ref=e11]:
+        - link "Overview" [ref=e12] [cursor=pointer]:
+          - /url: "#overview"
+          - generic [aria-hidden] [ref=e13]: ◫
+          - text: Overview
+        - link "My Team" [ref=e14] [cursor=pointer]:
+          - /url: "#team"
+          - generic [aria-hidden] [ref=e15]: ♣
+          - text: My Team
+        - link "AI Decisions" [ref=e16] [cursor=pointer]:
+          - /url: "#recommendations"
+          - generic [aria-hidden] [ref=e17]: ✧
+          - text: AI Decisions
+        - link "Player Analytics" [ref=e18] [cursor=pointer]:
+          - /url: "#players"
+          - generic [aria-hidden] [ref=e19]: ⚲
+          - text: Player Analytics
+        - link "Gameweek Planner" [ref=e20] [cursor=pointer]:
+          - /url: "#planning"
+          - generic [aria-hidden] [ref=e21]: ▦
+          - text: Gameweek Planner
+        - link "Agent History" [ref=e22] [cursor=pointer]:
+          - /url: "#activity"
+          - generic [aria-hidden] [ref=e23]: ≡
+          - text: Agent History
+        - link "Agent Operations" [ref=e24] [cursor=pointer]:
+          - /url: "#controls"
+          - generic [aria-hidden] [ref=e25]: ⚑
+          - text: Agent Operations
+        - link "Data Health" [ref=e26] [cursor=pointer]:
+          - /url: "#health"
+          - generic [aria-hidden] [ref=e27]: ♡
+          - text: Data Health
+      - generic [ref=e28]:
+        - text: PRIVATE WORKSPACE
+        - paragraph [ref=e30]: On your machine.Built for the next gameweek.
+        - generic [ref=e31]: DRY RUN CONTROLS
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]: WORKSPACE / Overview
+        - generic [ref=e35]:
+          - generic [ref=e36]: LOCAL CONNECTION
+          - link "Open agent settings" [ref=e38] [cursor=pointer]:
+            - /url: "#controls"
+            - text: FA
+      - main [active] [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: FANTASY PREMIER LEAGUE
+            - heading "Overview" [level=1] [ref=e187]
+            - paragraph [ref=e44]: Every decision starts with a clearer picture.
+          - link "Open operations" [ref=e45] [cursor=pointer]:
+            - /url: "#controls"
+            - text: Open operations
+            - generic [aria-hidden] [ref=e46]: ↗
+        - status [ref=e47]: data read 10/21/2026, 1:58:16 AM
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]:
+              - generic [ref=e195]: SEASON 2026/27 / GAMEWEEK 8
+              - heading "See the game. Find your edge." [level=2] [ref=e196]
+              - paragraph [ref=e197]: Your squad, the numbers behind it, and the next move. One place to prepare for matchday.
+              - link "Explore the gameweek ↗" [ref=e198] [cursor=pointer]:
+                - /url: "#planning"
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - text: FIRST KICKOFF
+                - strong [ref=e201]: Oct 23
+                - text: In 2.9 days
+              - generic [ref=e202]:
+                - text: AGENT WORKSPACE
+                - strong [ref=e203]: "Last run: ok"
+                - text: GW8 / dry / planned
+          - generic [ref=e204]:
+            - generic [ref=e206]:
+              - generic [ref=e207]: Latest plan · prediction
+              - generic [ref=e208]: 49.5 xP
+              - generic [ref=e209]: GW8 · 10/21/2026, 12:16:10 AM
+            - generic [ref=e211]:
+              - generic [ref=e212]: Player universe
+              - generic [ref=e213]: "668"
+              - generic [ref=e214]: GW8 official FPL snapshot
+            - generic [ref=e216]:
+              - generic [ref=e217]: Data freshness
+              - generic [ref=e218]: 3.8 h ago
+              - generic [ref=e219]: Within 6-hour window
+            - generic [ref=e222]:
+              - generic [ref=e223]: Stored decisions
+              - generic [ref=e224]: "4"
+              - generic [ref=e225]: 5 projection runs · 0 reviews
+          - generic [ref=e226]:
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - heading "The points leaders" [level=2] [ref=e229]
+                - link "All players ↗" [ref=e230] [cursor=pointer]:
+                  - /url: "#players"
+              - figure "Official points in stored match history; coverage may be incomplete." [ref=e231]:
+                - generic [ref=e232]:
+                  - generic "Maxim De Cuyper" [ref=e233]
+                  - generic [ref=e236]: "59.0"
+                - generic [ref=e237]:
+                  - generic "Erling Haaland" [ref=e238]
+                  - generic [ref=e241]: "58.0"
+                - generic [ref=e242]:
+                  - generic "Pascal Groß" [ref=e243]
+                  - generic [ref=e246]: "58.0"
+                - generic [ref=e247]:
+                  - generic "Luka Vušković" [ref=e248]
+                  - generic [ref=e251]: "51.0"
+                - generic [ref=e252]:
+                  - generic "João Pedro Junqueira de Jesus" [ref=e253]
+                  - generic [ref=e256]: "47.0"
+                - generic [ref=e257]:
+                  - generic "James Tarkowski" [ref=e258]
+                  - generic [ref=e261]: "46.0"
+                - generic [ref=e262]:
+                  - generic "Jayden Bogle" [ref=e263]
+                  - generic [ref=e266]: "45.0"
+            - generic [ref=e268]:
+              - generic [ref=e269]:
+                - heading "Your next moves" [level=2] [ref=e270]
+                - generic [ref=e271]: AGENT BRIEF
+              - generic [ref=e272]:
+                - generic [aria-hidden] [ref=e273]: "01"
+                - generic [ref=e274]:
+                  - strong [ref=e275]: "Latest decision: GW8"
+                  - paragraph [ref=e276]: "planned (dry run: nothing sent to FPL)"
+                  - link "View AI decisions →" [ref=e277] [cursor=pointer]:
+                    - /url: "#recommendations"
+              - generic [ref=e278]:
+                - generic [aria-hidden] [ref=e279]: "02"
+                - generic [ref=e280]:
+                  - strong [ref=e281]: Your data is ready
+                  - paragraph [ref=e282]: "Last successful load: 10/21/2026, 12:09:02 AM."
+                  - link "Inspect data health →" [ref=e283] [cursor=pointer]:
+                    - /url: "#health"
+              - generic [ref=e284]:
+                - generic [aria-hidden] [ref=e285]: "03"
+                - generic [ref=e286]:
+                  - strong [ref=e287]: Keep the deadline in view
+                  - paragraph [ref=e288]: The exact FPL deadline is not stored. Check the official game before making changes.
+                  - link "View fixture calendar →" [ref=e289] [cursor=pointer]:
+                    - /url: "#planning"
+          - generic [ref=e290]:
+            - generic [ref=e291]:
+              - generic [ref=e292]:
+                - heading "On the schedule · GW8" [level=2] [ref=e293]
+                - link "Full calendar ↗" [ref=e294] [cursor=pointer]:
+                  - /url: "#planning"
+              - table [ref=e296]:
+                - rowgroup [ref=e297]:
+                  - row [ref=e298]:
+                    - columnheader "Home" [ref=e299]
+                    - columnheader "Away" [ref=e300]
+                    - columnheader "Kickoff / result" [ref=e301]
+                - rowgroup [ref=e302]:
+                  - row [ref=e303]:
+                    - cell "Ipswich Town" [ref=e304]
+                    - cell "Nott'm Forest" [ref=e305]
+                    - cell "10/23/2026, 11:00:00 PM" [ref=e306]
+                  - row [ref=e307]:
+                    - cell "Aston Villa" [ref=e308]
+                    - cell "Man City" [ref=e309]
+                    - cell "10/24/2026, 3:30:00 PM" [ref=e310]
+                  - row [ref=e311]:
+                    - cell "Arsenal" [ref=e312]
+                    - cell "Everton" [ref=e313]
+                    - cell "10/24/2026, 6:00:00 PM" [ref=e314]
+                  - row [ref=e315]:
+                    - cell "Coventry City" [ref=e316]
+                    - cell "Fulham" [ref=e317]
+                    - cell "10/24/2026, 6:00:00 PM" [ref=e318]
+            - generic [ref=e319]:
+              - heading "Account snapshot" [level=2] [ref=e320]
+              - table [ref=e322]:
+                - rowgroup [ref=e323]:
+                  - row [ref=e324]:
+                    - columnheader "Metric" [ref=e325]
+                    - columnheader "Availability" [ref=e326]
+                - rowgroup [ref=e327]:
+                  - row [ref=e328]:
+                    - cell "Gameweek points" [ref=e329]
+                    - cell "Not stored" [ref=e330]
+                  - row [ref=e331]:
+                    - cell "Overall rank" [ref=e332]
+                    - cell "Not stored" [ref=e333]
+                  - row [ref=e334]:
+                    - cell "Current team value" [ref=e335]
+                    - cell "Not stored" [ref=e336]
+                  - row [ref=e337]:
+                    - cell "Exact deadline" [ref=e338]
+                    - cell "Not stored" [ref=e339]
+              - paragraph [ref=e340]: The dashboard reads local records. Account statistics are unavailable in the stored data.
+        - generic [ref=e53]:
+          - text: FPL AGENT
+          - generic [ref=e54]: Independent analysis. Informed decisions.
+          - generic [ref=e55]: 127.0.0.1 · LOCAL WORKSPACE

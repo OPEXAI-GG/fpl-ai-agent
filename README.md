@@ -1,158 +1,113 @@
 # fpl-ai-agent
 
-An FPL manager that plans your team every week from a simulation of how each player actually scores:
-minutes, team goals for and against, clean sheets, saves, defensive contributions, goals, assists,
-bonus and cards. It plans transfers and chips over a six-gameweek horizon, picks the XI and captain,
-checks everything against safety rails, and reports what it would do.
+[![ci](https://github.com/OPEXAI-GG/fpl-ai-agent/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/OPEXAI-GG/fpl-ai-agent/actions/workflows/ci.yml)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 
-**It is in dry-run mode.** Out of the box nothing logs in to FPL and nothing touches your team. The
-agent tells you what it would do each week; you make the moves. Live execution exists in code and
-is tested against mock servers only - see [Going live](#going-live-later-optional).
+A Fantasy Premier League (FPL) planning agent. Each gameweek it simulates how every player scores
+(minutes, goals, assists, clean sheets, saves, defensive contributions, bonus, cards), plans
+transfers and chips over an eight-gameweek horizon, picks the starting XI and captain, checks the
+plan against safety rails and reports what it would do.
 
-* How it works: [docs/architecture.md](docs/architecture.md)
-* Talk to it on Discord with slash commands (`/ask`, `/plan`, `/latest`, `/explain`, `/status`): [docs/discord-bot.md](docs/discord-bot.md)
-* Rules for the 2026/27 season (versioned YAML): [rules/2026_27.yaml](rules/2026_27.yaml)
+**Who it is for:** FPL managers comfortable with a command line, and developers interested in
+football modelling and optimisation.
 
-## Safety defaults
+**Dry-run by default.** Out of the box nothing logs in to FPL and nothing touches your team. You read
+the report and make the moves yourself.
 
-* `AGENT_MODE` is `dry` unless you set it to `live`. In dry mode no credentials are read and no authenticated request is made.
-* `AGENT_ENABLED=false` is a kill switch: every run becomes a no-op.
-* The plan workflow reads `AGENT_MODE` from the repository variable, defaulting to `dry`.
-* No secrets in the repo. Keys come from environment variables / GitHub secrets only, and are never printed.
-* Rails (hit caps, doubtful players, stale data, chip guard, human edits) are described in [architecture.md](docs/architecture.md).
+![Local dashboard overview, before a team id is set](artifacts/dashboard-desktop.png)
 
-## Setup
+## Try it safely
+
+Needs Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync                                  # Python 3.13, dependencies pinned in uv.lock
-uv run pytest -q                         # whole suite runs offline on recorded data
+uv sync --frozen                                 # install the locked dependencies
+uv run fpl-agent status                          # confirm the mode
+uv run fpl-agent db-update --points              # public FPL data into data_cache/football.duckdb
+uv run fpl-agent plan --entry <your-team-id> --force
 ```
 
-## Run each part
+What to expect:
 
-All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (default
-`data_cache/football.duckdb`, git-ignored). In GitHub Actions it is kept as a release asset.
+* `status` prints `Mode: DRY - the agent only reports; it never logs in to FPL or changes your team.`
+  and lists which optional keys are unset.
+* `db-update --points` loads the first-run FPL data when the public feeds respond.
+* `plan` reads your squad from FPL's public endpoints (no login), projects, plans, applies the rails
+  and prints a report. It can still stop, or print a diagnostic instead of a recommendation, when
+  data is missing, stale or fails a safety rail. Exit codes:
+  * 0 = report produced or skipped; a rail may still hold moves, listed in the report.
+  * 2 = error (or, in live mode, moves that failed).
+  * 3 = the run was stopped as a whole: in dry mode only when a critical FPL source failed after
+    the data snapshot; in live mode also when a global rail fires. The report is then a
+    diagnostic, not a recommendation.
+* Without `--force`, `plan` only acts when the next deadline is 45 minutes to 26 hours away;
+  otherwise it reports "outside the action window" and stops. `--force` skips this window and
+  the wait for team news; it does not bypass the kill switch or the rails.
+* Your team id is the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
 
-| Part | Command | Notes |
-|---|---|---|
-| Public FPL snapshot | `snapshot` | Stores bootstrap + fixtures under `data_cache/snapshots`. |
-| Build / update the database | `db-update --points --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | FPL, FotMob (15 competitions), Understat, football-data.co.uk. Quality checks run before anything is exported; exit code 2 = FPL failed (nothing written), 3 = data failed checks. |
-| Backfill history to 2017/18 | `backfill --start 2017` | Resumable; includes the vaastav FPL archive (official points since 2016/17). Re-run until it reports nothing left. |
-| Back-test the projections | `backtest --season 2025 --from-gw 10 --to-gw 30` | Point-in-time: models see only data before each deadline. Compares with "last 5 games" and FPL's own xP, per position. |
-| Replay a past season | `replay --season 2025` | Runs the real planner, chips and rails through every gameweek and scores the decisions on the official points (auto-subs, vice cover, hits, Free Hit revert). The scoreboard for tuning the planner. |
-| **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
-| Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
-| Lessons from a finished gameweek | `lessons --gw 0 --entry <id>` | Finds the week's mistakes on your real team (hand transfers, held moves that paid, captain, bench, goalkeeper, hits) and stores the lessons the next plan reads. |
+For a browser view, run `uv run fpl-agent dashboard` and open http://127.0.0.1:8765
+([dashboard guide](docs/dashboard.md)).
 
-`plan` needs a database that has been through `db-update` for the upcoming gameweek. Your squad is
-read from FPL's public endpoints (no login): selling prices are rebuilt from your transfer history,
-free transfers from your gameweek history, and chips left from your chip history.
+## Learn more
 
-### Optional inputs (each degrades to a logged skip)
-
-* `ODDS_API_KEY` - bookmaker prices are blended into the team goal rates.
-* `ANTHROPIC_API_KEY` - the scout reads injury/news text and nudges availability (bounded, see architecture).
-* `NOTIFY_WEBHOOK` (or a secret named `Discord_webhook`) - Discord/Slack-style webhook for the weekly report and failure alerts.
-
-## Automation (GitHub Actions)
-
-| Workflow | When | What |
-|---|---|---|
-| `ci.yml` | every PR | ruff, format check, full tests, **85% coverage gate**, CLI smoke |
-| `data.yml` | daily + Tuesday | update the database from all sources and publish it |
-| `backfill.yml` | manual / nightly until done | fill history from 2017/18 |
-| `plan.yml` | every 2h | dry-run plan; acts only when a deadline is 45 min to 26h away (each run re-plans; the last one lands 45 min to 3h before it); transfers wait for team news until 5h before the deadline unless a planned player is about to change price that night; notifies once per gameweek; dry unless the `AGENT_MODE` variable is `live` |
-| `backtest.yml` | manual button | back-test a past season against simple baselines, or (mode `replay`) replay the whole season with the real planner; results in the run summary (read-only) |
-| `review.yml` | Tuesday | score the finished gameweek, store its lessons for the next plan, publish the reviews and send the lessons and a gameweek summary to Discord (points, rank movement, captain, transfer gain, bench) |
-| `canary.yml` | daily | check every live source still matches its contract |
-| `discord.yml` | started by the Discord bot | `/explain` against the database (read-only), answered in Discord |
-| `discord-deploy.yml` | manual button | put the Discord bot online and register its commands ([docs/discord-bot.md](docs/discord-bot.md)) |
-
-## Repository layout
-
-```
-rules/                 season rules as data (YAML)
-src/fpl_agent/
-  data/                source clients (FPL, FotMob, Understat, Odds API), league registry, squad state
-  db/                  schema, ingestors, id resolution, quality checks, gameweek assignment
-  model/               strength, minutes, player rates, league translation, simulator, projection, backtest
-  solver/              MILP planner, chip scenario search, weekly decision
-  execution/           safety rails, FPL auth, writer, dry-by-default executor
-  scout.py review.py agent.py cli.py
-tests/                 unit, acceptance, property, recorded-response, workflow and end-to-end tests
-scripts/               data release restore/publish, fixture recorder
-docs/architecture.md
-```
-
-## Testing
-
-CI blocks on lint, format, the full suite and an 85% coverage gate. Every source has recorded real
-responses and a contract; the simulator is tested against a synthetic league with known truth; the
-planner is checked against brute force on a small problem; execution and auth are tested only against
-mock transports.
-
-| Level | What it proves |
+| Topic | Where |
 |---|---|
-| Rules acceptance | the rules engine reproduces FPL's official points and bonus on recorded real gameweeks |
-| Property tests | bonus never mis-ranks, auto-sub always yields a legal XI |
-| Source contracts | each renamed/removed field, HTML-instead-of-JSON, empty body is caught before reaching the database |
-| Failure handling | a source down is skipped and alerted; a critical source aborts with nothing written; bad data is never exported |
-| Data quality | duplicates, orphans, impossible values, cross-source disagreement, stored points vs the rules engine |
-| Model tests | recovery of known strengths, calibrated minutes, double gameweeks, odds blending, determinism |
-| Planner | legal squads, budget, banking, hits, chips, Free Hit, equals brute force |
-| Rails and execution | every rail fires; dry mode makes zero requests; preview must match before confirm |
-| End to end | gate -> squad -> projection -> decision -> rails -> report on a synthetic league |
-| Live canary | daily check of the real sources |
+| How it works: data, models, planner, rails | [docs/architecture.md](docs/architecture.md) |
+| Every command, the GitHub Actions workflows and the test levels | [docs/cli.md](docs/cli.md) |
+| Scoring rules for 2026/27 (versioned YAML) | [rules/2026_27.yaml](rules/2026_27.yaml) |
+| Keys, secrets and live mode | [docs/configuration.md](docs/configuration.md) |
+| Local dashboard and its safety limits | [docs/dashboard.md](docs/dashboard.md) |
+| Discord slash commands (`/ask`, `/plan`, `/latest`, `/explain`, `/status`) | [docs/discord-bot.md](docs/discord-bot.md) |
+| Injury and availability policy | [docs/football-intelligence.md](docs/football-intelligence.md) |
 
-## Known limitations and skipped items
+## Safety
 
-* **Accuracy on real data.** The 2025/26 backtest (GW10 to 30, 16,522 player-weeks, 10 Oct 2026) beats both baselines in every position: RMSE 1.91 against 2.11 for "last 5 games" and 2.55 for FPL's xP, correlation 0.59 against 0.50 and 0.19. Season replays (two runs per setting, both seasons) put Bench Boost and Triple Captain thresholds of 14 and 8 expected points ahead of the old 8 and 4: 2024/25 1,969 against 1,963 on average, 2025/26 2,166 against 2,108, with the chips no longer spent in the first weeks. The season replay has no ownership history, so it runs without the ownership rails and the rank-risk term.
+* `AGENT_MODE` is `dry` unless set to `live`. In dry mode no credentials are read and no
+  authenticated request is made; the scheduled plan workflow also defaults to `dry`.
+* `AGENT_ENABLED=false` is a kill switch: every run becomes a no-op.
+* Rails block or hold moves on stale data, hit caps, doubtful players, chip misuse, and budget or
+  squad errors, and respect changes you made by hand ([architecture](docs/architecture.md)).
+* Keys come only from environment variables or GitHub secrets and are never printed.
+* The dashboard listens on 127.0.0.1 only and its actions are dry-only.
 
-* **Live execution has never been run against a real account.** The FPL sign-in endpoint and client id (`FPL_TOKEN_URL`, `FPL_CLIENT_ID`) must be copied from your own browser session, and the write payloads follow FPL's documented shape but are unverified. That is why the build stops at dry mode.
-* **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
-* **Odds coverage:** only the competitions the Odds API free tier serves for the Premier League are used; without a key the model runs on results and xG alone.
-* **Scout** is deliberately small: availability only, no transfer rumours or tactical claims.
-* **Learning loop:** after each finished gameweek the review scores predictions; the next run applies a small, shrunk per-position correction (capped at 10%) from those reviews and logs it. Models are refitted on all history each run. The lessons step lists the week's mistakes and keeps a memory the next plan reads: a few capped switches that fade unless the mistake repeats, and a learned correction for the players most of the top 10k own (see [architecture.md](docs/architecture.md), L9).
-* **Price-change prediction** is not modelled; money in the bank has a small flat value.
-* **Triple Captain** is shown as used in your chip history; the agent plans only the chips FPL says you still have.
+## Project status
 
-## Going live
+Version 0.1.0, pre-release. It does not promise accuracy, a rank or production readiness.
 
-One switch: the repository variable `AGENT_MODE` (Settings -> Secrets and variables -> Actions -> Variables).
+| Area | State |
+|---|---|
+| Data pipeline, projections, planner, rails, dry-run reports, gameweek review and lessons | Implemented and tested in CI |
+| Local dashboard, Discord bot | Implemented; dry-only actions |
+| Odds blending, AI scout (news text) | Optional; each skips cleanly without its key |
+| Live execution on a real FPL team | **Experimental.** Tested against mock servers only, never on a real account ([details](docs/configuration.md#live-mode-experimental)) |
 
-* Unset or `dry`: the agent only reports. Nothing logs in to FPL.
-* `live`: the agent makes the moves on your team itself (previews, compares with the plan, confirms, sets the lineup, reads the team back) and the notification becomes a report of what it did.
-* `AGENT_ENABLED=false` stops everything either way.
+### Data limitations
 
-The live path has only been tested against mock servers. Check the first live run's read-back and the report.
-The Actions run summary starts with a "settings" check that says whether live mode has everything it needs.
+* FotMob is an unofficial feed. It is checked against a contract on every call and by a daily canary;
+  if it changes, the source is skipped and the others carry on.
+* The published database is not yet validated evidence. At the last check (28 Oct 2026) it had no
+  2026/27 gameweeks eligible for validated back-tests (GWs 6–8 reconstructed, 1–5 unavailable), and
+  FotMob detail was linked for 83% of FPL minutes
+  ([verification notes](docs/research/database-production-verification.md)).
+* Odds use only what The Odds API free tier serves; without a key the model runs on results and xG.
+* Price changes are not modelled; money in the bank has a small flat value.
+* The scout covers availability only: no transfer rumours or tactical claims.
 
-Rank mode: captaincy picks the player most likely to haul (10+ points) among those within 0.5 expected points
-of the best, and the report lists the top captain options. It cannot guarantee a top rank.
+## Development
 
----
+```bash
+uv sync --frozen
+uv run ruff check . && uv run ruff format --check .
+uv run pytest -q                # offline, on recorded responses
+```
 
-## API keys and secrets checklist (do this last)
+Source is in `src/fpl_agent/` (`data/`, `db/`, `model/`, `solver/`, `execution/`, `dashboard/`), tests
+in `tests/`, the Discord bot in `discord/`, data release scripts in `scripts/`. The archive scripts and
+their tests need Linux with `zstd`; elsewhere those tests are skipped and CI runs them.
 
-Nothing below is needed to read the code, run the tests or run a dry plan from your own machine.
-Add them in **Settings -> Secrets and variables -> Actions** of the repository.
+## Contributing
 
-**To get the weekly dry-run reports (the main thing):**
-
-- [ ] `FPL_ENTRY_ID` (**variable**) - your team id: the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
-- [ ] `NOTIFY_WEBHOOK` (**secret**) - a Discord or Slack incoming-webhook URL, so the report reaches you.
-
-**Optional, each improves the plan:**
-
-- [ ] `ANTHROPIC_API_KEY` (**secret**) - turns on the scout (a few cents a week).
-- [ ] `ODDS_API_KEY` (**secret**) - The Odds API free tier (500 requests/month; the agent uses a handful).
-
-**Only for live execution, much later:**
-
-- [ ] `FPL_REFRESH_TOKEN` (**secret**) - pasted once from your browser session.
-- [ ] `FPL_TOKEN_URL` and `FPL_CLIENT_ID` (**variables**) - from the same browser session.
-- [ ] `GH_SECRETS_PAT` (**secret**) - fine-grained token with *Secrets: read and write* on this repo, so the rotating refresh token can be stored back.
-- [ ] `AGENT_MODE` (**variable**) - leave unset for dry, set to `live` to let the agent make the moves.
-- [ ] `AGENT_ENABLED` (**variable**) - `false` stops everything.
-
-Also in repo settings: turn on branch protection requiring the `test` check, so a red CI blocks merges.
+Open a pull request against `master`. CI must pass: ruff lint and format, the full test suite with an
+85% coverage gate, the CLI smoke test, the Discord bot tests and the dashboard browser tests. Changes
+that touch `src/fpl_agent/execution/`, settings or the plan workflow need a review of the dry-run
+guarantees before merge. The repository has no license file yet.

@@ -82,9 +82,8 @@ def load_csv(
     for el, grp in df.groupby("element"):
         name = grp["name"].iloc[0]
         key = normalise(name)
-        cands = index.get(key, [])
-        link = cands[0] if len(cands) == 1 and len(key.split()) >= 2 else None
         pos = POS.get(str(grp["position"].iloc[0]))
+        link = db.name_link(index.get(key, []), name, pos, source)
         pid = db.player_id(source, int(el), name, pos, link_to=link)
         canon[int(el)] = pid
         if link is None:

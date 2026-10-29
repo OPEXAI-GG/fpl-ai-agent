@@ -1,0 +1,17 @@
+{
+ "season": 2026,
+ "at": null,
+ "players_played": 449,
+ "players_linked": 293,
+ "linked_by_name": 293,
+ "linked_by_evidence": 0,
+ "player_share": 0.6526,
+ "minutes": 137657,
+ "minutes_linked": 96781,
+ "minute_share": 0.7031,
+ "unlinked_reasons": {
+  "position differs": 80,
+  "no FotMob player with this name": 76
+ },
+ "unlinked": []
+}
