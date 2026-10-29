@@ -89,9 +89,10 @@ def test_backfill_fills_every_source_for_every_season():
 
 def test_backfill_is_resumable_and_idempotent():
     db, first = backfill()
-    counts = {k: v for k, v in db.counts().items() if k != "ingest_log"}
+    logs = ("ingest_log", "source_attempts")  # every run is recorded; the data is unchanged
+    counts = {k: v for k, v in db.counts().items() if k not in logs}
     _, second = backfill(db=db)
-    assert {k: v for k, v in db.counts().items() if k != "ingest_log"} == counts
+    assert {k: v for k, v in db.counts().items() if k not in logs} == counts
     # finished past seasons are remembered and not fetched again
     assert "vaastav:2024" not in names(second)
     assert "vaastav:2024" in names(first)
@@ -133,7 +134,7 @@ def test_changed_fotmob_format_is_skipped_and_nothing_written():
 
 def test_unknown_competition_is_reported_not_fatal():
     db, res = backfill(competitions=("XXX9",), sources=("fotmob",))
-    assert not any(names(res).values())
+    assert not any(ok for name, ok in names(res).items() if not name.startswith("step:"))
 
 
 # ---- FotMob inside the weekly update -----------------------------------------------------------
@@ -197,3 +198,21 @@ def test_backfill_without_repairs_blocks_a_needed_quarantine_and_writes_nothing(
 def test_backfill_without_repairs_on_clean_data_is_normal():
     _, res = backfill(sources=("football-data",), repairs=False)
     assert res.exit_code == OK, res.message()
+
+
+def test_backfill_repairs_are_opt_in_from_the_cli(monkeypatch):
+    """The CLI is fail-closed by default; `--repairs` opts in; `--no-repairs` (the old flag) is
+    still accepted and wins over `--repairs`."""
+    from types import SimpleNamespace
+
+    from fpl_agent import cli, pipeline
+
+    seen = []
+    done = SimpleNamespace(exit_code=0, message=lambda: "ok")
+    monkeypatch.setattr(pipeline, "run_backfill",
+                        lambda db, opts: seen.append(opts.repairs) or done)  # fmt: skip
+    monkeypatch.setattr(cli, "_open_db", lambda args: None)
+    for argv in ([], ["--repairs"], ["--no-repairs"], ["--repairs", "--no-repairs"]):
+        assert cli.main(["backfill", *argv]) == 0
+    assert seen == [False, True, False, False]
+    assert pipeline.BackfillOptions().repairs is False

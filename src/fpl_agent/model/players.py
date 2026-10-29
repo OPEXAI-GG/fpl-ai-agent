@@ -28,7 +28,7 @@ CBIT_PRIOR_MINUTES = 600.0
 CARD_PRIOR_MINUTES = 900.0
 FRAME_COLUMNS = [
     "player_id", "position", "xg_share", "xa_share", "finish", "cbit_mu", "cbit_r", "yellow90",
-    "red90", "evidence_minutes", "source",
+    "red90", "evidence_minutes", "source", "xg_source", "xa_source",
 ]  # fmt: skip
 
 
@@ -87,11 +87,17 @@ def fit_player_rates(
     current_season: int,
     translations: Translations | None = None,
     target: str = TARGET,
+    as_of=None,
+    fpl_xg_fallback: bool = False,
 ) -> pd.DataFrame:
     """Rates for every player in `positions` (player_id -> position).
 
     `pm` is features.match_frame (detailed per-match data); `frame` is features.player_gw_frame
     (official FPL history, used for cards, finishing and the exact DefCon counts).
+
+    `fpl_xg_fallback` (experimental, off by default) lets FPL's own expected goals/assists stand
+    in, per stat, for a player with no usable detailed history. It needs `as_of`: only FPL rows
+    ingested by then and kicked off before it count. Off, the result is the baseline.
     """
     tr = translations or Translations(target=target)
     pri = position_priors(pm, target)
@@ -128,13 +134,57 @@ def fit_player_rates(
         goals=("goals", "sum"), xg_raw=("xg", "sum"),
     )  # fmt: skip
 
+    # FPL's expected goals/assists are a per-fixture fallback only. They are usable only
+    # when the observation timestamp is known and no later than the decision cutoff. Convert
+    # the FPL totals to a team-xG share using observed PL team exposure; if that denominator is
+    # unavailable, fail closed. Keep xG and xA exposure independent to avoid cross-stat masking.
+    fpl = pd.DataFrame()
+    if fpl_xg_fallback and as_of is not None and not frame.empty and "stats_ingested_at" in frame:
+        cutoff = pd.Timestamp(as_of)
+        observed = frame.copy()
+        observed["stats_ingested_at"] = pd.to_datetime(
+            observed["stats_ingested_at"], errors="coerce"
+        )
+        observed = observed[
+            observed["stats_ingested_at"].notna()
+            & (observed["stats_ingested_at"] <= cutoff)
+            & (observed["season"] <= current_season)
+            & (observed["minutes"] > 0)
+        ]
+        if "kickoff" in observed:
+            observed = observed[
+                observed["kickoff"].isna() | (pd.to_datetime(observed["kickoff"]) < cutoff)
+            ]
+        exposure_rows = pm[(pm["comp"] == target) & (pm["team_xg"] > 0)]
+        if "date" in exposure_rows:
+            exposure_rows = exposure_rows[pd.to_datetime(exposure_rows["date"]) < cutoff]
+        # Multiple player rows share a team's exposure in a match; count each team-match once.
+        team_exposure = exposure_rows.drop_duplicates(["match_id", "team_id"])["team_xg"]
+        mean_team_xg = float(team_exposure.mean()) if not team_exposure.empty else 0.0
+        if mean_team_xg > 0:
+            observed["w"] = _recency(observed["season"], current_season)
+            observed["fexpo"] = observed["w"] * mean_team_xg * observed["minutes"] / 90.0
+            for stat, value_col, expo_col in (
+                ("xg", "fpl_xg_w", "fpl_xg_expo"),
+                ("xa", "fpl_xa_w", "fpl_xa_expo"),
+            ):
+                values = pd.to_numeric(observed[stat], errors="coerce")
+                usable = values.notna() & (values >= 0)
+                observed[expo_col] = observed["fexpo"].where(usable, 0.0)
+                observed[value_col] = (values * observed["w"]).where(usable, 0.0)
+            fpl = observed.groupby("player_id")[
+                ["fpl_xg_w", "fpl_xg_expo", "fpl_xa_w", "fpl_xa_expo"]
+            ].sum()
+
     rows = []
     cards = _cards(frame, positions)
     for pid, pos in positions.items():
         a = agg.loc[pid] if pid in agg.index else None
+        b = fpl.loc[pid] if pid in fpl.index else None
         base_share = pri["share"].get(pos, 0.05)
         base_xa = pri.get("xa_share", {}).get(pos, 0.8 * base_share)
         base_cb = pri["cbit"].get(pos, 5.0)
+        xg_source = xa_source = "prior"
         if a is None or a["minutes"] <= 0:
             xg_s, xa_s = base_share, base_xa
             finish, cb_mu, evid, src = 1.0, base_cb, 0.0, "prior"
@@ -149,11 +199,31 @@ def fit_player_rates(
             )
             evid = float(a["minutes"])
             src = "pl" if a["pl_minutes"] >= 0.5 * a["minutes"] else "translated"
+            xg_source = "detailed" if a["ew"] > 0 else "prior"
+            xa_source = "detailed" if a["xa_ew"] > 0 else "prior"
+        if b is not None:
+            if a is None or a["ew"] <= 0:
+                expo = float(b["fpl_xg_expo"])
+                if expo > 0:
+                    xg_s = (float(b["fpl_xg_w"]) + EXPOSURE_PRIOR * base_share) / (
+                        expo + EXPOSURE_PRIOR
+                    )
+                    xg_source = "fpl"
+            if a is None or a["xa_ew"] <= 0:
+                expo = float(b["fpl_xa_expo"])
+                if expo > 0:
+                    xa_s = (float(b["fpl_xa_w"]) + EXPOSURE_PRIOR * base_xa) / (
+                        expo + EXPOSURE_PRIOR
+                    )
+                    xa_source = "fpl"
+            if "fpl" in (xg_source, xa_source):
+                src = "fpl"
         y90, r90 = cards.get(pid, (np.nan, np.nan))
         rows.append(
             {"player_id": pid, "position": pos, "xg_share": float(xg_s), "xa_share": float(xa_s),
              "finish": finish, "cbit_mu": float(cb_mu), "cbit_r": disp.get(pos, 30.0),
-             "yellow90": y90, "red90": r90, "evidence_minutes": evid, "source": src}
+             "yellow90": y90, "red90": r90, "evidence_minutes": evid, "source": src,
+             "xg_source": xg_source, "xa_source": xa_source}
         )  # fmt: skip
     out = pd.DataFrame(rows, columns=FRAME_COLUMNS)
     # discipline defaults to the position mean where a player has no official history

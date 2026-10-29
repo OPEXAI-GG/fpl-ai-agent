@@ -35,11 +35,29 @@ def projection_backtest(
     cfg: SimConfig | None = None,
     refit_every: int = 6,
     rules: Rules | None = None,
+    validated: bool = False,
 ) -> pd.DataFrame:
+    """Every fit and baseline uses only the history visible at each gameweek's cutoff
+    (`project.history_as_of`); a model reused across gameweeks was fitted at an earlier cutoff.
+    `validated`: only eligible gameweeks (else NotEligible), cut at their official deadline,
+    with excluded matches removed from every model input and from scoring
+    (`db.eligibility.validated_inputs`), and only odds observed by the cutoff (no event-time
+    reconstruction). Without it the result is exploratory."""
     cfg = cfg or SimConfig(n=800)
     frame = features.player_gw_frame(db)
     pm_all = features.match_frame(db)
     matches = strength.load_matches(db)
+    cuts, touched = {}, set()
+    if validated:
+        from fpl_agent.db.eligibility import validated_inputs
+
+        full = frame
+        frame, pm_all, cuts, skip = validated_inputs(db, season, gws, frame, pm_all)
+        # player-gameweeks that include an excluded match are not scored either
+        hit = full[[(int(a), int(b)) in skip for a, b in zip(full["season"], full["fixture_id"],
+                                                             strict=True)]]  # fmt: skip
+        touched = set(zip(hit.loc[hit["season"] == season, "player_id"],
+                          hit.loc[hit["season"] == season, "gw"], strict=True))  # fmt: skip
     actual = actual_points(db, season).set_index(["player_id", "gw"])
     rules = rules or Rules.nearest(season)
     rows, model, fitted_at = [], None, None
@@ -47,11 +65,11 @@ def projection_backtest(
         fx = project.fixtures_for(db, season, [gw])
         if fx.empty:
             continue
-        cutoff = project.approx_deadline(fx["kickoff"].min())
+        cutoff = cuts.get(gw) or project.approx_deadline(fx["kickoff"].min())
         as_of = cutoff.date()
-        history = frame[
-            (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
-        ]
+        # the cutoff applies to every fit and baseline, not only inside the projection: a
+        # model fitted on the whole-database frame would carry later snapshots into it
+        history = project.history_as_of(frame, db, season, gw, cutoff)
         if len(history) < 200:
             continue
         if model is None or fitted_at is None or gw - fitted_at >= refit_every:
@@ -60,6 +78,7 @@ def projection_backtest(
         proj = project.build_projection(
             db, season, [gw], as_of=as_of, cfg=cfg, rules=rules, minutes_model=model,
             ratings=ratings, frame=frame, pm=pm_all, pool_gw=gw, cutoff=cutoff,
+            known_at_odds=validated,
         )  # fmt: skip
         f = proj.frame().set_index("player_id")
         hist5 = history.sort_values(["player_id", "season", "gw"]).groupby("player_id").tail(5)
@@ -70,7 +89,7 @@ def projection_backtest(
             .sum(min_count=1)
         )
         for pid, r in f.iterrows():
-            if (pid, gw) not in actual.index:
+            if (pid, gw) not in actual.index or (pid, gw) in touched:
                 continue
             a = actual.loc[(pid, gw)]
             rows.append({

@@ -61,7 +61,38 @@ CORRUPTIONS = [
     ("fpl_points_unlinked", "UPDATE fpl_points_gw SET player_id = NULL"),
     ("points_vs_rules", "UPDATE fpl_points_gw SET total_points = total_points + 1 WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_points_gw)"),
     ("duplicate_team_keys", "INSERT INTO teams VALUES (9999, 'Arsenal again', (SELECT key FROM teams LIMIT 1))"),
+    # model-input contracts (U06)
+    ("odds_below_one", "UPDATE match_odds SET over25 = 0.9"),
+    ("bad_position", "UPDATE fpl_players_gw SET position = 'GK' WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_players_gw)"),
+    ("bad_fpl_minutes", "UPDATE fpl_points_gw SET minutes = 200 WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_points_gw)"),
+    ("fpl_points_without_kickoff", "UPDATE fpl_points_gw SET kickoff = NULL WHERE fixture_id <> 0 AND fpl_id = (SELECT min(fpl_id) FROM fpl_points_gw)"),
+    ("duplicate_player_fixture", "INSERT INTO fpl_points_gw SELECT * REPLACE (fpl_id + 100000 AS fpl_id) FROM fpl_points_gw WHERE fixture_id <> 0 LIMIT 1"),
+    ("duplicate_player_snapshot", "INSERT INTO fpl_players_gw SELECT * REPLACE (fpl_id + 100000 AS fpl_id) FROM fpl_players_gw LIMIT 1"),
+    ("orphan_fpl_points_gw.player_id", "INSERT INTO fpl_points_gw (season, gw, fpl_id, player_id, fixture_id, minutes, kickoff) VALUES (2026, 1, 99999, 99999, 1, 0, '2026-08-15')"),
+    ("orphan_player_match_stats.match_id", "INSERT INTO player_match_stats VALUES (99999, (SELECT min(player_id) FROM players), 'x', 'xG', 0.1, NULL)"),
+    ("orphan_match_odds.match_id", "INSERT INTO match_odds (match_id, source, bookmaker, closing, home) VALUES (99999, 'x', 'b', true, 2.0)"),
+    ("orphan_team_match.team_id", "INSERT INTO team_match (match_id, team_id, source) VALUES ((SELECT min(match_id) FROM matches), 99999, 'x')"),
+    ("orphan_appearances.team_id", "INSERT INTO appearances (match_id, player_id, team_id, source, minutes) VALUES ((SELECT min(match_id) FROM matches), (SELECT min(player_id) FROM players), 99999, 'x', 10)"),
+    ("orphan_shots.match_id", "UPDATE shots SET match_id = 99999"),
+    ("negative_match_stat", "INSERT INTO player_match_stats VALUES ((SELECT min(match_id) FROM matches), (SELECT min(player_id) FROM players), 'x', 'xG', -0.2, NULL)"),
+    ("bad_translation", "INSERT INTO league_translation VALUES ('ENG2', 'ENG1', 'xg_share', 0, 1, 1, NULL)"),
+    ("odds_log_below_one", "INSERT INTO match_odds_log (match_id, source, bookmaker, closing, home, ingested_at) VALUES ((SELECT min(match_id) FROM matches), 'x', 'b', false, 0.8, '2026-09-01')"),
+    ("orphan_match_odds_log.match_id", "INSERT INTO match_odds_log (match_id, source, bookmaker, closing, home, ingested_at) VALUES (99999, 'x', 'b', false, 2.0, '2026-09-01')"),
+    ("bad_bps", "UPDATE fpl_points_gw SET bps = 500 WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_points_gw)"),
+    ("bad_appearance_position", "INSERT INTO appearances (match_id, player_id, source, minutes, position) VALUES ((SELECT min(match_id) FROM matches), (SELECT min(player_id) FROM players), 'x', 10, 'Keeper')"),
+    ("scheduled_without_kickoff", "UPDATE matches SET kickoff = NULL WHERE match_id = (SELECT min(match_id) FROM matches WHERE competition_id = 'ENG1' AND matchday IS NOT NULL)"),
+    ("orphan_appearances.match_id", "INSERT INTO appearances (match_id, player_id, source, minutes) VALUES (99999, (SELECT min(player_id) FROM players), 'x', 10)"),
+    ("orphan_appearances.player_id", "INSERT INTO appearances (match_id, player_id, source, minutes) VALUES ((SELECT min(match_id) FROM matches), 99999, 'x', 10)"),
+    ("orphan_fpl_players_gw.team_id", "UPDATE fpl_players_gw SET team_id = 99999 WHERE fpl_id = (SELECT min(fpl_id) FROM fpl_players_gw)"),
+    ("orphan_matches.home_team_id", "UPDATE matches SET home_team_id = 99999 WHERE match_id = (SELECT max(match_id) FROM matches)"),
+    ("finished_without_date", "UPDATE matches SET match_date = NULL WHERE match_id = (SELECT min(match_id) FROM matches WHERE finished)"),
 ]  # fmt: skip
+
+
+def test_goals_prevented_may_be_negative(db):
+    db.con.execute("INSERT INTO player_match_stats VALUES ((SELECT min(match_id) FROM matches), "
+                   "(SELECT min(player_id) FROM players), 'x', 'goals_prevented', -1.3, NULL)")  # fmt: skip
+    assert "negative_match_stat" not in names(db)
 
 
 @pytest.mark.parametrize("check,sql", CORRUPTIONS, ids=[c[0] for c in CORRUPTIONS])
@@ -279,12 +310,14 @@ def test_a_failing_probe_still_restores_the_connection(db):
 def test_reference_registry_matches_the_declared_schema():
     """Every canonical-id column in the schema is either in REFERENCES (so merges and deletes
     reach it) or named in NOT_REFERENCES with a reason."""
+    import re
+
     from fpl_agent.db.database import declared_columns
     from fpl_agent.db.quality import NOT_REFERENCES, REFERENCES
 
-    ids = {"match_id", "team_id", "player_id", "home_team_id", "away_team_id", "from_team_id",
-           "to_team_id", "canonical_id"}  # fmt: skip
-    found = {(t, c) for t, cols in declared_columns().items() for c in cols if c in ids}
+    # any column naming a match, team or player id (prefixed too, e.g. from_player_id)
+    ids = re.compile(r"(^|_)(match|team|player)_id$|^canonical_id$")
+    found = {(t, c) for t, cols in declared_columns().items() for c in cols if ids.search(c)}
     listed = {r for refs in REFERENCES.values() for r in refs}
     assert found == listed | set(NOT_REFERENCES)
     assert not listed & set(NOT_REFERENCES)
@@ -403,7 +436,7 @@ def test_rollback_refuses_after_an_intervening_change_and_writes_nothing():
     assert table_digests(db) == state
 
 
-def test_rollback_refuses_a_key_collision_and_a_second_rollback():
+def test_rollback_refuses_a_key_collision_and_a_repeat_changes_nothing():
     from fpl_agent.db.quality import RepairConflict, rollback_repair
 
     db = FootballDB()
@@ -417,9 +450,32 @@ def test_rollback_refuses_a_key_collision_and_a_second_rollback():
         rollback_repair(db, rid)
     assert table_digests(db) == state
     db.con.execute("DELETE FROM matches WHERE match_id = 7")
-    rollback_repair(db, rid)
+    assert rollback_repair(db, rid) == {"matches": 1}
+    done = table_digests(db)  # the journal's rolled_back_at included
+    for _ in range(2):  # repeating a completed rollback is a no-op, however often
+        assert rollback_repair(db, rid) == {}
+        assert table_digests(db) == done
     with pytest.raises(RepairConflict, match="no journalled change"):
-        rollback_repair(db, rid)
+        rollback_repair(db, "never-ran:20260101")  # an unknown id is refused
+    assert table_digests(db) == done
+
+
+def test_repair_undo_cli_never_migrates_an_older_file(tmp_path, capsys):
+    import duckdb
+
+    from fpl_agent.cli import main
+
+    rid = "quarantine:20260101T000000000000"
+    old = tmp_path / "old.duckdb"  # a file older than the schema: refused, not migrated
+    o = FootballDB(old)
+    o.con.execute("DROP TABLE source_attempts")
+    o.close()
+    assert main(["repair-undo", "--db", str(old), rid]) == 1
+    assert "missing declared tables" in capsys.readouterr().out
+    con = duckdb.connect(str(old), read_only=True)
+    assert not con.execute("SELECT 1 FROM duckdb_tables() WHERE table_name = 'source_attempts'"
+                           ).fetchall()  # fmt: skip
+    con.close()
 
 
 def test_an_interrupted_merge_changes_nothing(monkeypatch):
@@ -463,7 +519,9 @@ def test_repair_undo_command_lists_then_undoes_once(tmp_path, capsys):
     assert main(["repair-undo", "--db", str(path)]) == 0
     assert f"{rid}  matches removed 1" in capsys.readouterr().out
     assert main(["repair-undo", "--db", str(path), rid]) == 0
-    assert main(["repair-undo", "--db", str(path), rid]) == 1  # already undone: nothing written
+    capsys.readouterr()
+    assert main(["repair-undo", "--db", str(path), rid]) == 0  # already undone: nothing written
+    assert "already undone" in capsys.readouterr().out
     db = FootballDB(path)
     assert db.con.execute("SELECT count(*) FROM matches").fetchone()[0] == 1
     db.close()

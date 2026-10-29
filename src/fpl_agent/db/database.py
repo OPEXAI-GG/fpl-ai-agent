@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import tempfile
 import time
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
@@ -216,19 +217,90 @@ def now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-class FootballDB:
-    def __init__(self, path: str | Path = ":memory:") -> None:
-        if str(path) != ":memory:":
-            Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(path))
-        have = {r[0] for r in self.con.execute(
-            "SELECT table_name FROM duckdb_tables() WHERE database_name = current_database() "
-            "AND schema_name = 'main'").fetchall()}  # fmt: skip
-        # opening a file older than the schema adds the missing (empty) tables; this is the
-        # only schema change an open makes, and it is named here rather than done silently
-        self.created_tables = [n for n in TABLES if n not in have]
+class SchemaError(Exception):
+    """A database whose schema does not match the declared one, opened without permission to
+    change it (or with a difference no open may fix); nothing was written."""
+
+
+def _schema_of(con: duckdb.DuckDBPyConnection) -> dict[str, list[list[str]]]:
+    out: dict[str, list[list[str]]] = {}
+    for t, c, ty in con.execute(
+        "SELECT table_name, column_name, data_type FROM duckdb_columns() WHERE "
+        "database_name = current_database() AND schema_name = 'main' "
+        "ORDER BY table_name, column_index"
+    ).fetchall():
+        out.setdefault(t, []).append([c, ty])
+    return out
+
+
+def _schema_diff(have: dict[str, list[list[str]]]) -> dict[str, Any]:
+    want = {n: [[c, t] for c, t in declared_types()[n]] for n in TABLES}
+    return {
+        "missing_tables": [n for n in TABLES if n not in have],
+        "extra_tables": sorted(set(have) - set(TABLES)),
+        "column_differences": {n: {"declared": want[n], "found": have[n]}
+                               for n in TABLES if n in have and have[n] != want[n]},
+    }  # fmt: skip
+
+
+@cache
+def declared_types() -> dict[str, list[tuple[str, str]]]:
+    """{table: [(column, type)]} in declared order, from the DDL in schema.TABLES."""
+    con = duckdb.connect()
+    try:
         for name, ddl in TABLES.items():
-            self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
+            con.execute(f"CREATE TABLE {name} ({ddl})")
+        return {n: [tuple(c) for c in cols] for n, cols in _schema_of(con).items()}
+    finally:
+        con.close()
+
+
+def schema_status(path: str | Path) -> dict[str, Any]:
+    """Read-only migration preflight for a database file: declared tables it lacks (an open with
+    `schema="init"` would create them, empty), tables it has that are not declared, and tables
+    whose columns differ from the declaration (no open changes those: a migration is needed).
+    `current` is true when there is nothing to do. The file is opened read-only."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        diff = _schema_diff(_schema_of(con))
+    finally:
+        con.close()
+    diff["current"] = not (diff["missing_tables"] or diff["column_differences"])
+    return diff
+
+
+class FootballDB:
+    def __init__(self, path: str | Path = ":memory:", schema: str = "init") -> None:
+        """Open (or create) a database. `schema` says what an open may do to its schema:
+
+        * "init" (default): create declared tables the file lacks, empty, and name them in
+          `created_tables`. This is the only change an open makes.
+        * "require": change nothing; a missing table raises SchemaError and the connection is
+          closed. For tools that must not migrate (rollback).
+        * "read": a read-only connection (nothing can be written); missing tables are allowed
+          and named in `missing_tables`, so a report can say what it could not see.
+
+        In every mode an existing table whose columns differ from the declaration raises
+        SchemaError before anything is written: no open alters an existing table."""
+        if schema not in ("init", "require", "read"):
+            raise ValueError(f"schema must be 'init', 'require' or 'read', not {schema!r}")
+        read = schema == "read"
+        if str(path) != ":memory:" and not read:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.con = duckdb.connect(str(path), read_only=read and str(path) != ":memory:")
+        diff = _schema_diff(_schema_of(self.con))
+        problem = None
+        if diff["column_differences"]:
+            problem = f"columns differ from the declaration: {sorted(diff['column_differences'])}"
+        elif schema == "require" and diff["missing_tables"]:
+            problem = f"missing declared tables {diff['missing_tables']} (open with schema='init')"
+        if problem:
+            self.con.close()
+            raise SchemaError(f"{path}: {problem}; nothing was changed")
+        self.missing_tables = diff["missing_tables"] if read else []
+        self.created_tables = [] if read else diff["missing_tables"]
+        for name in self.created_tables:
+            self.con.execute(f"CREATE TABLE {name} ({TABLES[name]})")
 
     @contextmanager
     def transaction(self):
@@ -333,13 +405,16 @@ class FootballDB:
         that name, a stored position that agrees (or is unknown on either side), and no other
         id from the same source already linked to that player (two namesakes in one source are
         two people). Otherwise the player stays unlinked, a second row rather than a wrong
-        merge, and the reason is kept in ingest_state (source 'link') for review."""
+        merge, and the reason (including 'no name match') is kept in ingest_state (source
+        'link') for review."""
         key = normalise(name)
         reason = None
         if len(key.split()) < 2:
             reason = "single-word name"
         elif len(candidates) != 1:
-            reason = f"{len(candidates)} players share the name" if candidates else None
+            # no candidate is recorded too: a spelling the other source does not share is the
+            # commonest miss, and an unrecorded one cannot be audited (db-links)
+            reason = f"{len(candidates)} players share the name" if candidates else "no name match"
         else:
             pid = candidates[0]
             row = self.con.execute("SELECT position FROM players WHERE player_id = ?",
@@ -521,8 +596,23 @@ class FootballDB:
         legacy export without one is accepted unless `require_manifest`. Tables with a primary
         key are upserted; the append-only ones (decisions, projections, reviews, logs) only
         gain rows they do not already hold, so importing the same export twice adds nothing.
-        An export already imported (same manifest) is skipped. Returns the tables loaded."""
+        An export already imported (same manifest) is skipped. Returns the tables loaded.
+
+        An export with a manifest is first copied into a private temporary folder, and that copy
+        is what is verified and loaded: a file replaced in `directory` after verification
+        cannot reach the database. The load is one transaction, so an import that fails part
+        way leaves no rows and no "imported" marker."""
         d = Path(directory)
+        if (d / MANIFEST).exists():
+            with tempfile.TemporaryDirectory(prefix="fpl-import-") as tmp:
+                private = Path(tmp) / d.name
+                private.mkdir()
+                for f in [d / MANIFEST, *d.glob("*.parquet")]:
+                    shutil.copyfile(f, private / f.name)
+                return self._import(private, require_manifest)
+        return self._import(d, require_manifest)
+
+    def _import(self, d: Path, require_manifest: bool) -> int:
         key = None
         listed: dict | None = None  # with a manifest, only the tables it verified are loaded
         if (d / MANIFEST).exists():

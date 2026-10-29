@@ -43,7 +43,8 @@ def test_happy_path(alerts, tmp_path):
 
 def test_rerun_is_idempotent(alerts):
     db, _ = run()
-    skip = {"ingest_log", "fpl_players_gw"}  # snapshots accumulate by design (point-in-time)
+    # snapshots accumulate by design (point-in-time); logs record every run
+    skip = {"ingest_log", "fpl_players_gw", "source_attempts"}
     first = {k: v for k, v in db.counts().items() if k not in skip}
     snaps = db.counts()["fpl_players_gw"]
     run(db=db)
@@ -215,12 +216,47 @@ def test_malformed_later_row_is_caught(alerts):
 
 
 def test_failed_bootstrap_leaves_database_untouched(alerts):
+    """The data and every success marker are exactly as before; the only write is the separate
+    record that the attempt was made and failed (see `source_attempts`)."""
+    from fpl_agent.db.quality import table_digests
+
     db = FootballDB()
-    before = db.counts()
+    before = table_digests(db)
     db, res = run({"bootstrap-static": (503, "")}, db=db)
     assert res.exit_code == CRITICAL_SOURCE_FAILED
-    assert db.counts() == before  # not even the one-off repairs ran
+    after = table_digests(db)
+    assert {t: d for t, d in after.items() if t != "source_attempts"} == {
+        t: d for t, d in before.items() if t != "source_attempts"
+    }  # not even the repairs ran
     assert db.query("SELECT count(*) n FROM ingest_state WHERE source = 'repair'").n[0] == 0
+    got = db.query("SELECT job, source, ok, critical, exit_code FROM source_attempts")
+    assert got.to_dict("records") == [{"job": "data update", "source": "fpl:bootstrap",
+                                       "ok": False, "critical": True, "exit_code": 2}]  # fmt: skip
+
+
+def test_every_attempt_is_recorded_with_times_and_a_sanitised_error(alerts):
+    """One row per attempted source, ok or not, timed, with no URL query string kept; a failed
+    source records its attempt while its own data and success marker stay as they were."""
+    db, first = run()
+    marks = db.query("SELECT * FROM ingest_state ORDER BY ALL")
+    got = db.query("SELECT * FROM source_attempts ORDER BY seq")
+    assert got["source"].tolist() == [r.name for r in first.report.results]
+    assert got["attempt_id"].nunique() == 1 and got["ok"].all()
+    assert (got["started_at"] <= got["finished_at"]).all() and got["finished_at"].notna().all()
+    _, res = run({"E0.csv": (503, "")}, db=db)
+    attempts = db.query("SELECT * FROM source_attempts WHERE NOT ok")
+    assert attempts["source"].tolist() == ["football-data:E0"] and res.exit_code == OK
+    assert db.query("SELECT count(DISTINCT attempt_id) n FROM source_attempts").n[0] == 2
+    assert db.query("SELECT * FROM ingest_state ORDER BY ALL").equals(marks)
+
+    from fpl_agent.health import HealthReport, SourceResult
+    from fpl_agent.pipeline import record_attempts
+
+    rep = HealthReport([SourceResult("x", False, error="HTTP 403 https://h/p?key=SECRET&a=1")])
+    record_attempts(db, rep, "data update", 0)
+    err = db.query("SELECT error FROM source_attempts WHERE source = 'x'").error[0]
+    assert "SECRET" not in err and err.startswith("HTTP 403 https://h/p")
+    assert record_attempts(db, HealthReport(), "data update", 0) is None  # nothing tried
 
 
 def test_empty_feed_for_finished_gameweek_is_rejected(alerts):
@@ -353,6 +389,24 @@ def test_no_repairs_blocks_a_needed_quarantine_without_deleting(alerts, tmp_path
     assert db.counts()["fpl_players_gw"] >= rows  # nothing was deleted
     assert db.con.execute("SELECT count(*) FROM fpl_players_gw WHERE now_cost = 7").fetchone()[0]
     assert not (tmp_path / "out").exists()  # and nothing exported
+
+
+def test_repairs_are_opt_in(alerts):
+    """By default a needed quarantine only blocks the run; with repairs=True it is applied and
+    journalled (so `repair-undo` can reverse it)."""
+    assert UpdateOptions().repairs is False
+    db, _ = run()
+    db.con.execute("UPDATE fpl_players_gw SET now_cost = 7 WHERE fpl_id = 1")
+    _, res = run(opts=UpdateOptions(season=2026, football_data=("E0", "E1")), db=db)
+    assert res.exit_code == BAD_DATA and "quarantine_blocked" in res.message(), res.message()
+    assert db.con.execute("SELECT count(*) FROM repair_log").fetchone()[0] == 0
+    opts = UpdateOptions(season=2026, football_data=("E0", "E1"), repairs=True)
+    _, res = run(opts=opts, db=db)
+    assert res.exit_code != BAD_DATA, res.message()
+    assert not db.con.execute("SELECT count(*) FROM fpl_players_gw WHERE now_cost = 7").fetchone()[
+        0
+    ]
+    assert db.con.execute("SELECT count(*) FROM repair_log").fetchone()[0] > 0
 
 
 def test_no_repairs_on_clean_data_is_a_normal_update(alerts):

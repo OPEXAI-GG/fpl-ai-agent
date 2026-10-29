@@ -49,6 +49,9 @@ class Context:
     # age of the FPL snapshot the plan used; None = unknown. The agent always passes the real
     # age; a live run refuses to write from unknown or too old data
     snapshot_age_hours: float | None = 0.0
+    # critical sources (FPL bootstrap/fixtures/players) whose newest refresh failed after the
+    # snapshot the plan uses (source_health.critical_failures_after): nothing newer validates it
+    critical_source_failures: tuple[str, ...] = ()
 
 
 @dataclass
@@ -102,6 +105,9 @@ def check(d: Decision, ctx: Context, rules: Rules) -> Verdict:
         seen = "unknown" if age is None else f"{age:.1f}h old"
         add("global", "stale_snapshot",
             f"FPL data is {seen} (limit {s.max_snapshot_hours:g}h): refresh first")  # fmt: skip
+    if ctx.critical_source_failures:  # every mode: a dry plan on such data is diagnostic only
+        add("global", "critical_source_failed",
+            "; ".join(ctx.critical_source_failures) + ": refresh before deciding")  # fmt: skip
     if (1 - ctx.projected_share) > MAX_MISSING_PROJECTIONS:
         add(
             "global", "missing_projections", f"{1 - ctx.projected_share:.0%} of players unprojected"

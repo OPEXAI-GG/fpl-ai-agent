@@ -305,3 +305,47 @@ def test_the_client_parses_an_already_fetched_bootstrap_without_a_request():
 
     c = FPLClient(client=httpx.Client(transport=httpx.MockTransport(no_network)))
     assert c.bootstrap(fixture("bootstrap-static.json")).events
+
+
+def _attempt(db, source, ok, at, critical):
+    db.con.execute("INSERT INTO source_attempts VALUES (?, 1, 'data update', ?, ?, ?, NULL, ?, "
+                   "?, ?, ?)", [f"t-{source}-{at.isoformat()}", source, ok, critical,
+                                None if ok else "HTTP 503", at, at, 0 if ok else 2])  # fmt: skip
+
+
+@pytest.mark.parametrize("case", ["critical_after", "critical_before", "optional"])
+def test_a_critical_source_failing_after_the_snapshot_makes_the_plan_diagnostic(env, case):
+    """End to end with a fake FPL, dry: a critical refresh that failed after the snapshot the
+    plan uses is a rail in every mode; the plan is reported as a diagnostic (exit 3, run
+    blocked), not a recommendation. A failure older than the snapshot, or of an optional
+    source, only adds a note."""
+    w = env[0]
+    snap = w.db.con.execute("SELECT max(snapshot_at) FROM fpl_players_gw WHERE season = ? "
+                            "AND gw = ?", [SEASON, GW]).fetchone()[0]  # fmt: skip
+    now = datetime.now(UTC).replace(tzinfo=None)
+    started = now - timedelta(seconds=1)  # decisions.created_at is naive UTC too
+    try:
+        for src in ("fpl:bootstrap", "fpl:fixtures", "fpl:players"):
+            _attempt(w.db, src, True, snap - timedelta(days=2), True)
+        if case == "critical_after":
+            _attempt(w.db, "fpl:players", False, now - timedelta(hours=1), True)
+        elif case == "critical_before":
+            _attempt(w.db, "fpl:players", False, snap - timedelta(days=1), True)
+        else:
+            _attempt(w.db, "understat:league", False, now - timedelta(hours=1), False)
+        res = run_weekly(w.db, Settings(), opts(force=True), fpl=fake(env))
+        assert res.status == "ok" and res.outcome.mode == "dry", res.notes
+        if case == "critical_after":
+            assert res.data_blocked and res.exit_code == 3 and res.run_status == "blocked"
+            assert any("critical_source_failed" in b and "fpl:players" in b
+                       for b in res.outcome.blocked)  # fmt: skip
+            assert "DIAGNOSTIC ONLY, NOT A RECOMMENDATION" in res.report.splitlines()[0]
+            assert not res.outcome.done  # nothing presented as "would ..."
+        else:
+            assert not res.data_blocked and res.exit_code == 0, res.outcome.blocked
+            assert "DIAGNOSTIC" not in res.report
+            if case == "optional":
+                assert any("understat:league failed" in n for n in res.notes)
+    finally:
+        w.db.con.execute("DELETE FROM source_attempts")
+        w.db.con.execute("DELETE FROM decisions WHERE created_at >= ?", [started])

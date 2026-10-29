@@ -20,6 +20,7 @@ from fpl_agent.data import oddsapi, ownership
 from fpl_agent.data.calendar import hours_to_deadline, in_action_window, next_event
 from fpl_agent.data.entry import parse_squad
 from fpl_agent.data.fpl_client import FPLClient
+from fpl_agent.db import source_health
 from fpl_agent.db.database import FootballDB
 from fpl_agent.execution import safety
 from fpl_agent.execution.execute import Outcome, execute
@@ -70,11 +71,18 @@ class RunResult:
         return bool(o and o.mode == "live" and any(b.startswith("[global]") for b in o.blocked))
 
     @property
+    def data_blocked(self) -> bool:
+        """The rails found the plan's data unusable (a critical source failed after its
+        snapshot), in any mode: the output is a diagnostic, not a recommendation."""
+        o = self.outcome
+        return bool(o and any(b.startswith("[global] critical_source_failed") for b in o.blocked))
+
+    @property
     def exit_code(self) -> int:
         failed_moves = bool(self.outcome and self.outcome.errors)
         if self.status == "error" or failed_moves:
             return 2
-        return 3 if self.live_blocked else 0
+        return 3 if self.live_blocked or self.data_blocked else 0
 
     @property
     def run_status(self) -> str:
@@ -83,7 +91,7 @@ class RunResult:
             return self.status
         if self.outcome and self.outcome.errors:
             return "failed"
-        if self.live_blocked:
+        if self.live_blocked or self.data_blocked:
             return "blocked"
         return "held" if self.held else "ok"
 
@@ -104,6 +112,8 @@ def format_report(res: RunResult, mode: str) -> str:
     if res.status != "ok" or not res.decision:
         return "\n".join([head, f"status: {res.status}", *res.notes])
     d, o = res.decision, res.outcome
+    if res.data_blocked:
+        head += " - DIAGNOSTIC ONLY, NOT A RECOMMENDATION: a critical data source failed"
     lines = [head, d.summary()]
     if d.xp_no_transfers:
         lines.append(f"vs. no moves: {d.xp - d.xp_no_transfers:+.1f} expected points this week")
@@ -249,6 +259,12 @@ def _run(db, settings, opts, rec, fpl, scout, odds, now, exchange, http) -> RunR
     if age is not None and age > settings.max_snapshot_hours:
         res.notes.append(f"FPL data is {age:.1f}h old (live runs need under "
                          f"{settings.max_snapshot_hours:g}h): run db-update")  # fmt: skip
+    # what the data update recorded about each source: every problem is said in the plan; a
+    # critical source that failed after this snapshot is also a rail (critical_source_failed)
+    health = source_health.report(db, opts.season, at.replace(tzinfo=None))
+    res.notes += [f"data health: {why}" for why in health["blocked"] + health["degraded"]
+                  if not why.startswith("FPL snapshot")]  # fmt: skip
+    failures = tuple(source_health.critical_failures_after(health, res.snapshot_at))
     if pool.empty:
         res.status, res.notes = (
             "error",
@@ -376,6 +392,7 @@ def _run(db, settings, opts, rec, fpl, scout, odds, now, exchange, http) -> RunR
         settings, state, pool[["player_id", "team_id", "position", "status", "chance"]], mean,
         bootstrap_next_gw=ev.id, recent_hits=recent,
         projected_share=len(proj.meta) / max(len(pool), 1), snapshot_age_hours=age,
+        critical_source_failures=failures,
     )  # fmt: skip
     fpl_id = dict(zip(pool["player_id"].astype(int), pool["fpl_id"].astype(int), strict=True))
     price = dict(zip(pool["player_id"].astype(int), pool["price"].astype(int), strict=True))

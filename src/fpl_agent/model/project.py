@@ -15,6 +15,7 @@ from datetime import date, datetime
 import numpy as np
 import pandas as pd
 
+from fpl_agent.db import player_links
 from fpl_agent.db.database import FootballDB, now
 from fpl_agent.model import features, minutes, odds, players, strength, translation
 from fpl_agent.model.simulate import BpsNoise, PlayerSpec, SimConfig, simulate_fixture
@@ -215,6 +216,21 @@ def approx_deadline(first_kickoff) -> datetime:
 
 
 # ---- the pipeline ----------------------------------------------------------------------------
+def history_as_of(
+    frame: pd.DataFrame, db: FootballDB, season: int, gw: int, cutoff: datetime | None
+) -> pd.DataFrame:
+    """The history a decision for `gw` of `season` may see: earlier gameweeks only and, with a
+    `cutoff`, only fixtures kicked off before it (a postponed fixture played later is left out)
+    with team, position, price and status re-selected from snapshots taken by then. Every fit
+    and baseline of an evaluation uses this, not the whole-database frame."""
+    history = frame[(frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))]
+    if cutoff is not None and "kickoff" in history:
+        history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
+    if cutoff is not None:
+        history = features.snapshot_as_of(history, db, cutoff)
+    return history
+
+
 def build_projection(
     db: FootballDB,
     season: int,
@@ -241,13 +257,7 @@ def build_projection(
     first = gws[0]
     as_of = as_of or (cutoff.date() if cutoff else date.today())
     frame = frame if frame is not None else features.player_gw_frame(db)
-    history = frame[
-        (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
-    ]
-    if cutoff is not None and "kickoff" in history:
-        history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
-    if cutoff is not None:
-        history = features.positions_as_of(history, db, cutoff)
+    history = history_as_of(frame, db, season, first, cutoff)
     pool = (pool if pool is not None
             else current_pool(db, season, pool_gw or first, as_of=cutoff))  # fmt: skip
     fx = fixtures_for(db, season, gws)
@@ -259,7 +269,11 @@ def build_projection(
         minutes_model = minutes.MinutesModel.fit(history)
     if pm is None:
         pm = features.match_frame(db)
-    pm = pm[pm["date"] < pd.Timestamp(as_of)]
+    # an evidence link counts only if it was written and supported by the decision time ...
+    decided = cutoff or datetime.combine(as_of, datetime.min.time())
+    # ... and only while the evidence stored by then still supports it
+    blocked = player_links.unsupported(db, season, decided)
+    pm = player_links.resolve(pm[pm["date"] < pd.Timestamp(as_of)], as_of, decided, blocked)
     positions = dict(zip(pool["player_id"], pool["position"], strict=True))
     rates = players.fit_player_rates(
         pm, history, positions, season, translation.Translations.load(db, as_of=cutoff)
@@ -353,7 +367,9 @@ def history_inputs(history: pd.DataFrame) -> dict[str, int]:
     src = history["position_source"]
     return {"rows": len(history), "own_snapshot": int(src.eq("snapshot").sum()),
             "season_position": int(src.eq("season").sum()), "no_position": int(src.isna().sum()),
-            "no_price": int(history["price"].isna().sum())}  # fmt: skip
+            "no_price": int(history["price"].isna().sum()),
+            "reconstructed_snapshot": int(history.get("snapshot_kind", src).eq("reconstructed")
+                                          .sum())}  # fmt: skip
 
 
 def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int:

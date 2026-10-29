@@ -70,6 +70,43 @@ def test_data_from_after_the_cutoff_cannot_change_a_projection(world):
     pd.testing.assert_series_equal(before, after)
 
 
+def test_late_snapshots_of_past_gameweeks_cannot_change_the_history_a_projection_uses(
+    world, monkeypatch
+):
+    """Corrections of past gameweeks' own snapshots (position, price, status, team) and first
+    snapshots for gameweeks that had none, all taken after the cutoff, change neither the
+    history the models train on nor the projection."""
+    from fpl_agent.model import minutes
+
+    db = world.db
+    cutoff = project.approx_deadline(first_kickoff(db, 2024, GW))
+    seen = []
+    fit = minutes.MinutesModel.fit.__func__
+    monkeypatch.setattr(minutes.MinutesModel, "fit",
+                        classmethod(lambda cls, h: seen.append(h.copy()) or fit(cls, h)))  # fmt: skip
+    before = projected(db, cutoff)
+    late = cutoff + timedelta(hours=2)
+    snap = db.query("SELECT * FROM fpl_players_gw WHERE season = 2024 AND gw BETWEEN 5 AND 9")
+    flip = {"GKP": "FWD", "DEF": "MID", "MID": "DEF", "FWD": "GKP"}
+    db.upsert("fpl_players_gw", snap.assign(
+        snapshot_at=late, position=snap["position"].map(flip), now_cost=snap["now_cost"] + 9,
+        status="i", chance_next=0, team_id=snap["team_id"] % 6 + 1))  # fmt: skip
+    pts = db.query("SELECT DISTINCT season, gw, fpl_id, player_id FROM fpl_points_gw "
+                   "WHERE season = 2024 AND gw BETWEEN 1 AND 4")  # fmt: skip
+    have = db.query("SELECT DISTINCT season, gw, fpl_id FROM fpl_players_gw "
+                    "WHERE season = 2024 AND gw BETWEEN 1 AND 4")  # fmt: skip
+    new = pts.merge(have, how="left", indicator=True).query("_merge == 'left_only'")
+    if not new.empty:  # gameweeks without a snapshot get a late first one
+        db.upsert("fpl_players_gw", new.drop(columns="_merge").assign(
+            snapshot_at=late, position="GKP", now_cost=1, status="i", team_id=1))  # fmt: skip
+    after = projected(db, cutoff)
+    pd.testing.assert_series_equal(before, after)
+    assert len(seen) == 2
+    key = ["player_id", "season", "gw", "fixture_id"]
+    pd.testing.assert_frame_equal(seen[0].sort_values(key).reset_index(drop=True),
+                                  seen[1].sort_values(key).reset_index(drop=True))  # fmt: skip
+
+
 def test_prices_known_before_the_cutoff_are_used(world):
     db = FootballDB()
     mid = 1

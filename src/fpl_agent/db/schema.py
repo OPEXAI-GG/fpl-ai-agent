@@ -133,9 +133,29 @@ TABLES["repair_log"] = """
     image VARCHAR, reason VARCHAR, logged_at TIMESTAMP, rolled_back_at TIMESTAMP,
     PRIMARY KEY (repair_id, seq)"""
 
+# The outcome of every source a data update or backfill attempted, failures included (U05).
+# Owned by `pipeline.record_attempts`, which writes it in its own transaction after the data work
+# committed or rolled back: recording a failed attempt never changes the data or a source's
+# success markers (`ingest_state`), and the data's rollback never loses the record. Operational
+# only: a source name, times, rows and a short sanitised error, never a payload, a URL's query
+# string, a credential or a team id.
+TABLES["source_attempts"] = """
+    attempt_id VARCHAR, seq INTEGER, job VARCHAR, source VARCHAR, ok BOOLEAN, critical BOOLEAN,
+    rows BIGINT, error VARCHAR, started_at TIMESTAMP, finished_at TIMESTAMP, exit_code INTEGER,
+    PRIMARY KEY (attempt_id, seq)"""
+
 # Every observed official FPL deadline, versioned: a row is added only when the deadline FPL
 # reports for a gameweek differs from the newest one stored, so `observed_at` says what was
 # known when (prospective from 2026-10-23; earlier deadlines were never stored).
 TABLES["fpl_deadlines"] = """
     season INTEGER, gw INTEGER, deadline_time TIMESTAMP, observed_at TIMESTAMP,
     PRIMARY KEY (season, gw, observed_at)"""
+
+# Identity links found from appearance evidence (`db.link_candidates`) and applied only on request
+# (`db-links --apply`), so source rows keep their own ids: a reader maps `from_player_id` (a
+# FotMob-only record) to `to_player_id` (an FPL player) only when `valid_from` is at or before
+# its cutoff, and never for a rolled-back batch. `evidence` is the proposal, kept for audit.
+TABLES["player_links"] = """
+    link_id VARCHAR PRIMARY KEY, batch_id VARCHAR, source VARCHAR, season INTEGER,
+    from_player_id INTEGER, to_player_id INTEGER, valid_from TIMESTAMP, evidence VARCHAR,
+    recorded_at TIMESTAMP, rolled_back_at TIMESTAMP"""

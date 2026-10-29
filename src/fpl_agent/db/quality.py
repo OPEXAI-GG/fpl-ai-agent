@@ -18,6 +18,7 @@ VALID_STATUS = {"a", "d", "i", "n", "s", "u"}
 EXPECTED_MATCHES = {"ENG1": 380, "ENG2": 552, "ENG3": 552}
 
 
+SIGNED_STATS = {"goals_prevented"}  # FotMob: saves above (or below) expectation
 MAX_DISAGREEMENT = 0.005  # share of finished matches whose sources may disagree
 
 
@@ -69,11 +70,25 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
         ("matches", "away_team_id", "teams", "team_id"),
         ("fpl_players_gw", "player_id", "players", "player_id"),
         ("fpl_players_gw", "team_id", "teams", "team_id"),
+        # model inputs (U06): every row a feature reads must reach its parent
+        ("fpl_points_gw", "player_id", "players", "player_id"),
+        ("player_match_stats", "match_id", "matches", "match_id"),
+        ("shots", "match_id", "matches", "match_id"),
+        ("match_odds", "match_id", "matches", "match_id"),
+        ("match_odds_log", "match_id", "matches", "match_id"),
+        ("appearances", "team_id", "teams", "team_id"),
+        ("team_match", "team_id", "teams", "team_id"),
     ]:
         check("error", f"orphan_{table}.{col}",
               f"SELECT count(*) FROM {table} t LEFT JOIN {parent} p ON t.{col} = p.{pcol} "
               f"WHERE t.{col} IS NOT NULL AND p.{pcol} IS NULL",
               f"{table}.{col} values with no {parent} row")  # fmt: skip
+    if "player_links" not in getattr(db, "missing_tables", []):
+        for col in ("from_player_id", "to_player_id"):  # only active links are read
+            check("error", f"orphan_player_links.{col}",
+                  f"SELECT count(*) FROM player_links t LEFT JOIN players p ON t.{col} = "
+                  f"p.player_id WHERE t.rolled_back_at IS NULL AND p.player_id IS NULL",
+                  f"active player_links.{col} values with no players row")  # fmt: skip
     check("warn", "player_link_collision",
           "SELECT count(*) FROM (SELECT 1 FROM player_ids GROUP BY player_id, source "
           "HAVING count(*) > 1)",
@@ -126,8 +141,54 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
     if n_bad:
         issues.append(Issue("error", "bad_status", f"{n_bad} FPL rows with unknown status"))
     check("error", "odds_below_one",
-          "SELECT count(*) FROM match_odds WHERE home < 1 OR draw < 1 OR away < 1",
+          "SELECT count(*) FROM match_odds WHERE home < 1 OR draw < 1 OR away < 1 OR over25 < 1 "
+          "OR under25 < 1 OR ah_home < 1 OR ah_away < 1",
           "odds rows with decimal odds below 1.0")  # fmt: skip
+    check("error", "odds_log_below_one",
+          "SELECT count(*) FROM match_odds_log WHERE home < 1 OR draw < 1 OR away < 1 OR "
+          "over25 < 1 OR under25 < 1 OR ah_home < 1 OR ah_away < 1",
+          "logged odds (the prices decisions are replayed with) below 1.0")  # fmt: skip
+
+    # --- model-input contracts (U06): values and joins the projections rely on ---------------
+    check("error", "bad_position",
+          "SELECT count(*) FROM fpl_players_gw WHERE position NOT IN ('GKP', 'DEF', 'MID', 'FWD')",
+          "FPL snapshot rows with an unknown position")  # fmt: skip
+    check("error", "bad_fpl_minutes",
+          "SELECT count(*) FROM fpl_points_gw WHERE minutes < 0 OR minutes > 130",
+          "official point rows with impossible minutes")  # fmt: skip
+    check("error", "fpl_points_without_kickoff",
+          "SELECT count(*) FROM fpl_points_gw WHERE fixture_id <> 0 AND kickoff IS NULL",
+          "official point rows of a real fixture with no kickoff (they would pass every "
+          "decision cutoff)")  # fmt: skip
+    check("error", "bad_bps",
+          "SELECT count(*) FROM fpl_points_gw WHERE bps < -30 OR bps > 200",
+          "official rows with an impossible bonus points system score")  # fmt: skip
+    check("error", "bad_appearance_position",
+          "SELECT count(*) FROM appearances WHERE position NOT IN ('GKP', 'DEF', 'MID', 'FWD')",
+          "appearances with an unknown position")  # fmt: skip
+    check("error", "finished_without_date",
+          "SELECT count(*) FROM matches WHERE finished AND match_date IS NULL",
+          "finished matches with no date (team ratings could not place them in time)")  # fmt: skip
+    check("warn", "scheduled_without_kickoff",
+          "SELECT count(*) FROM matches WHERE competition_id = 'ENG1' AND matchday IS NOT NULL "
+          "AND kickoff IS NULL", "Premier League fixtures in a gameweek with no kickoff time "
+          "(projected without per-player kickoff order)")  # fmt: skip
+    check("error", "duplicate_player_fixture",
+          "SELECT count(*) FROM (SELECT 1 FROM fpl_points_gw WHERE fixture_id <> 0 AND "
+          "player_id IS NOT NULL GROUP BY season, gw, player_id, fixture_id HAVING count(*) > 1)",
+          "player-fixtures with more than one official row (two FPL ids linked to one player: "
+          "feature joins would count the match twice)")  # fmt: skip
+    check("error", "duplicate_player_snapshot",
+          "SELECT count(*) FROM (SELECT 1 FROM fpl_players_gw WHERE player_id IS NOT NULL "
+          "GROUP BY season, gw, snapshot_at, player_id HAVING count(DISTINCT fpl_id) > 1)",
+          "snapshots where one player has two FPL ids")  # fmt: skip
+    check("error", "negative_match_stat",
+          f"SELECT count(*) FROM player_match_stats WHERE value < 0 AND stat NOT IN "
+          f"({', '.join(repr(x) for x in sorted(SIGNED_STATS))})",
+          "per-match stats below zero (only goals prevented may be negative)")  # fmt: skip
+    check("error", "bad_translation",
+          "SELECT count(*) FROM league_translation WHERE factor IS NULL OR factor <= 0 OR "
+          "NOT isfinite(factor)", "league translation factors that are not positive")  # fmt: skip
     check("warn", "xg_goals_gap",
           "SELECT count(*) FROM team_match WHERE xg_for IS NOT NULL AND abs(xg_for - goals_for) > 6",
           "team-matches where xG and goals differ by more than 6 (suspicious)")  # fmt: skip
@@ -151,16 +212,92 @@ def run_checks(db: FootballDB, rules: Rules | None = None) -> list[Issue]:
         issues.append(Issue(severity, "score_disagreement",
                             f"{mismatched} matches where sources disagree ({_where(db)})"))  # fmt: skip
 
+    n_conf = len(source_conflicts(db))
+    if n_conf:  # retained, not corrected: the stored evidence cannot say which source is right
+        issues.append(Issue("warn", "fpl_fotmob_conflict",
+                            f"{n_conf} player-matches where FPL and FotMob disagree on goals or "
+                            "minutes (>5); excluded from validated evaluations (db-eligibility)"))  # fmt: skip
+
+    if "player_links" not in getattr(db, "missing_tables", []):
+        from fpl_agent.db.link_candidates import revalidate  # it builds on this module
+
+        seasons = db.con.execute("SELECT DISTINCT season FROM player_links WHERE "
+                                 "rolled_back_at IS NULL").fetchall()  # fmt: skip
+        stale = [r for (ssn,) in seasons for r in revalidate(db, ssn)]
+        if stale:
+            issues.append(Issue("warn", "player_link_unsupported",
+                                f"{len(stale)} active evidence links the stored evidence no longer "
+                                "supports; projections leave them unlinked (db-links)"))  # fmt: skip
+
     # --- FPL points vs the rules engine ---------------------------------------------------
     issues += _points_consistency(db, rules or Rules.load(2026))
     return issues
 
 
+MINUTES_TOLERANCE = 5  # FPL and FotMob count stoppage time differently
+
+# (season, FPL fixture id, canonical match) for every FPL fixture label, bound to the season of
+# the canonical match: FPL reuses fixture ids every season, so a bare numeric join would pair a
+# fixture with another season's match. The legacy `fpl` label counts only for its match's own
+# season, `fpl-<season>` only when the match is of that season; both aliases of one match
+# collapse to one row (DISTINCT), so nothing is counted twice.
+FPL_FIXTURE_MATCHES = (
+    "(SELECT DISTINCT m.season, i.source_id, i.match_id FROM match_ids i JOIN matches m "
+    "USING (match_id) WHERE i.source = 'fpl' OR i.source = 'fpl-' || m.season::VARCHAR)"
+)
+
+
+def source_conflicts(db: FootballDB, season: int | None = None) -> list[dict]:
+    """Player-matches where FPL's official record and FotMob disagree on goals, or on minutes by
+    more than MINUTES_TOLERANCE (F-16). Neither is corrected: the retained evidence cannot say
+    which is right. Evaluations that claim validated inputs exclude these matches. A FotMob
+    record joined to the FPL player by an active evidence link (`player_links`) is compared like
+    one under the player's own id (`linked_record` names it), whenever the link was written: an
+    exclusion only removes data, so a later-found conflict still excludes the match."""
+    f = ("WITH f AS (SELECT i.match_id, x.season, x.player_id, "
+         "sum(TRY_CAST(json_extract_string(x.stats, '$.goals_scored') AS DOUBLE)) AS goals, "
+         f"sum(x.minutes) AS minutes FROM fpl_points_gw x JOIN {FPL_FIXTURE_MATCHES} i ON "
+         "i.season = x.season AND i.source_id = x.fixture_id::VARCHAR "
+         "WHERE x.player_id IS NOT NULL AND (? IS NULL OR x.season = ?) GROUP BY ALL) ")  # fmt: skip
+
+    def compare(record: str, joins: str) -> str:
+        """FPL rows against the FotMob rows of `record` (the player's own id, or a linked one)."""
+        return (f"SELECT f.match_id, f.season, f.player_id, f.goals, s.value, f.minutes, "
+                f"a.minutes, {record} FROM f {joins}"
+                "LEFT JOIN player_match_stats s ON s.match_id = f.match_id "
+                f"AND s.player_id = coalesce({record}, f.player_id) AND s.stat = 'goals' "
+                "AND s.source = 'fotmob' LEFT JOIN appearances a ON a.match_id = f.match_id "
+                f"AND a.player_id = coalesce({record}, f.player_id) AND a.source = 'fotmob' "
+                "WHERE f.goals <> s.value OR abs(f.minutes - a.minutes) > ?")  # fmt: skip
+
+    sql = f + compare("NULL::INTEGER", "")
+    params = [season, season, MINUTES_TOLERANCE]
+    if "player_links" not in getattr(db, "missing_tables", []):
+        sql += " UNION ALL " + compare(
+            "l.from_player_id", "JOIN player_links l ON l.to_player_id = f.player_id "
+            "AND l.source = 'fotmob' AND l.rolled_back_at IS NULL ")  # fmt: skip
+        params.append(MINUTES_TOLERANCE)
+    rows = db.con.execute(sql + " ORDER BY ALL", params).fetchall()
+    out = []
+    for mid, ssn, pid, fg, sg, fm, am, record in rows:
+        kinds = [k for k, bad in (("goals", sg is not None and fg != sg),
+                                  ("minutes", am is not None and abs(fm - am) > MINUTES_TOLERANCE))
+                 if bad]  # fmt: skip
+        out.append({"match_id": mid, "season": ssn, "player_id": pid, "kinds": kinds,
+                    "fpl": {"goals": fg, "minutes": fm}, "fotmob": {"goals": sg, "minutes": am},
+                    "linked_record": record})  # fmt: skip
+    return out
+
+
 def _points_consistency(db: FootballDB, rules: Rules) -> list[Issue]:
-    """Recompute stored official points with the rules engine (single-fixture rows)."""
+    """Recompute stored official points with the rules engine (single-fixture rows). Only
+    players with one known position in the season are scored: an unknown position is reported
+    by `bad_position`, and a mid-season change would otherwise join (and score) a row twice."""
     rows = db.con.execute(
         "SELECT f.fpl_id, p.position, f.stats, f.total_points, f.gw FROM fpl_points_gw f "
-        "JOIN (SELECT DISTINCT season, fpl_id, position FROM fpl_players_gw) p "
+        "JOIN (SELECT season, fpl_id, any_value(position) AS position FROM fpl_players_gw "
+        "GROUP BY ALL HAVING count(DISTINCT position) = 1 AND bool_and(position IN "
+        "('GKP', 'DEF', 'MID', 'FWD'))) p "
         "USING (season, fpl_id) WHERE f.season = ? AND f.fixture_id IN (SELECT fixture_id FROM fpl_points_gw GROUP BY fpl_id, gw, "
         "fixture_id HAVING count(*) = 1) AND f.fpl_id NOT IN (SELECT fpl_id FROM fpl_points_gw "
         "GROUP BY fpl_id, gw HAVING count(*) > 1)",
@@ -213,11 +350,13 @@ REFERENCES: dict[str, tuple[tuple[str, str], ...]] = {
                ("shots", "player_id"), ("transfers", "player_id"),
                ("fpl_players_gw", "player_id"), ("fpl_points_gw", "player_id"),
                ("projections", "player_id"), ("scout_cache", "player_id"),
+               ("player_links", "from_player_id"), ("player_links", "to_player_id"),
                ("players", "player_id")),
 }  # fmt: skip
 # id-like columns that are deliberately not canonical references, and why
 NOT_REFERENCES = {
     ("migration_log", "canonical_id"): "journal of the R1 relabel; restored by its own rollback",
+    ("shots", "source_match_id"): "the source's own match id (text), not a canonical id",
 }
 
 # a match's rows, children first (the parent is deleted last)
@@ -226,7 +365,8 @@ REPAIR_KEY = "repeat-pairings-v1"
 
 
 DONE_MARKERS = {"ingest_state": "source <> 'repair'",  # "this repair ran" rows, not data
-                "repair_log": "false"}  # the journal of a change, not a change  # fmt: skip
+                "repair_log": "false",  # the journal of a change, not a change
+                "source_attempts": "false"}  # a record that a source was tried  # fmt: skip
 
 
 def table_digests(db: FootballDB, skip_markers: bool = False) -> dict[str, tuple]:
@@ -270,7 +410,7 @@ def blocked_writes(db: FootballDB, step, name: str) -> list[Issue]:
     changed = sorted(t for t in after if after[t] != before.get(t))
     if not changed:
         return []
-    detail = f"{name} would change {', '.join(changed)}; blocked (repairs disabled)"
+    detail = f"{name} would change {', '.join(changed)}; blocked (repairs are opt-in: back up, then rerun with --repairs)"
     if impact:
         detail += f" [rows: {', '.join(impact)}]"
     reasons = "; ".join(i.detail for i in found)
@@ -346,11 +486,15 @@ def rollback_repair(db: FootballDB, repair_id: str) -> dict[str, int]:
     """Undo one journalled repair step, newest change first, all or nothing. A row the step
     wrote must still be exactly as written, and a row it removed must fit back without a key
     collision; otherwise something changed it since, and RepairConflict is raised with
-    nothing written. Returns {table: rows restored}."""
+    nothing written. Returns {table: rows restored}. Repeating a completed rollback is a no-op
+    that writes nothing and returns {}; an id the journal does not hold is a RepairConflict."""
     rows = db.con.execute(
         "SELECT seq, table_name, action, image FROM repair_log WHERE repair_id = ? "
         "AND rolled_back_at IS NULL ORDER BY seq DESC", [repair_id]).fetchall()  # fmt: skip
     if not rows:
+        if db.con.execute("SELECT 1 FROM repair_log WHERE repair_id = ? LIMIT 1",
+                          [repair_id]).fetchone():  # fmt: skip
+            return {}  # already rolled back (rolled_back_at is set for the whole step at once)
         raise RepairConflict(f"{repair_id}: no journalled change to roll back")
     restored: dict[str, int] = {}
     with db.transaction():
