@@ -12,6 +12,6 @@ The changes proposed for PR #55:
 
 The simulator changes alter live projections. Stored reviews without the eligibility mark no longer affect calibration, so the factors return to 1.0 until eligible reviews are recorded. The branch's existing pre-deadline odds cutoff, one-goalkeeper handling, and break-even transfer-lesson rule are retained; they are not new changes in this patch.
 
-Validation is structural, not predictive. Wegz ran 86 model tests and passed code review on r3 commit `4c107b7`. The full suite and Linux continuous integration have not run on that commit. There are 0 eligible 2026 gameweeks, so no accuracy improvement or performance lift is established.
+Validation is structural, not predictive. Wegz ran 86 model tests and passed code review on r3 commit `4c107b7`. Read full-suite and Linux continuous-integration status from the latest PR #55 head; checks on that branch do not establish model accuracy. There are 0 eligible 2026 gameweeks, so no accuracy improvement or performance lift is established.
 
 Known limits remain: substitute minutes are not tied to starters leaving; missing-goalkeeper degradation is not reported; the simulated chip path does not pass cards; and deadline provenance still needs its separately reviewed operational path. Do not describe this as a validated model or promise highest points.
