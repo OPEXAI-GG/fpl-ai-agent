@@ -31,9 +31,11 @@ What to expect:
 
 * `status` prints `Mode: DRY - the agent only reports; it never logs in to FPL or changes your team.`
   and lists which optional keys are unset.
+* `db-update --points` loads the first-run FPL data when the public feeds respond.
 * `plan` reads your squad from FPL's public endpoints (no login), projects, plans, applies the rails
-  and prints a report. Exit code 0 = report produced (or skipped), 2 = error, 3 = blocked by a rail
-  (the report is then a diagnostic, not a recommendation).
+  and prints a report. It can still stop, or print a diagnostic instead of a recommendation, when
+  data is missing, stale or fails a safety rail. Exit code 0 = report produced (or skipped),
+  2 = error, 3 = blocked by a rail.
 * Without `--force`, `plan` only acts when the next deadline is 45 minutes to 26 hours away;
   otherwise it reports "outside the action window" and stops.
 * Your team id is the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
