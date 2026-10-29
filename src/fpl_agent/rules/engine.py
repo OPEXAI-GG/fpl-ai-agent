@@ -145,14 +145,13 @@ def auto_sub(
     return final
 
 
-def effective_captain(
-    captain: Any, vice: Any, minutes: dict[Any, int], cards: dict[Any, int] | None = None
-) -> Any | None:
-    """The vice-captain takes the armband only if the captain did not take part
-    (`participated`)."""
-    if participated(captain, minutes, cards):
+def effective_captain(captain: Any, vice: Any, minutes: dict[Any, int]) -> Any | None:
+    """The vice-captain takes the armband only if the captain played 0 minutes. Minutes only:
+    the 2026/27 rules hand over the armband when the captain "plays no minutes", while a card
+    without minutes counts as playing only for automatic substitutions (`participated`)."""
+    if minutes.get(captain, 0) > 0:
         return captain
-    return vice if participated(vice, minutes, cards) else None
+    return vice if minutes.get(vice, 0) > 0 else None
 
 
 def selling_price(buy: int, now: int, rules: Rules | None = None) -> int:

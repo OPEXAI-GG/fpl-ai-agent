@@ -166,7 +166,7 @@ def score_week(wk: WeekPlan, pts: dict[int, int], mins: dict[int, int], pos: dic
                cards: dict[int, int] | None = None) -> tuple[int, int, int]:  # fmt: skip
     """(points before hits, captain's points, bench points left) for one week."""
     final = auto_sub(wk.xi, wk.bench, mins, pos, rules, cards)
-    cap = effective_captain(wk.captain, wk.vice, mins, cards)
+    cap = effective_captain(wk.captain, wk.vice, mins)
     total = sum(pts.get(p, 0) for p in final)
     cap_pts = pts.get(cap, 0) if cap is not None else 0
     total += (2 if wk.chip == "3xc" else 1) * cap_pts

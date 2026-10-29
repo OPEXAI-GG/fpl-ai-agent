@@ -95,7 +95,8 @@ def _cutoff(db: FootballDB, season: int, gw: int):
     return approx_deadline(first) if first is not None else None
 
 
-PRE_DEADLINE = "newest run before the deadline (first kickoff - 90 min)"
+# how `projection_run` names a pre-deadline choice; the suffix says which deadline was used
+PRE_DEADLINE = "newest run before the deadline"
 
 
 def projection_run(db: FootballDB, season: int, gw: int) -> tuple[str | None, str]:
@@ -109,7 +110,11 @@ def projection_run(db: FootballDB, season: int, gw: int) -> tuple[str | None, st
             [season, gw, cut],
         ).fetchone()
         if row:
-            return row[0], PRE_DEADLINE
+            from fpl_agent.db.gameweeks import official_deadline
+
+            official = official_deadline(db, season, gw) is not None
+            how = "official deadline" if official else "first kickoff - 90 min"
+            return row[0], f"{PRE_DEADLINE} ({how})"
     row = db.con.execute(
         "SELECT run_id FROM projections WHERE season = ? AND gw = ? ORDER BY created_at LIMIT 1",
         [season, gw],
@@ -131,7 +136,7 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     scored as zero. `eligible_for_calibration` is true only for a forecast made before the
     deadline; `calibration.factors` ignores every other review."""
     run, chosen = projection_run(db, season, gw)
-    pre_deadline = chosen == PRE_DEADLINE
+    pre_deadline = chosen.startswith(PRE_DEADLINE)
     proj = db.query(
         "SELECT player_id, xpts, detail FROM projections WHERE run_id = ? AND gw = ?", [run, gw]
     )

@@ -140,9 +140,8 @@ def test_missing_rules_file():
 
 
 def test_a_card_from_the_bench_counts_as_taking_part():
-    """Audit case: a starter shown a card without playing is not substituted, a bench player
-    shown a card can come on, and a carded captain keeps the armband. Without card data only
-    minutes count, as before."""
+    """Audit case: a starter shown a card without playing is not substituted, and a bench player
+    shown a card can come on. Without card data only minutes count, as before."""
     mins = {p: 90 for p in POS}
     mins.update({"m2": 0, "m4": 0})
     cards = {"m2": 1}
@@ -151,5 +150,14 @@ def test_a_card_from_the_bench_counts_as_taking_part():
     mins["m2"], mins["m1"] = 90, 0
     final = auto_sub(XI, BENCH, mins, POS, R, {"m4": 1})
     assert "m4" in final and "m1" not in final
-    assert effective_captain("a", "b", {"a": 0, "b": 90}, {"a": 1}) == "a"
-    assert effective_captain("a", "b", {"a": 0, "b": 90}) == "b"
+
+
+def test_a_captain_booked_without_minutes_hands_the_armband_to_the_vice():
+    """2026/27 rules: the vice-captain takes over when the captain "plays no minutes". A card
+    without minutes counts as playing for automatic substitution only, so the booked captain
+    stays in the team but loses the armband."""
+    mins = {p: 90 for p in POS}
+    mins["m2"] = 0
+    final = auto_sub(XI, BENCH, mins, POS, R, {"m2": 1})
+    assert "m2" in final  # the card keeps him in the team...
+    assert effective_captain("m2", "m3", mins) == "m3"  # ...but the vice takes the armband
