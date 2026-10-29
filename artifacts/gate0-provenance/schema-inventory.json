@@ -1,0 +1,544 @@
+{
+ "declared_tables": 34,
+ "master_51f0def_tables": 23,
+ "added": [
+  "fpl_deadlines",
+  "match_odds_log",
+  "migration_log",
+  "news_evidence",
+  "player_codes",
+  "player_links",
+  "repair_log",
+  "runs",
+  "scout_cache",
+  "scout_calls",
+  "source_attempts"
+ ],
+ "tables": {
+  "competitions": {
+   "on_master": true,
+   "columns": [
+    "competition_id",
+    "name",
+    "country",
+    "tier"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "teams": {
+   "on_master": true,
+   "columns": [
+    "team_id",
+    "name",
+    "key"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "team_ids": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "source_id",
+    "team_id",
+    "source_name"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "players": {
+   "on_master": true,
+   "columns": [
+    "player_id",
+    "name",
+    "birth_date",
+    "position"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "player_ids": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "source_id",
+    "player_id",
+    "source_name"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "matches": {
+   "on_master": true,
+   "columns": [
+    "match_id",
+    "competition_id",
+    "season",
+    "matchday",
+    "kickoff",
+    "match_date",
+    "home_team_id",
+    "away_team_id",
+    "home_goals",
+    "away_goals",
+    "finished",
+    "source",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "match_ids": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "source_id",
+    "match_id"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "team_match": {
+   "on_master": true,
+   "columns": [
+    "match_id",
+    "team_id",
+    "source",
+    "is_home",
+    "goals_for",
+    "goals_against",
+    "xg_for",
+    "xg_against",
+    "shots",
+    "shots_on_target",
+    "corners",
+    "fouls",
+    "yellows",
+    "reds",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "match_odds": {
+   "on_master": true,
+   "columns": [
+    "match_id",
+    "source",
+    "bookmaker",
+    "closing",
+    "home",
+    "draw",
+    "away",
+    "over25",
+    "under25",
+    "ah_line",
+    "ah_home",
+    "ah_away",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "appearances": {
+   "on_master": true,
+   "columns": [
+    "match_id",
+    "player_id",
+    "team_id",
+    "source",
+    "started",
+    "minutes",
+    "position",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "player_match_stats": {
+   "on_master": true,
+   "columns": [
+    "match_id",
+    "player_id",
+    "source",
+    "stat",
+    "value",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "shots": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "shot_id",
+    "source_match_id",
+    "match_id",
+    "player_id",
+    "minute",
+    "xg",
+    "result",
+    "situation",
+    "shot_type",
+    "x",
+    "y",
+    "assisted_by",
+    "last_action",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "transfers": {
+   "on_master": true,
+   "columns": [
+    "player_id",
+    "from_team_id",
+    "to_team_id",
+    "date",
+    "fee",
+    "source",
+    "ingested_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "fpl_players_gw": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "snapshot_at",
+    "fpl_id",
+    "player_id",
+    "team_id",
+    "position",
+    "now_cost",
+    "selected_by_percent",
+    "status",
+    "chance_next",
+    "news",
+    "transfers_in_event",
+    "transfers_out_event",
+    "total_points",
+    "minutes",
+    "raw"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "fpl_points_gw": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "fpl_id",
+    "player_id",
+    "fixture_id",
+    "minutes",
+    "total_points",
+    "bps",
+    "bonus",
+    "stats",
+    "explain",
+    "ingested_at",
+    "kickoff"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "projections": {
+   "on_master": true,
+   "columns": [
+    "run_id",
+    "model",
+    "created_at",
+    "season",
+    "gw",
+    "player_id",
+    "xpts",
+    "detail"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "field_ownership": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "fpl_id",
+    "owned",
+    "eo",
+    "sample",
+    "fetched_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "decisions": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "created_at",
+    "mode",
+    "payload"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "reviews": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "created_at",
+    "kind",
+    "payload"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "ingest_log": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "run_at",
+    "table_name",
+    "rows",
+    "note"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "ingest_state": {
+   "on_master": true,
+   "columns": [
+    "source",
+    "key",
+    "status",
+    "detail",
+    "updated_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "league_translation": {
+   "on_master": true,
+   "columns": [
+    "from_comp",
+    "to_comp",
+    "stat",
+    "factor",
+    "n_players",
+    "minutes",
+    "updated_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "match_odds_log": {
+   "on_master": false,
+   "columns": [
+    "match_id",
+    "source",
+    "bookmaker",
+    "closing",
+    "home",
+    "draw",
+    "away",
+    "over25",
+    "under25",
+    "ah_line",
+    "ah_home",
+    "ah_away",
+    "ingested_at"
+   ],
+   "class": "A (conditional)",
+   "writer_in_this_release": "FootballDB.log_odds via ingest_football_data.load_csv (db-update) and oddsapi.load_events (plan run, only with ODDS_API_KEY)"
+  },
+  "scout_cache": {
+   "on_master": false,
+   "columns": [
+    "key",
+    "player_id",
+    "p_play",
+    "reason",
+    "created_at",
+    "expires_at"
+   ],
+   "class": "D",
+   "writer_in_this_release": "none on master"
+  },
+  "scout_calls": {
+   "on_master": false,
+   "columns": [
+    "called_at",
+    "model",
+    "prompt_version",
+    "season",
+    "gw",
+    "eligible",
+    "cached",
+    "sent",
+    "accepted",
+    "rejected",
+    "input_bytes",
+    "input_tokens",
+    "output_tokens",
+    "stop_reason",
+    "latency_ms",
+    "outcome"
+   ],
+   "class": "D",
+   "writer_in_this_release": "none on master"
+  },
+  "runs": {
+   "on_master": false,
+   "columns": [
+    "run_id",
+    "version",
+    "season",
+    "gw",
+    "entry_id",
+    "mode",
+    "started_at",
+    "ended_at",
+    "status",
+    "state",
+    "exit_code",
+    "snapshot_at",
+    "projection_run",
+    "decision_at",
+    "stages",
+    "reasons",
+    "report_key",
+    "delivered",
+    "delivered_at"
+   ],
+   "class": "D",
+   "writer_in_this_release": "none on master"
+  },
+  "lessons": {
+   "on_master": true,
+   "columns": [
+    "season",
+    "gw",
+    "kind",
+    "points",
+    "what",
+    "lesson",
+    "rule",
+    "created_at"
+   ],
+   "class": "existing",
+   "writer_in_this_release": "existing master writer or none"
+  },
+  "news_evidence": {
+   "on_master": false,
+   "columns": [
+    "observation_id",
+    "observed_at",
+    "url",
+    "payload"
+   ],
+   "class": "D",
+   "writer_in_this_release": "none on master"
+  },
+  "player_codes": {
+   "on_master": false,
+   "columns": [
+    "source",
+    "code",
+    "player_id",
+    "evidence",
+    "first_season",
+    "recorded_at"
+   ],
+   "class": "B",
+   "writer_in_this_release": "none (identity slice, G6)"
+  },
+  "migration_log": {
+   "on_master": false,
+   "columns": [
+    "migration_id",
+    "table_name",
+    "source_id",
+    "canonical_id",
+    "source_name",
+    "old_source",
+    "new_source",
+    "applied_at",
+    "rolled_back_at"
+   ],
+   "class": "C (R1 inactive)",
+   "writer_in_this_release": "none on master (R1 relabel not in this release)"
+  },
+  "repair_log": {
+   "on_master": false,
+   "columns": [
+    "repair_id",
+    "seq",
+    "step",
+    "table_name",
+    "action",
+    "image",
+    "reason",
+    "logged_at",
+    "rolled_back_at"
+   ],
+   "class": "C (required: R2 opt-in write path)",
+   "writer_in_this_release": "quality.Journal inside repair()/quarantine(), only when a run opts in (--repairs / repairs=True; off by default, no workflow opts in); reversed by `fpl-agent repair-undo`"
+  },
+  "source_attempts": {
+   "on_master": false,
+   "columns": [
+    "attempt_id",
+    "seq",
+    "job",
+    "source",
+    "ok",
+    "critical",
+    "rows",
+    "error",
+    "started_at",
+    "finished_at",
+    "exit_code"
+   ],
+   "class": "A",
+   "writer_in_this_release": "pipeline.record_attempts via pipeline._finish (every db-update/backfill exit: 0, 2, 3)"
+  },
+  "fpl_deadlines": {
+   "on_master": false,
+   "columns": [
+    "season",
+    "gw",
+    "deadline_time",
+    "observed_at"
+   ],
+   "class": "A",
+   "writer_in_this_release": "gameweeks.log_deadlines via ingest_fpl.load_bootstrap (every db-update, public bootstrap, no token)"
+  },
+  "player_links": {
+   "on_master": false,
+   "columns": [
+    "link_id",
+    "batch_id",
+    "source",
+    "season",
+    "from_player_id",
+    "to_player_id",
+    "valid_from",
+    "evidence",
+    "recorded_at",
+    "rolled_back_at"
+   ],
+   "class": "B",
+   "writer_in_this_release": "none (identity slice, G6)"
+  }
+ },
+ "revision": 2
+}

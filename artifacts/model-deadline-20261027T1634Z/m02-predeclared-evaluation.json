@@ -1,0 +1,13 @@
+{
+  "declared_before_comparison": "2026-10-27T16:46:09Z",
+  "candidate": "Exposure-shrunk FPL expected goals and expected assists as per-stat fallback only when detailed linked-history exposure is absent; FPL rows must have been ingested by decision cutoff.",
+  "baseline": "Existing detailed-history and position-prior fit; unchanged scoring and minutes behavior.",
+  "paired_unit": "Same eligible player-game rows, targets, cutoff, exclusions, seed and simulation rules for baseline and candidate.",
+  "cohorts": ["all eligible rows", "rows where xG detailed history is unusable", "rows where xA detailed history is unusable", "unchanged rows with usable detailed history"],
+  "primary_metrics": ["Poisson deviance for goals per player-game (lower is better)", "Poisson deviance for assists per player-game (lower is better)"],
+  "secondary_metrics": ["MAE of goals and assists per 90", "calibration intercept and slope"],
+  "sample_minimum_for_any_performance_claim": {"player_game_rows": 200, "unique_players": 100, "eligible_gameweeks": 3, "goal_events": 50, "assist_events": 50},
+  "exploratory_acceptance_limits": {"minimum_paired_deviance_reduction_fraction": 0.02, "calibration_slope_range": [0.8, 1.2], "maximum_position_cohort_deviance_regression_fraction_when_at_least_50_events": 0.01},
+  "promotion_rule": "No promotion unless all sample minima pass and both primary metrics improve by at least 2%, calibration slope is within range, and no position cohort with >=50 events regresses by >1%. Otherwise label experimental or reject. Synthetic tests do not count as performance evidence.",
+  "known_data_gate": "M00 preserved database reports zero eligible 2026 gameweeks; do not run or claim validated paired performance unless a later eligible evaluation dataset is identified."
+}

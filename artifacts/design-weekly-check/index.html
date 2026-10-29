@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly team check (prototype)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="sample-bar" role="note">
+  <strong>Prototype.</strong> All players, clubs, numbers and times are made up for testing. Not real advice.
+</div>
+
+<header class="top">
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 11.5l3.2 3.2L16 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Weekly team check</span>
+  </div>
+  <nav class="nav" aria-label="Main">
+    <a href="#week" data-nav="week">This Week</a>
+    <a href="#squad" data-nav="squad">Squad</a>
+    <a href="#discover" data-nav="discover">Discover</a>
+    <a href="#plan" data-nav="plan">Plan</a>
+  </nav>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- 1. Enter team ID -->
+  <section class="screen" id="screen-start" aria-labelledby="h-start">
+    <div class="narrow">
+      <h1 id="h-start">Check your team for this week</h1>
+      <p class="lead">Enter your public team ID. We never ask for your password.</p>
+      <form id="id-form" novalidate>
+        <label for="team-id">Team ID</label>
+        <p class="hint" id="team-id-hint">The number in the web address of your points page. Example: 1234567.</p>
+        <input id="team-id" name="team-id" inputmode="numeric" autocomplete="off" aria-describedby="team-id-hint team-id-error" maxlength="10">
+        <p class="error" id="team-id-error" hidden></p>
+        <button type="submit" class="btn primary">Check my team</button>
+      </form>
+      <details class="try">
+        <summary>Test IDs for this prototype</summary>
+        <ul>
+          <li><code>1234567</code> a normal squad</li>
+          <li><code>404</code> no team found</li>
+          <li><code>777</code> a new team with no picks yet</li>
+        </ul>
+      </details>
+      <div class="loading" id="loading" role="status" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> <span id="loading-text">Finding your team…</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Confirm squad -->
+  <section class="screen" id="screen-confirm" aria-labelledby="h-confirm" hidden>
+    <div class="narrow">
+      <h1 id="h-confirm">Is this your team?</h1>
+      <div class="card">
+        <p class="team-name" id="confirm-team">North Quay Wanderers</p>
+        <p class="meta" id="confirm-manager">Manager: A. Sample · Team ID <span id="confirm-id"></span></p>
+        <p class="meta">15 players · £0.6m in the bank · 1 free transfer</p>
+        <ul class="mini-squad" id="confirm-list"></ul>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn primary" id="confirm-yes">Yes, show my weekly check</button>
+        <button type="button" class="btn ghost" id="confirm-no">No, change the ID</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2b. Empty team -->
+  <section class="screen" id="screen-empty" aria-labelledby="h-empty" hidden>
+    <div class="narrow">
+      <h1 id="h-empty">This team has no players yet</h1>
+      <p>We found team <span class="mono">777</span>, but it has not picked a squad. Pick your 15 players in the game first, then come back.</p>
+      <button type="button" class="btn primary" data-go="start">Try another team ID</button>
+    </div>
+  </section>
+
+  <!-- 3. This Week brief -->
+  <section class="screen" id="screen-week" aria-labelledby="h-week" hidden>
+    <div class="week-head">
+      <div>
+        <p class="eyebrow">North Quay Wanderers · Gameweek 10</p>
+        <h1 id="h-week">Your move this week</h1>
+      </div>
+      <div class="fresh" id="fresh"></div>
+    </div>
+
+    <div class="stale-alert" id="stale-alert" role="alert" hidden>
+      <strong>This advice may be out of date.</strong> Player news was last checked over 6 hours ago. Check again before you act.
+      <button type="button" class="btn small" id="recheck">Check again</button>
+    </div>
+
+    <div class="grid">
+      <article class="decision card" aria-labelledby="h-decision">
+        <p class="label">Suggested move</p>
+        <h2 id="h-decision" class="move">
+          <span class="out">Sell <span class="pname">R. Okafor-Lind</span></span>
+          <svg class="arrow" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="in">Buy <span class="pname">T. Varga</span></span>
+        </h2>
+        <p class="sub">Uses your 1 free transfer. No points cost. £0.2m left in the bank.</p>
+
+        <dl class="gain">
+          <div>
+            <dt>Expected gain vs keeping your team</dt>
+            <dd><span class="big">+2.1</span> points over the next 3 gameweeks</dd>
+            <!-- Placeholder for the API's projection label (team-import contract: every projection is "exploratory"). -->
+            <dd class="model-label"><span class="tag">Exploratory</span> Early forecast, not yet proven accurate.</dd>
+          </div>
+          <div id="range-block">
+            <dt>How sure is this?</dt>
+            <dd id="range-text"></dd>
+          </div>
+        </dl>
+
+        <h3 class="h-small">Why</h3>
+        <ol class="reasons">
+          <li><strong>Okafor-Lind is doubtful.</strong> Listed 50% to play after a knee knock in the last match.</li>
+          <li><strong>Varga has easier games.</strong> Two home matches in the next three gameweeks, and has started all of the last 6.</li>
+        </ol>
+
+        <div class="risk" id="risk">
+          <h3 class="h-small"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6v3.5M8 11.6v.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Main risk</h3>
+          <p>If Okafor-Lind is declared fit, keeping him would likely have scored more. News is expected on Friday.</p>
+        </div>
+
+        <div class="actions">
+          <a class="btn primary" href="#compare">Compare with keeping my team</a>
+        </div>
+      </article>
+
+      <aside class="side">
+        <section class="card" aria-labelledby="h-captain">
+          <h2 id="h-captain" class="h-card">Captain</h2>
+          <p class="cap"><span class="badge" aria-hidden="true">C</span> <span class="pname">M. Esteves</span> <span class="meta">North Quay · Mid</span></p>
+          <p class="cap"><span class="badge v" aria-hidden="true">V</span> <span class="pname">J. Halloran</span> <span class="meta">Vice-captain · Eastmoor · Fwd</span></p>
+        </section>
+        <section class="card" aria-labelledby="h-bench">
+          <h2 id="h-bench" class="h-card">Bench order</h2>
+          <ol class="bench">
+            <li>K. Brennan-Moss</li>
+            <li>Christopher Abernathy-Wolstenholme</li>
+            <li>D. Lund</li>
+          </ol>
+          <p class="meta">Goalkeeper on bench: P. Sato</p>
+        </section>
+        <section class="card" aria-labelledby="h-changed">
+          <h2 id="h-changed" class="h-card">Changed since your last check</h2>
+          <ul class="changes">
+            <li>Okafor-Lind: fit → 50% doubtful</li>
+            <li>Varga: price up £0.1m</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 4. Compare -->
+  <section class="screen" id="screen-compare" aria-labelledby="h-compare" hidden>
+    <p class="back"><a href="#week">← Back to this week</a></p>
+    <h1 id="h-compare">Compare two options</h1>
+    <p class="lead">Expected points over the next 3 gameweeks. Higher is better, but both are estimates.</p>
+    <div class="compare">
+      <article class="card opt pick" aria-labelledby="h-opt-a">
+        <p class="label">Suggested</p>
+        <h2 id="h-opt-a">Sell Okafor-Lind, buy Varga</h2>
+        <dl class="kv">
+          <div><dt>Expected points</dt><dd>148.6</dd></div>
+          <div><dt>Gain vs keeping</dt><dd>+2.1</dd></div>
+          <div><dt>Range</dt><dd class="cmp-range"></dd></div>
+          <div><dt>Points cost</dt><dd>0</dd></div>
+          <div><dt>Bank after</dt><dd>£0.2m</dd></div>
+        </dl>
+        <p><strong>Better if</strong> Okafor-Lind misses the next match.</p>
+      </article>
+      <article class="card opt" aria-labelledby="h-opt-b">
+        <p class="label">Alternative</p>
+        <h2 id="h-opt-b">Keep your team, save the transfer</h2>
+        <dl class="kv">
+          <div><dt>Expected points</dt><dd>146.5</dd></div>
+          <div><dt>Gain vs keeping</dt><dd>0</dd></div>
+          <div><dt>Range</dt><dd class="cmp-range-b"></dd></div>
+          <div><dt>Points cost</dt><dd>0</dd></div>
+          <div><dt>Bank after</dt><dd>£0.6m</dd></div>
+        </dl>
+        <p><strong>Better if</strong> Okafor-Lind is fit. You would have 2 free transfers next week.</p>
+      </article>
+    </div>
+    <p class="meta">The difference of 2.1 points is small. Either choice is reasonable.</p>
+    <div class="actions">
+      <a class="btn ghost" href="#preview">What else could a subscription add?</a>
+    </div>
+  </section>
+
+  <!-- 5. Squad -->
+  <section class="screen" id="screen-squad" aria-labelledby="h-squad" hidden>
+    <h1 id="h-squad">Your squad after the suggested move</h1>
+    <div class="seg" role="group" aria-label="Squad view">
+      <button type="button" class="seg-btn" id="view-pitch" aria-pressed="true">Pitch</button>
+      <button type="button" class="seg-btn" id="view-list" aria-pressed="false">List</button>
+    </div>
+    <div id="pitch" class="pitch" role="group" aria-label="Pitch view: starting eleven by position, then bench in order"></div>
+    <div id="list" hidden>
+      <table class="squad-table">
+        <caption class="sr">Squad list with position, club and expected points next gameweek</caption>
+        <thead><tr><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">Club</th><th scope="col">Next GW</th><th scope="col">Status</th></tr></thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6. Discover / Plan placeholders -->
+  <section class="screen" id="screen-discover" aria-labelledby="h-discover" hidden>
+    <h1 id="h-discover">Discover</h1>
+    <p>Not part of this prototype. Planned: affordable alternatives for each position, with reasons to wait.</p>
+  </section>
+  <section class="screen" id="screen-plan" aria-labelledby="h-plan" hidden>
+    <h1 id="h-plan">Plan</h1>
+    <p>Not part of this prototype. Planned: the next few gameweeks and when to use chips.</p>
+  </section>
+
+  <!-- 7. Paid preview (hypothesis) -->
+  <section class="screen" id="screen-preview" aria-labelledby="h-preview" hidden>
+    <p class="back"><a href="#compare">← Back to compare</a></p>
+    <h1 id="h-preview">Ideas we are testing</h1>
+    <p class="lead">These features do not exist yet. There is no price and nothing to buy. We want to know whether they would be useful to you.</p>
+    <ul class="ideas">
+      <li class="card"><h2 class="h-card">Saved scenarios</h2><p>Save several transfer plans and see how each changes when news arrives.</p></li>
+      <li class="card"><h2 class="h-card">Squad alerts</h2><p>A message when news affects one of your players, with the time it was checked.</p></li>
+    </ul>
+    <p class="meta">Would you use either of these? Tell the person running this session.</p>
+  </section>
+
+</main>
+
+<nav class="bottom-nav" aria-label="Main (mobile)">
+  <a href="#week" data-nav="week"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h14M7 2v4m6-4v4" stroke="currentColor" stroke-width="1.6"/></svg>This Week</a>
+  <a href="#squad" data-nav="squad"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="14" cy="8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3 2.5-5 5-5s5 2 5 5m1-5c2.5 0 5 1.6 5 4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Squad</a>
+  <a href="#discover" data-nav="discover"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m13 13 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Discover</a>
+  <a href="#plan" data-nav="plan"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 15l4-5 3 3 6-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Plan</a>
+</nav>
+
+<details class="facilitator" id="facilitator">
+  <summary>Facilitator controls</summary>
+  <fieldset>
+    <legend>Test states</legend>
+    <label><input type="checkbox" id="opt-stale"> Data is stale (over 6 hours)</label>
+    <label><input type="checkbox" id="opt-range"> Show a sample range (made-up numbers)</label>
+    <label><input type="checkbox" id="opt-slow"> Slow loading (5 seconds)</label>
+    <button type="button" class="btn small" id="restart">Restart from team ID</button>
+  </fieldset>
+</details>
+
+<script src="app.js"></script>
+</body>
+</html>

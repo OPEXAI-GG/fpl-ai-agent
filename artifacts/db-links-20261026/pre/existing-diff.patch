@@ -1,0 +1,581 @@
+diff --git a/src/fpl_agent/cli.py b/src/fpl_agent/cli.py
+index e8879df..d091d86 100644
+--- a/src/fpl_agent/cli.py
++++ b/src/fpl_agent/cli.py
+@@ -84,7 +84,7 @@ def db_update(args: argparse.Namespace) -> int:
+         players=args.players,
+         player_limit=args.limit,
+         export=Path(args.export) if args.export else None,
+-        repairs=not args.no_repairs,
++        repairs=args.repairs and not args.no_repairs,
+     )
+     db = _open_db(args)
+     result = run_update(db, opts)
+@@ -107,7 +107,7 @@ def backfill(args: argparse.Namespace) -> int:
+         sources=tuple(s for s in args.sources.split(",") if s),
+         export=Path(args.export) if args.export else None,
+         max_minutes=args.max_minutes,
+-        repairs=not args.no_repairs,
++        repairs=args.repairs and not args.no_repairs,
+     )
+     db = _open_db(args)
+     result = run_backfill(db, opts)
+@@ -123,6 +123,8 @@ def _open_db(args: argparse.Namespace):
+ 
+     db = FootballDB(args.db)
+     _OPENED.append(db)
++    if db.created_tables:  # the one schema change an open makes, said out loud
++        print(f"schema: created missing tables {db.created_tables} in {args.db}", file=sys.stderr)
+     if getattr(args, "import_dir", None):
+         db.import_parquet(args.import_dir)
+     return db
+@@ -327,13 +329,27 @@ def send_cmd(args: argparse.Namespace) -> int:
+     return 0 if notify.send(message) else 1
+ 
+ 
++_EVAL_LABEL = {
++    True: "VALIDATED: eligible gameweeks only, excluded matches removed",
++    False: "EXPLORATORY: not restricted to eligible gameweeks (see db-eligibility)",
++}
++
++
+ def backtest_cmd(args: argparse.Namespace) -> int:
+     from fpl_agent.model import backtest
+     from fpl_agent.model.simulate import SimConfig
+ 
+     db = _open_db(args)
++    from fpl_agent.db.eligibility import NotEligible
++
+     gws = list(range(args.from_gw, args.to_gw + 1))
+-    res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples))
++    try:
++        res = backtest.projection_backtest(db, int(args.season), gws, SimConfig(n=args.samples),
++                                           validated=args.validated)  # fmt: skip
++    except NotEligible as e:
++        print(f"not validated: {e}")
++        return 1
++    print(_EVAL_LABEL[args.validated])
+     if res.empty:
+         print("no gameweeks could be back-tested (not enough history in the database)")
+         return 2
+@@ -354,10 +370,17 @@ def replay_cmd(args: argparse.Namespace) -> int:
+     cfg = replay.tuned(cfg, args.set or [])
+     if args.set:
+         print("settings: " + ", ".join(args.set))
++    from fpl_agent.db.eligibility import NotEligible
++
+     gws = list(range(args.from_gw, (args.to_gw or 38) + 1))
+-    res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
+-        f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
+-        + (f", {w.chip}" if w.chip else ""), flush=True))  # fmt: skip
++    print(_EVAL_LABEL[args.validated])
++    try:
++        res = replay.replay_season(db, int(args.season), gws, cfg, progress=lambda w: print(
++            f"GW{w.gw}: {w.points} points, {w.transfers} transfers, {w.hits} hits"
++            + (f", {w.chip}" if w.chip else ""), flush=True), validated=args.validated)  # fmt: skip
++    except NotEligible as e:
++        print(f"not validated: {e}")
++        return 1
+     if not res.weeks:
+         print("no gameweeks could be replayed (no points for that season in the database)")
+         return 2
+@@ -450,10 +473,59 @@ def verify_export_cmd(args: argparse.Namespace) -> int:
+     return 1 if problems else 0
+ 
+ 
++def db_schema_cmd(args: argparse.Namespace) -> int:
++    """Read-only migration preflight: JSON of missing/extra tables and column differences.
++    Exit 0 = current, 3 = an open would create tables or a migration is needed, 1 = no file."""
++    from pathlib import Path
++
++    from fpl_agent.db.database import schema_status
++
++    if not Path(args.db).exists():
++        print(json.dumps({"db": args.db, "error": "no such file"}))
++        return 1
++    st = schema_status(args.db)
++    print(json.dumps({"db": args.db, **st}, indent=1))
++    return 0 if st["current"] else 3
++
++
++def _read_db(path: str):
++    from fpl_agent.db.database import FootballDB
++
++    return FootballDB(path, schema="read")  # read-only: a report never writes
++
++
++def source_health_cmd(args: argparse.Namespace) -> int:
++    """Per-source state (failed / stale / ok_zero / ok / never) and data checks, as JSON.
++    Exit 0 = healthy, 1 = degraded, 2 = blocked (decisions must not rely on the data)."""
++    from fpl_agent.db.source_health import report
++
++    db = _read_db(args.db)
++    try:
++        r = report(db, int(args.season))
++    finally:
++        db.close()
++    print(json.dumps(r, indent=1))
++    return {"healthy": 0, "degraded": 1, "blocked": 2}[r["overall"]]
++
++
++def eligibility_cmd(args: argparse.Namespace) -> int:
++    """Which past gameweeks are genuine decision-time evidence (eligible), rebuilt
++    (reconstructed) or missing (unavailable), and which matches are excluded, as JSON."""
++    from fpl_agent.db.eligibility import manifest
++
++    db = _read_db(args.db)
++    try:
++        m = manifest(db, int(args.season))
++    finally:
++        db.close()
++    print(json.dumps(m, indent=1, default=str))
++    return 0
++
++
+ def repair_undo_cmd(args: argparse.Namespace) -> int:
+     """Without an id: the journal of automatic repairs (read only). With one: undo that repair
+     exactly, or change nothing and exit 1 when the data changed since."""
+-    from fpl_agent.db.database import FootballDB
++    from fpl_agent.db.database import FootballDB, SchemaError
+     from fpl_agent.db.quality import RepairConflict, rollback_repair
+ 
+     if not args.repair_id:
+@@ -475,7 +547,11 @@ def repair_undo_cmd(args: argparse.Namespace) -> int:
+         if not rows:
+             print("no journalled repairs")
+         return 0
+-    db = FootballDB(args.db)
++    try:
++        db = FootballDB(args.db, schema="require")  # an undo never migrates the file
++    except SchemaError as e:
++        print(f"not undone: {e}")
++        return 1
+     try:
+         restored = rollback_repair(db, args.repair_id)
+     except RepairConflict as e:
+@@ -483,6 +559,9 @@ def repair_undo_cmd(args: argparse.Namespace) -> int:
+         return 1
+     finally:
+         db.close()
++    if not restored:
++        print(f"{args.repair_id} was already undone; nothing changed")
++        return 0
+     print(f"undone {args.repair_id}: restored {restored}")
+     return 0
+ 
+@@ -530,10 +609,12 @@ def main(argv: list[str] | None = None) -> int:
+         "with --points (repairs history stored by older code; back up first)",
+     )
+     d.add_argument(
+-        "--no-repairs",
++        "--repairs",
+         action="store_true",
+-        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
++        help="apply needed automatic repair/quarantine changes (journalled; see repair-undo). "
++        "Without it they are only probed and the run stops (exit 3) if one is needed",
+     )
++    d.add_argument("--no-repairs", action="store_true", help="the default; kept for old scripts")
+     d.add_argument("--players", action="store_true", help="also load Understat player histories")
+     d.add_argument("--limit", type=int, default=25, help="max players for --players")
+     d.add_argument("--export", default=None, help="write parquet files to this directory")
+@@ -557,10 +638,12 @@ def main(argv: list[str] | None = None) -> int:
+     b.add_argument("--export", default=None)
+     b.add_argument("--import-dir", default=None)
+     b.add_argument(
+-        "--no-repairs",
++        "--repairs",
+         action="store_true",
+-        help="never run automatic repair/quarantine deletes; stop (exit 3) if one is needed",
++        help="apply needed automatic repair/quarantine changes (journalled; see repair-undo). "
++        "Without it they are only probed and the run stops (exit 3) if one is needed",
+     )
++    b.add_argument("--no-repairs", action="store_true", help="the default; kept for old scripts")
+     pl = sub.add_parser(
+         "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
+     )
+@@ -613,6 +696,11 @@ def main(argv: list[str] | None = None) -> int:
+     bt.add_argument("--to-gw", type=int, default=20)
+     bt.add_argument("--samples", type=int, default=600)
+     bt.add_argument("--out", default=None)
++    bt.add_argument(
++        "--validated",
++        action="store_true",
++        help="eligible gameweeks only, excluded matches removed (db-eligibility)",
++    )
+     rp = sub.add_parser("replay", help="run the agent through a past season, scored on real points")
+     rp.add_argument("--db", default="data_cache/football.duckdb")
+     rp.add_argument("--import-dir", default=None)
+@@ -624,6 +712,11 @@ def main(argv: list[str] | None = None) -> int:
+     rp.add_argument("--no-chips", action="store_true")
+     rp.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
+     rp.add_argument("--out", default=None)
++    rp.add_argument(
++        "--validated",
++        action="store_true",
++        help="eligible gameweeks only, excluded matches removed (db-eligibility)",
++    )
+     rt = sub.add_parser(
+         "retro", help="what the agent would decide for a gameweek, against your team"
+     )
+@@ -659,6 +752,15 @@ def main(argv: list[str] | None = None) -> int:
+     ft.add_argument("--validate", action="store_true", help="also print the leave-one-out check")
+     ve = sub.add_parser("verify-export", help="check an export folder against its manifest")
+     ve.add_argument("dir")
++    ds = sub.add_parser("db-schema", help="read-only: does a database match the declared schema")
++    ds.add_argument("--db", default="data_cache/football.duckdb")
++    sh = sub.add_parser("source-health", help="read-only: each source's state and data checks")
++    sh.add_argument("--db", default="data_cache/football.duckdb")
++    sh.add_argument("--season", type=int, default=2026)
++    el = sub.add_parser("db-eligibility",
++                        help="read-only: which past gameweeks are genuine evidence")  # fmt: skip
++    el.add_argument("--db", default="data_cache/football.duckdb")
++    el.add_argument("--season", type=int, default=2026)
+     ru = sub.add_parser(
+         "repair-undo", help="list journalled repairs, or undo one exactly (back up first)"
+     )
+@@ -706,6 +808,12 @@ def _dispatch(args: argparse.Namespace) -> int:
+         return verify_export_cmd(args)
+     if args.cmd == "repair-undo":
+         return repair_undo_cmd(args)
++    if args.cmd == "db-schema":
++        return db_schema_cmd(args)
++    if args.cmd == "source-health":
++        return source_health_cmd(args)
++    if args.cmd == "db-eligibility":
++        return eligibility_cmd(args)
+     settings = Settings.from_env()
+     if args.cmd == "dashboard":
+         return dashboard_cmd(args)
+diff --git a/src/fpl_agent/db/database.py b/src/fpl_agent/db/database.py
+index 0c5755f..6dfaa13 100644
+--- a/src/fpl_agent/db/database.py
++++ b/src/fpl_agent/db/database.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ import hashlib
+ import json
+ import shutil
++import tempfile
+ import time
+ from contextlib import contextmanager
+ from datetime import UTC, date, datetime
+@@ -216,19 +217,90 @@ def now() -> datetime:
+     return datetime.now(UTC).replace(tzinfo=None)
+ 
+ 
++class SchemaError(Exception):
++    """A database whose schema does not match the declared one, opened without permission to
++    change it (or with a difference no open may fix); nothing was written."""
++
++
++def _schema_of(con: duckdb.DuckDBPyConnection) -> dict[str, list[list[str]]]:
++    out: dict[str, list[list[str]]] = {}
++    for t, c, ty in con.execute(
++        "SELECT table_name, column_name, data_type FROM duckdb_columns() WHERE "
++        "database_name = current_database() AND schema_name = 'main' "
++        "ORDER BY table_name, column_index"
++    ).fetchall():
++        out.setdefault(t, []).append([c, ty])
++    return out
++
++
++def _schema_diff(have: dict[str, list[list[str]]]) -> dict[str, Any]:
++    want = {n: [[c, t] for c, t in declared_types()[n]] for n in TABLES}
++    return {
++        "missing_tables": [n for n in TABLES if n not in have],
++        "extra_tables": sorted(set(have) - set(TABLES)),
++        "column_differences": {n: {"declared": want[n], "found": have[n]}
++                               for n in TABLES if n in have and have[n] != want[n]},
++    }  # fmt: skip
++
++
++@cache
++def declared_types() -> dict[str, list[tuple[str, str]]]:
++    """{table: [(column, type)]} in declared order, from the DDL in schema.TABLES."""
++    con = duckdb.connect()
++    try:
++        for name, ddl in TABLES.items():
++            con.execute(f"CREATE TABLE {name} ({ddl})")
++        return {n: [tuple(c) for c in cols] for n, cols in _schema_of(con).items()}
++    finally:
++        con.close()
++
++
++def schema_status(path: str | Path) -> dict[str, Any]:
++    """Read-only migration preflight for a database file: declared tables it lacks (an open with
++    `schema="init"` would create them, empty), tables it has that are not declared, and tables
++    whose columns differ from the declaration (no open changes those: a migration is needed).
++    `current` is true when there is nothing to do. The file is opened read-only."""
++    con = duckdb.connect(str(path), read_only=True)
++    try:
++        diff = _schema_diff(_schema_of(con))
++    finally:
++        con.close()
++    diff["current"] = not (diff["missing_tables"] or diff["column_differences"])
++    return diff
++
++
+ class FootballDB:
+-    def __init__(self, path: str | Path = ":memory:") -> None:
+-        if str(path) != ":memory:":
++    def __init__(self, path: str | Path = ":memory:", schema: str = "init") -> None:
++        """Open (or create) a database. `schema` says what an open may do to its schema:
++
++        * "init" (default): create declared tables the file lacks, empty, and name them in
++          `created_tables`. This is the only change an open makes.
++        * "require": change nothing; a missing table raises SchemaError and the connection is
++          closed. For tools that must not migrate (rollback).
++        * "read": a read-only connection (nothing can be written); missing tables are allowed
++          and named in `missing_tables`, so a report can say what it could not see.
++
++        In every mode an existing table whose columns differ from the declaration raises
++        SchemaError before anything is written: no open alters an existing table."""
++        if schema not in ("init", "require", "read"):
++            raise ValueError(f"schema must be 'init', 'require' or 'read', not {schema!r}")
++        read = schema == "read"
++        if str(path) != ":memory:" and not read:
+             Path(path).parent.mkdir(parents=True, exist_ok=True)
+-        self.con = duckdb.connect(str(path))
+-        have = {r[0] for r in self.con.execute(
+-            "SELECT table_name FROM duckdb_tables() WHERE database_name = current_database() "
+-            "AND schema_name = 'main'").fetchall()}  # fmt: skip
+-        # opening a file older than the schema adds the missing (empty) tables; this is the
+-        # only schema change an open makes, and it is named here rather than done silently
+-        self.created_tables = [n for n in TABLES if n not in have]
+-        for name, ddl in TABLES.items():
+-            self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
++        self.con = duckdb.connect(str(path), read_only=read and str(path) != ":memory:")
++        diff = _schema_diff(_schema_of(self.con))
++        problem = None
++        if diff["column_differences"]:
++            problem = f"columns differ from the declaration: {sorted(diff['column_differences'])}"
++        elif schema == "require" and diff["missing_tables"]:
++            problem = f"missing declared tables {diff['missing_tables']} (open with schema='init')"
++        if problem:
++            self.con.close()
++            raise SchemaError(f"{path}: {problem}; nothing was changed")
++        self.missing_tables = diff["missing_tables"] if read else []
++        self.created_tables = [] if read else diff["missing_tables"]
++        for name in self.created_tables:
++            self.con.execute(f"CREATE TABLE {name} ({TABLES[name]})")
+ 
+     @contextmanager
+     def transaction(self):
+@@ -521,8 +593,23 @@ class FootballDB:
+         legacy export without one is accepted unless `require_manifest`. Tables with a primary
+         key are upserted; the append-only ones (decisions, projections, reviews, logs) only
+         gain rows they do not already hold, so importing the same export twice adds nothing.
+-        An export already imported (same manifest) is skipped. Returns the tables loaded."""
++        An export already imported (same manifest) is skipped. Returns the tables loaded.
++
++        An export with a manifest is first copied into a private temporary folder, and that copy
++        is what is verified and loaded: a file replaced in `directory` after verification
++        cannot reach the database. The load is one transaction, so an import that fails part
++        way leaves no rows and no "imported" marker."""
+         d = Path(directory)
++        if (d / MANIFEST).exists():
++            with tempfile.TemporaryDirectory(prefix="fpl-import-") as tmp:
++                private = Path(tmp) / d.name
++                private.mkdir()
++                for f in [d / MANIFEST, *d.glob("*.parquet")]:
++                    shutil.copyfile(f, private / f.name)
++                return self._import(private, require_manifest)
++        return self._import(d, require_manifest)
++
++    def _import(self, d: Path, require_manifest: bool) -> int:
+         key = None
+         listed: dict | None = None  # with a manifest, only the tables it verified are loaded
+         if (d / MANIFEST).exists():
+diff --git a/src/fpl_agent/db/schema.py b/src/fpl_agent/db/schema.py
+index 8616290..bd9c711 100644
+--- a/src/fpl_agent/db/schema.py
++++ b/src/fpl_agent/db/schema.py
+@@ -133,6 +133,17 @@ TABLES["repair_log"] = """
+     image VARCHAR, reason VARCHAR, logged_at TIMESTAMP, rolled_back_at TIMESTAMP,
+     PRIMARY KEY (repair_id, seq)"""
+ 
++# The outcome of every source a data update or backfill attempted, failures included (U05).
++# Owned by `pipeline.record_attempts`, which writes it in its own transaction after the data work
++# committed or rolled back: recording a failed attempt never changes the data or a source's
++# success markers (`ingest_state`), and the data's rollback never loses the record. Operational
++# only: a source name, times, rows and a short sanitised error, never a payload, a URL's query
++# string, a credential or a team id.
++TABLES["source_attempts"] = """
++    attempt_id VARCHAR, seq INTEGER, job VARCHAR, source VARCHAR, ok BOOLEAN, critical BOOLEAN,
++    rows BIGINT, error VARCHAR, started_at TIMESTAMP, finished_at TIMESTAMP, exit_code INTEGER,
++    PRIMARY KEY (attempt_id, seq)"""
++
+ # Every observed official FPL deadline, versioned: a row is added only when the deadline FPL
+ # reports for a gameweek differs from the newest one stored, so `observed_at` says what was
+ # known when (prospective from 2026-10-23; earlier deadlines were never stored).
+diff --git a/src/fpl_agent/model/features.py b/src/fpl_agent/model/features.py
+index 7ff2e7a..436663e 100644
+--- a/src/fpl_agent/model/features.py
++++ b/src/fpl_agent/model/features.py
+@@ -33,33 +33,59 @@ _SEASON_POSITION = """
+     WHERE position IS NOT NULL {cutoff} GROUP BY ALL HAVING count(DISTINCT position) = 1"""
+ 
+ 
+-def season_positions(db: FootballDB, as_of: datetime | None = None) -> dict[tuple[int, int], str]:
+-    """{(season, player_id): position} where every snapshot of that season taken at or before
+-    `as_of` (all of them when None) agrees. Point in time: a later snapshot cannot add, change
+-    or remove an earlier cutoff's answer."""
+-    sql = _SEASON_POSITION.format(key="player_id",
+-                                  cutoff="AND snapshot_at <= ?" if as_of else "")  # fmt: skip
+-    rows = db.con.execute(sql, [as_of] if as_of else []).fetchall()
+-    return {(s, p): pos for s, p, pos in rows if p is not None}
+-
+-
+-def positions_as_of(frame: pd.DataFrame, db: FootballDB, as_of: datetime) -> pd.DataFrame:
+-    """`frame` with every position not taken from the row's own snapshot re-derived from
++_SNAPSHOT_FIELDS = ("team_id", "position", "price", "status", "chance", "position_source",
++                    "snapshot_kind")  # fmt: skip
++# an FPL bootstrap snapshot stores the whole element (it has element_type); a row rebuilt from
++# the vaastav archive stores only was_home, and its snapshot_at is the kickoff, not a moment it
++# was observed, and its status is assumed
++OBSERVED_SNAPSHOT = "json_extract(raw, '$.element_type') IS NOT NULL"
++
++
++def _snapshot_join(cutoff: str) -> tuple[str, str]:
++    """Columns and joins giving each row `f` (season, gw, fpl_id) its gameweek's latest snapshot
++    and the season's agreed position, both limited by `cutoff` (an extra WHERE clause on
++    fpl_players_gw). One definition serves the whole-database frame and every cutoff, so the
++    two cannot select differently."""
++    cols = """s.team_id, coalesce(s.position, sp.position) AS position,
++               s.now_cost AS price, s.status, s.chance_next AS chance,
++               CASE WHEN s.position IS NOT NULL THEN 'snapshot'
++                    WHEN sp.position IS NOT NULL THEN 'season' END AS position_source,
++               CASE WHEN s.observed THEN 'observed'
++                    WHEN s.snapshot_at IS NOT NULL THEN 'reconstructed' END AS snapshot_kind"""
++    joins = f"""
++        LEFT JOIN (
++            SELECT *, coalesce({OBSERVED_SNAPSHOT}, false) AS observed FROM fpl_players_gw
++            WHERE true {cutoff}
++            QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY season, gw, fpl_id)
++        ) s ON s.season = f.season AND s.gw = f.gw AND s.fpl_id = f.fpl_id
++        LEFT JOIN ({_SEASON_POSITION.format(key="fpl_id", cutoff=cutoff)}
++        ) sp ON sp.season = f.season AND sp.fpl_id = f.fpl_id"""
++    return cols, joins
++
++
++def snapshot_as_of(frame: pd.DataFrame, db: FootballDB, as_of: datetime) -> pd.DataFrame:
++    """`frame` with team, position, price, status, chance and `position_source` re-selected from
+     snapshots taken at or before `as_of`, so one frame built from the whole database can serve
+     any cutoff (replay, backtest) without a later observation leaking into an earlier one.
+-    Rows the whole-database fill left unknown are re-derived too: a later disagreeing snapshot
+-    must not remove the answer an earlier cutoff had."""
+-    if "position_source" not in frame:
++    Every row is re-selected, its own gameweek's snapshot included: a late or corrected snapshot
++    of that gameweek, or a later disagreeing one elsewhere in the season, cannot change what an
++    earlier cutoff sees. A row with no eligible snapshot keeps those fields unknown. Row order,
++    index and every other column are unchanged."""
++    if "position_source" not in frame or frame.empty:
+         return frame
+-    rows = frame["position_source"].ne("snapshot") | frame["position_source"].isna()
+-    if not rows.any():
+-        return frame
+-    known = season_positions(db, as_of)
++    cols, joins = _snapshot_join("AND snapshot_at <= ?")
++    keys = frame[["season", "gw", "fpl_id"]].reset_index(drop=True)
++    keys.insert(0, "_row", np.arange(len(frame)))
++    name = f"_snapshot_keys_{id(keys)}"
++    db.con.register(name, keys)
++    try:
++        got = db.query(f"SELECT f._row, {cols} FROM {name} f {joins} ORDER BY f._row",
++                       [as_of, as_of])  # fmt: skip
++    finally:
++        db.con.unregister(name)
+     out = frame.copy()
+-    pos = [known.get((s, p)) for s, p in zip(out.loc[rows, "season"], out.loc[rows, "player_id"],
+-                                                strict=True)]  # fmt: skip
+-    out.loc[rows, "position"] = pos
+-    out.loc[rows, "position_source"] = ["season" if p is not None else None for p in pos]
++    for col in _SNAPSHOT_FIELDS:
++        out[col] = got[col].to_numpy()
+     return out
+ 
+ 
+@@ -74,24 +100,18 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFra
+     those change during a season and a later snapshot is not evidence of the earlier value.
+     Only position is filled, because an FPL position is fixed for the whole season, and only
+     when every snapshot of that season agrees; `position_source` says which rows were filled
+-    ("snapshot" = this gameweek's own, "season" = the season's agreed position, NULL = unknown).
+-    The season fill uses every stored snapshot; a caller with a cutoff applies `positions_as_of`.
++    ("snapshot" = this gameweek's own, "season" = the season's agreed position, NULL = unknown);
++    `snapshot_kind` says whether the gameweek's own snapshot was observed (an FPL bootstrap
++    pull) or reconstructed (the vaastav archive: kickoff-time stamp, assumed status).
++    The selection uses every stored snapshot; a caller with a cutoff applies `snapshot_as_of`.
+     """
+     fields = ", ".join(f"{_json(src)} AS {col}" for col, src in STAT_FIELDS.items())
++    cols, joins = _snapshot_join("")
+     sql = f"""
+-        SELECT f.player_id, f.season, f.gw, f.fixture_id, f.kickoff, f.minutes,
++        SELECT f.player_id, f.fpl_id, f.season, f.gw, f.fixture_id, f.kickoff, f.minutes,
+                f.total_points AS points, f.bps, f.bonus, {fields},
+-               s.team_id, coalesce(s.position, sp.position) AS position,
+-               s.now_cost AS price, s.status, s.chance_next AS chance,
+-               CASE WHEN s.position IS NOT NULL THEN 'snapshot'
+-                    WHEN sp.position IS NOT NULL THEN 'season' END AS position_source
+-        FROM fpl_points_gw f
+-        LEFT JOIN (
+-            SELECT * FROM fpl_players_gw
+-            QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY season, gw, fpl_id)
+-        ) s ON s.season = f.season AND s.gw = f.gw AND s.fpl_id = f.fpl_id
+-        LEFT JOIN ({_SEASON_POSITION.format(key="fpl_id", cutoff="")}
+-        ) sp ON sp.season = f.season AND sp.fpl_id = f.fpl_id
++               {cols}
++        FROM fpl_points_gw f{joins}
+         WHERE f.player_id IS NOT NULL
+           AND f.fixture_id <> 0 AND f.minutes IS NOT NULL  -- blank-GW placeholder, unknown split
+     """
+diff --git a/src/fpl_agent/model/project.py b/src/fpl_agent/model/project.py
+index 0a08594..e54bb5c 100644
+--- a/src/fpl_agent/model/project.py
++++ b/src/fpl_agent/model/project.py
+@@ -215,6 +215,21 @@ def approx_deadline(first_kickoff) -> datetime:
+ 
+ 
+ # ---- the pipeline ----------------------------------------------------------------------------
++def history_as_of(
++    frame: pd.DataFrame, db: FootballDB, season: int, gw: int, cutoff: datetime | None
++) -> pd.DataFrame:
++    """The history a decision for `gw` of `season` may see: earlier gameweeks only and, with a
++    `cutoff`, only fixtures kicked off before it (a postponed fixture played later is left out)
++    with team, position, price and status re-selected from snapshots taken by then. Every fit
++    and baseline of an evaluation uses this, not the whole-database frame."""
++    history = frame[(frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))]
++    if cutoff is not None and "kickoff" in history:
++        history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
++    if cutoff is not None:
++        history = features.snapshot_as_of(history, db, cutoff)
++    return history
++
++
+ def build_projection(
+     db: FootballDB,
+     season: int,
+@@ -241,13 +256,7 @@ def build_projection(
+     first = gws[0]
+     as_of = as_of or (cutoff.date() if cutoff else date.today())
+     frame = frame if frame is not None else features.player_gw_frame(db)
+-    history = frame[
+-        (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
+-    ]
+-    if cutoff is not None and "kickoff" in history:
+-        history = history[history["kickoff"].isna() | (history["kickoff"] < pd.Timestamp(cutoff))]
+-    if cutoff is not None:
+-        history = features.positions_as_of(history, db, cutoff)
++    history = history_as_of(frame, db, season, first, cutoff)
+     pool = (pool if pool is not None
+             else current_pool(db, season, pool_gw or first, as_of=cutoff))  # fmt: skip
+     fx = fixtures_for(db, season, gws)
+@@ -353,7 +362,9 @@ def history_inputs(history: pd.DataFrame) -> dict[str, int]:
+     src = history["position_source"]
+     return {"rows": len(history), "own_snapshot": int(src.eq("snapshot").sum()),
+             "season_position": int(src.eq("season").sum()), "no_position": int(src.isna().sum()),
+-            "no_price": int(history["price"].isna().sum())}  # fmt: skip
++            "no_price": int(history["price"].isna().sum()),
++            "reconstructed_snapshot": int(history.get("snapshot_kind", src).eq("reconstructed")
++                                          .sum())}  # fmt: skip
+ 
+ 
+ def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int:

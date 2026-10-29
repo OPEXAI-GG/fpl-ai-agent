@@ -1,0 +1,236 @@
+{
+ "season": 2026,
+ "eligible_gws": [],
+ "reconstructed_gws": [
+  6,
+  7,
+  8
+ ],
+ "unavailable_gws": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "excluded_matches": [
+  31,
+  40,
+  62
+ ],
+ "conflicts": [
+  {
+   "match_id": 31,
+   "season": 2026,
+   "player_id": 36,
+   "kinds": [
+    "minutes"
+   ],
+   "fpl": {
+    "goals": 0.0,
+    "minutes": 90
+   },
+   "fotmob": {
+    "goals": 0.0,
+    "minutes": 83
+   },
+   "linked_record": null
+  },
+  {
+   "match_id": 40,
+   "season": 2026,
+   "player_id": 404,
+   "kinds": [
+    "goals"
+   ],
+   "fpl": {
+    "goals": 1.0,
+    "minutes": 82
+   },
+   "fotmob": {
+    "goals": 0.0,
+    "minutes": 83
+   },
+   "linked_record": null
+  },
+  {
+   "match_id": 40,
+   "season": 2026,
+   "player_id": 419,
+   "kinds": [
+    "goals"
+   ],
+   "fpl": {
+    "goals": 1.0,
+    "minutes": 77
+   },
+   "fotmob": {
+    "goals": 2.0,
+    "minutes": 78
+   },
+   "linked_record": null
+  },
+  {
+   "match_id": 62,
+   "season": 2026,
+   "player_id": 113,
+   "kinds": [
+    "minutes"
+   ],
+   "fpl": {
+    "goals": 0.0,
+    "minutes": 52
+   },
+   "fotmob": {
+    "goals": 0.0,
+    "minutes": 45
+   },
+   "linked_record": null
+  }
+ ],
+ "missing_tables": [],
+ "gameweeks": [
+  {
+   "season": 2026,
+   "gw": 1,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of the 610 scoring players (610 missing)"
+   ],
+   "cutoff": "2026-08-21T17:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": null,
+   "required_players": 610,
+   "covered_players": 0,
+   "missing_players": 610,
+   "coverage": 0.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 2,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of the 626 scoring players (626 missing)"
+   ],
+   "cutoff": "2026-08-28T17:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": null,
+   "required_players": 626,
+   "covered_players": 0,
+   "missing_players": 626,
+   "coverage": 0.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 3,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of the 654 scoring players (654 missing)"
+   ],
+   "cutoff": "2026-09-04T17:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": null,
+   "required_players": 654,
+   "covered_players": 0,
+   "missing_players": 654,
+   "coverage": 0.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 4,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of the 659 scoring players (659 missing)"
+   ],
+   "cutoff": "2026-09-12T12:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": null,
+   "required_players": 659,
+   "covered_players": 0,
+   "missing_players": 659,
+   "coverage": 0.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 5,
+   "class": "unavailable",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed",
+    "observed pre-deadline snapshot covers 0 of the 667 scoring players (667 missing)"
+   ],
+   "cutoff": "2026-09-18T17:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": null,
+   "required_players": 667,
+   "covered_players": 0,
+   "missing_players": 667,
+   "coverage": 0.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 6,
+   "class": "reconstructed",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed"
+   ],
+   "cutoff": "2026-10-10T10:00:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": "2026-10-10T08:40:08.166606",
+   "required_players": 667,
+   "covered_players": 667,
+   "missing_players": 0,
+   "coverage": 1.0,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 7,
+   "class": "reconstructed",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed"
+   ],
+   "cutoff": "2026-10-17T10:00:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": "2026-10-17T06:52:46.188238",
+   "required_players": 668,
+   "covered_players": 667,
+   "missing_players": 1,
+   "coverage": 0.9985,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  },
+  {
+   "season": 2026,
+   "gw": 8,
+   "class": "reconstructed",
+   "reasons": [
+    "deadline approximate: no official deadline recorded before it passed"
+   ],
+   "cutoff": "2026-10-23T17:30:00",
+   "cutoff_kind": "approximate",
+   "snapshot_used": "2026-10-23T13:20:59.428016",
+   "required_players": 669,
+   "covered_players": 668,
+   "missing_players": 1,
+   "coverage": 0.9985,
+   "reconstructed_snapshot_players": 0,
+   "pre_cutoff_odds_matches": 0
+  }
+ ],
+ "rule": "only eligible gameweeks, without excluded matches, support decision-performance claims; reconstructed/unavailable ones are exploratory"
+}

@@ -1,0 +1,8 @@
+PASSED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R2_link_stays_active_after_contradicting_evide
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R1_conflict_on_linked_pair_is_invisible_to_val
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R3_link_recorded_later_is_used_by_an_earlier_c
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R4_reconstructed_snapshot_is_accepted_as_team_
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R5_redo_in_same_second_overwrites_the_undone_r
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R6_player_links_outside_reference_registry - A
+FAILED artifacts/db-links-20261026/r2/repro/test_repro.py::test_R7_a_2026_link_counts_as_coverage_for_another_
+6 failed, 1 passed in 2.83s

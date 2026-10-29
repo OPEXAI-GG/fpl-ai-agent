@@ -1,0 +1,41 @@
+--- artifacts/model-deadline-20261027T1634Z/m02/players.inherited.py	2026-10-28 23:57:40.339290400 +0400
++++ src/fpl_agent/model/players.py	2026-10-28 23:57:47.584093800 +0400
+@@ -88,11 +88,16 @@
+     translations: Translations | None = None,
+     target: str = TARGET,
+     as_of=None,
++    fpl_xg_fallback: bool = False,
+ ) -> pd.DataFrame:
+     """Rates for every player in `positions` (player_id -> position).
+ 
+     `pm` is features.match_frame (detailed per-match data); `frame` is features.player_gw_frame
+     (official FPL history, used for cards, finishing and the exact DefCon counts).
++
++    `fpl_xg_fallback` (experimental, off by default) lets FPL's own expected goals/assists stand
++    in, per stat, for a player with no usable detailed history. It needs `as_of`: only FPL rows
++    ingested by then and kicked off before it count. Off, the result is the baseline.
+     """
+     tr = translations or Translations(target=target)
+     pri = position_priors(pm, target)
+@@ -134,7 +139,7 @@
+     # the FPL totals to a team-xG share using observed PL team exposure; if that denominator is
+     # unavailable, fail closed. Keep xG and xA exposure independent to avoid cross-stat masking.
+     fpl = pd.DataFrame()
+-    if as_of is not None and not frame.empty and "stats_ingested_at" in frame:
++    if fpl_xg_fallback and as_of is not None and not frame.empty and "stats_ingested_at" in frame:
+         cutoff = pd.Timestamp(as_of)
+         observed = frame.copy()
+         observed["stats_ingested_at"] = pd.to_datetime(
+@@ -167,9 +172,9 @@
+                 usable = values.notna() & (values >= 0)
+                 observed[expo_col] = observed["fexpo"].where(usable, 0.0)
+                 observed[value_col] = (values * observed["w"]).where(usable, 0.0)
+-            fpl = observed.groupby("player_id")[[
+-                "fpl_xg_w", "fpl_xg_expo", "fpl_xa_w", "fpl_xa_expo"
+-            ]].sum()
++            fpl = observed.groupby("player_id")[
++                ["fpl_xg_w", "fpl_xg_expo", "fpl_xa_w", "fpl_xa_expo"]
++            ].sum()
+ 
+     rows = []
+     cards = _cards(frame, positions)

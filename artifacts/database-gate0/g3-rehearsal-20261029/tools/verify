@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# G3 STAND-IN for `uv run --no-sync fpl-agent verify-export` (uv/duckdb absent in WSL): runs the
+# PATCHED cli.verify-export from the scratch 51f0def+r3 tree in the repo's Windows .venv.
+args=(); for a in "$@"; do if [ -e "$a" ]; then args+=("$(wslpath -w "$a")"); else args+=("$a"); fi; done
+echo "verify $*" >> "${ZSTD_LOG:-/dev/null}"
+SRC="$(wslpath -w "$G3/src51/src")"
+exec /mnt/c/Users/bedor/OneDrive/Documents/FPL/fpl-ai-agent-1/.venv/Scripts/python.exe -I -c "import sys; sys.path.insert(0, sys.argv[1]); from fpl_agent.cli import main; sys.exit(main(['verify-export'] + sys.argv[2:]))" "$SRC" "${args[@]}"

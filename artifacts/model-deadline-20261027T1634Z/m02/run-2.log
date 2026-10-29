@@ -1,0 +1,323 @@
+{
+ "label": "EXPLORATORY - reconstruction; 0 eligible gameweeks; not validated; no promotion",
+ "source_db_sha256_before": "94f68833c13ad005c998be6b6f94233312cebbebb7fd70f59bc08547f659a813",
+ "source_db_sha256_after": "94f68833c13ad005c998be6b6f94233312cebbebb7fd70f59bc08547f659a813",
+ "A_baseline_reproduction": {
+  "sha256": "ff69d7b01c83ad5178507facb29458c89d79a0613f2c2a45b0befcfb7f0213f5",
+  "matches_m00": true
+ },
+ "B_live_candidate_m00_cutoff": {
+  "players": 668,
+  "changed_players": 118,
+  "baseline_source_counts": {
+   "pl": 399,
+   "prior": 233,
+   "translated": 36
+  },
+  "candidate_source_counts": {
+   "pl": 301,
+   "prior": 208,
+   "fpl": 129,
+   "translated": 30
+  },
+  "candidate_xg_source": {
+   "detailed": 344,
+   "prior": 213,
+   "fpl": 111
+  },
+  "candidate_xa_source": {
+   "detailed": 378,
+   "prior": 211,
+   "fpl": 79
+  },
+  "changed_by_position": {
+   "DEF": 48,
+   "MID": 44,
+   "GKP": 14,
+   "FWD": 12
+  },
+  "unchanged_detailed_players_identical": true,
+  "xg_share_changed_median_ratio": 0.9744220024488154
+ },
+ "C_exploratory_gw5_7": {
+  "per_gw": {
+   "5": {
+    "cutoff": "2026-09-18 19:00:00",
+    "rows": 302,
+    "unmatched_team_xg": 0
+   },
+   "6": {
+    "cutoff": "2026-10-10 11:30:00",
+    "rows": 315,
+    "unmatched_team_xg": 0
+   },
+   "7": {
+    "cutoff": "2026-10-17 11:30:00",
+    "rows": 305,
+    "unmatched_team_xg": 0
+   }
+  },
+  "cohorts": {
+   "all rows": {
+    "rows": 890,
+    "players": 396,
+    "goal_events": 84,
+    "assist_events": 79,
+    "goals": {
+     "deviance_baseline": 362.082595613879,
+     "deviance_candidate": 360.0428410867512,
+     "reduction_fraction": 0.005633395672248688,
+     "mae_per90_baseline": 0.38301113747920773,
+     "mae_per90_candidate": 0.3812139355179533,
+     "calibration_baseline": [
+      -0.5026807231718973,
+      0.8808071986155708
+     ],
+     "calibration_candidate": [
+      -0.49659887509888717,
+      0.8788843868930735
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 353.7338255998351,
+     "deviance_candidate": 354.1812482395825,
+     "reduction_fraction": -0.0012648568142690222,
+     "mae_per90_baseline": 0.25842706902035933,
+     "mae_per90_candidate": 0.2578593601343422,
+     "calibration_baseline": [
+      -0.24396376382702106,
+      0.7984282208670047
+     ],
+     "calibration_candidate": [
+      -0.27930590440078656,
+      0.7797475591569112
+     ]
+    }
+   },
+   "xG detailed history unusable (fallback applied)": {
+    "rows": 408,
+    "players": 195,
+    "goal_events": 34,
+    "assist_events": 36,
+    "goals": {
+     "deviance_baseline": 140.52836163269518,
+     "deviance_candidate": 138.48860710556744,
+     "reduction_fraction": 0.014514895807716964,
+     "mae_per90_baseline": 0.2742863774213265,
+     "mae_per90_candidate": 0.270366010398002,
+     "calibration_baseline": [
+      0.1322881352391058,
+      1.244820813796625
+     ],
+     "calibration_candidate": [
+      0.08208270398540386,
+      1.2008883860978143
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 154.01948888734697,
+     "deviance_candidate": 154.74972634461744,
+     "reduction_fraction": -0.004741201665748853,
+     "mae_per90_baseline": 0.2287955593541572,
+     "mae_per90_candidate": 0.22794297514135764,
+     "calibration_baseline": [
+      0.48608195623162403,
+      1.0676398727636844
+     ],
+     "calibration_candidate": [
+      0.31473526538764207,
+      0.9891058669155689
+     ]
+    }
+   },
+   "xA detailed history unusable (fallback applied)": {
+    "rows": 337,
+    "players": 160,
+    "goal_events": 30,
+    "assist_events": 31,
+    "goals": {
+     "deviance_baseline": 115.42064981682533,
+     "deviance_candidate": 114.84325391338005,
+     "reduction_fraction": 0.005002535545949676,
+     "mae_per90_baseline": 0.25974772131786117,
+     "mae_per90_candidate": 0.2596644802712202,
+     "calibration_baseline": [
+      0.4048686924737343,
+      1.4371953699347768
+     ],
+     "calibration_candidate": [
+      0.3088068566493207,
+      1.3818229104149635
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 130.2696338794491,
+     "deviance_candidate": 130.71705651919657,
+     "reduction_fraction": -0.003434588909350351,
+     "mae_per90_baseline": 0.24673858691335054,
+     "mae_per90_candidate": 0.24523929638351288,
+     "calibration_baseline": [
+      0.5093449989461286,
+      1.0884127411212283
+     ],
+     "calibration_candidate": [
+      0.31781252466181753,
+      0.9954368949699771
+     ]
+    }
+   },
+   "unchanged rows with usable detailed history": {
+    "rows": 428,
+    "players": 188,
+    "goal_events": 47,
+    "assist_events": 43,
+    "goals": {
+     "deviance_baseline": 193.7119996159459,
+     "deviance_candidate": 193.7119996159459,
+     "reduction_fraction": 0.0,
+     "mae_per90_baseline": 0.33129501303093956,
+     "mae_per90_candidate": 0.33129501303093956,
+     "calibration_baseline": [
+      -0.46374746540241424,
+      0.9283320147534799
+     ],
+     "calibration_candidate": [
+      -0.46374746540241424,
+      0.9283320147534799
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 196.7561229612572,
+     "deviance_candidate": 196.7561229612572,
+     "reduction_fraction": 0.0,
+     "mae_per90_baseline": 0.30733092915624777,
+     "mae_per90_candidate": 0.30733092915624777,
+     "calibration_baseline": [
+      -0.8604969767242464,
+      0.5408013611087158
+     ],
+     "calibration_candidate": [
+      -0.8604969767242464,
+      0.5408013611087158
+     ]
+    }
+   },
+   "position DEF": {
+    "rows": 297,
+    "players": 134,
+    "goal_events": 14,
+    "assist_events": 20,
+    "goals": {
+     "deviance_baseline": 113.18466344363657,
+     "deviance_candidate": 111.29716534735684,
+     "reduction_fraction": 0.016676270784863535,
+     "mae_per90_baseline": 0.36428012376143576,
+     "mae_per90_candidate": 0.3600151058938063,
+     "calibration_baseline": [
+      -3.310691217534719,
+      -0.09153511031001275
+     ],
+     "calibration_candidate": [
+      -3.252513415488108,
+      -0.07002144830825534
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 100.80864365499718,
+     "deviance_candidate": 100.08731355384766,
+     "reduction_fraction": 0.007155439007970047,
+     "mae_per90_baseline": 0.1429209530278678,
+     "mae_per90_candidate": 0.14180004996249523,
+     "calibration_baseline": [
+      -0.4709795992651817,
+      0.771309708460505
+     ],
+     "calibration_candidate": [
+      -0.3695679046687432,
+      0.8036118135333354
+     ]
+    }
+   },
+   "position MID": {
+    "rows": 426,
+    "players": 195,
+    "goal_events": 45,
+    "assist_events": 48,
+    "goals": {
+     "deviance_baseline": 192.5252305920086,
+     "deviance_candidate": 192.07156357706114,
+     "reduction_fraction": 0.002356402916918708,
+     "mae_per90_baseline": 0.40895642943136135,
+     "mae_per90_candidate": 0.4069358347815405,
+     "calibration_baseline": [
+      -0.6128497978054271,
+      0.795518550349298
+     ],
+     "calibration_candidate": [
+      -0.6131889499066997,
+      0.793196495305312
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 195.41976466813003,
+     "deviance_candidate": 196.27154052026157,
+     "reduction_fraction": -0.004358698587003519,
+     "mae_per90_baseline": 0.2823237030493129,
+     "mae_per90_candidate": 0.28283515426628264,
+     "calibration_baseline": [
+      -0.13246874063307154,
+      0.8155250048859848
+     ],
+     "calibration_candidate": [
+      -0.19854688553629013,
+      0.787829384796202
+     ]
+    }
+   },
+   "position FWD": {
+    "rows": 108,
+    "players": 46,
+    "goal_events": 25,
+    "assist_events": 10,
+    "goals": {
+     "deviance_baseline": 56.37270146023382,
+     "deviance_candidate": 56.67411204433325,
+     "reduction_fraction": -0.005346747207281679,
+     "mae_per90_baseline": 0.5414192283480419,
+     "mae_per90_candidate": 0.5463078754035349,
+     "calibration_baseline": [
+      0.2531120733001603,
+      1.2663014538325053
+     ],
+     "calibration_candidate": [
+      0.24053191877294464,
+      1.2626050270226332
+     ]
+    },
+    "assists": {
+     "deviance_baseline": 47.85346043454261,
+     "deviance_candidate": 48.67533818734417,
+     "reduction_fraction": -0.01717488652520288,
+     "mae_per90_baseline": 0.6027019253033276,
+     "mae_per90_candidate": 0.6014364374075981,
+     "calibration_baseline": [
+      -0.8933934324336059,
+      0.5067441710678239
+     ],
+     "calibration_candidate": [
+      -0.9665774501199808,
+      0.473972181710963
+     ]
+    }
+   }
+  },
+  "eligible_gameweeks": 0,
+  "predeclared_minima": {
+   "player_game_rows": 200,
+   "unique_players": 100,
+   "eligible_gameweeks": 3,
+   "goal_events": 50,
+   "assist_events": 50
+  }
+ }
+}

@@ -1,0 +1,2 @@
+prod-snapshot [('warn', 'fpl_fotmob_conflict', '3 player-matches where FPL and FotMob disagree on goals or minutes (>5); excluded from val')]
+work-snapshot [('warn', 'fpl_fotmob_conflict', '3 player-matches where FPL and FotMob disagree on goals or minutes (>5); excluded from val')]

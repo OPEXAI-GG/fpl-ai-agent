@@ -1,0 +1,2 @@
+b453b7c932db03e613d54853520edc8f577d11e15cb780bde8b2895907bbcbd9 *artifacts/db-hardening-20261023T143050Z/prod-snapshot.duckdb
+9bc925c102c1bc108948de1ba9acd153d07f09550a02a7b7ec8780fa66305e1d *data_cache/football.duckdb

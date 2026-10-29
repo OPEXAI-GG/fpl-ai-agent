@@ -1,0 +1,91 @@
+HTTP 502: upload failed
+football-db.tar.zst (updated 2026-10-29T07:43:16Z) is older than the newest dated copy football-db-20261029T074407Z.tar.zst (updated 2026-10-29T07:44:26Z): a publish stopped before replacing it; restoring the dated copy
+archive member not allowed: -rwxrwxrwx ./notes.txt
+rCPcbOJOM\check is complete and matches its manifest
+published football-db.tar.zst and football-db-20261029T074253Z.tar.zst (195509026 bytes each)
+exit 0
+-- stand-in release:
+   football-db-20261028T163713Z.tar.zst 2026-10-28T16:37:13Z
+   football-db-20261029T074253Z.tar.zst 2026-10-29T07:43:14Z
+   football-db.tar.zst 2026-10-29T07:43:16Z
+dated1=football-db-20261029T074253Z.tar.zst
+== C2 restore new (no DATA_ASSET)
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.BCz0r3f54j\x is complete and matches its manifest
+restored 23 tables into $G3/w/new1 from football-db.tar.zst
+exit 0
+IDENTICAL: export1 = new1
+== C3 rollback to the old archive (stand-in dated copy of r20261028)
+legacy export without a manifest: accepted (the next publish adds one)
+restored 21 tables into $G3/w/rb-legacy from football-db-20261028T163713Z.tar.zst
+exit 0
+IDENTICAL: legacy = rb-legacy
+== C4 rollback to dated1
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.PaHOinKQyx\x is complete and matches its manifest
+restored 23 tables into $G3/w/rb-dated1 from football-db-20261029T074253Z.tar.zst
+exit 0
+IDENTICAL: export1 = rb-dated1
+== C5 P4: rolling replacement fails (keeprolling), old rolling stays
+export C:\Users\bedor\AppData\Local\Temp\claude\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\5f4810dd-2bab-4621-af08-adf1aa533cf6\scratchpad\g3\w\export1 is complete and matches its manifest
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.QTeKI0ZzD2\check is complete and matches its manifest
+exit 1
+-- stand-in release:
+   football-db-20261028T163713Z.tar.zst 2026-10-28T16:37:13Z
+   football-db-20261029T074253Z.tar.zst 2026-10-29T07:43:14Z
+   football-db-20261029T074407Z.tar.zst 2026-10-29T07:44:26Z
+   football-db.tar.zst 2026-10-29T07:43:16Z
+-- restore without DATA_ASSET
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.1ZvzER1UK1\x is complete and matches its manifest
+restored 23 tables into $G3/w/p4 from football-db-20261029T074407Z.tar.zst
+exit 0
+IDENTICAL: export1 = p4
+dated2=football-db-20261029T074407Z.tar.zst
+== C6 P6: newest dated copy listed but damaged
+-- stand-in release:
+   football-db-20261028T163713Z.tar.zst 2026-10-28T16:37:13Z
+   football-db-20261029T074253Z.tar.zst 2026-10-29T07:43:14Z
+   football-db-20261029T074407Z.tar.zst 2026-10-29T07:44:26Z
+   football-db-20261029T074444Z.tar.zst 2026-10-29T07:44:45Z
+   football-db.tar.zst 2026-10-29T07:43:16Z
+exit 2
+   stderr:                    "end-of-stream marker was reached")
+   stderr: EOFError: Compressed file ended before the end-of-stream marker was reached
+   stderr: tar: Child returned status 1
+   stderr: tar: Error is not recoverable: exiting now
+P6: NO recovery hint printed
+p6 target not created
+-- documented recovery DATA_ASSET=football-db.tar.zst
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.3ftYLJPGl9\x is complete and matches its manifest
+restored 23 tables into $G3/w/p6-recover from football-db.tar.zst
+exit 0
+IDENTICAL: export1 = p6-recover
+== C7 rolling asset listed but damaged (badrolling, newest)
+-- stand-in release:
+   football-db-20261028T163713Z.tar.zst 2026-10-28T16:37:13Z
+   football-db-20261029T074253Z.tar.zst 2026-10-29T07:43:14Z
+   football-db-20261029T074407Z.tar.zst 2026-10-29T07:44:26Z
+   football-db.tar.zst 2026-10-29T07:45:06Z
+exit 2
+   stderr: tar: Error is not recoverable: exiting now
+   stderr: restore of football-db.tar.zst failed; to restore the newest dated copy instead rerun with DATA_ASSET=football-db-20261029T074407Z.tar.zst
+hint: DATA_ASSET=football-db-20261029T074407Z.tar.zst
+c7 target not created
+export \\wsl.localhost\Ubuntu-24.04\tmp\tmp.zLXEkqDLTv\x is complete and matches its manifest
+restored 23 tables into $G3/w/c7-recover from football-db-20261029T074407Z.tar.zst
+exit 0
+IDENTICAL: export1 = c7-recover
+== C8 negative: stray member refused by check_archive.sh
+exit 1
+== C9 negative: publish refuses an export missing a declared table
+export problem: players: file missing
+exit 1
+assets before/after: 5/5
+== final
+-- stand-in release:
+   football-db-20261028T163713Z.tar.zst 2026-10-28T16:37:13Z
+   football-db-20261029T074253Z.tar.zst 2026-10-29T07:43:14Z
+   football-db-20261029T074407Z.tar.zst 2026-10-29T07:44:26Z
+   football-db.tar.zst 2026-10-29T07:45:28Z
+3dc271523c56637463a91a00d1b149e2acef399406004b94ce9898b15127c69f  $G3/store/football-db-20261028T163713Z.tar.zst
+1aeb5de5924b77a517c85ea08c918e267e0fb1b1c726a010ce30936facbb29b8  $G3/store/football-db-20261029T074253Z.tar.zst
+1aeb5de5924b77a517c85ea08c918e267e0fb1b1c726a010ce30936facbb29b8  $G3/store/football-db-20261029T074407Z.tar.zst
+1aeb5de5924b77a517c85ea08c918e267e0fb1b1c726a010ce30936facbb29b8  $G3/store/football-db.tar.zst

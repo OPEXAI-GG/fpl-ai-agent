@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# G3 STAND-IN for zstd (not installed in WSL). Behaves as a stdin->stdout filter, as GNU tar uses it:
+# stdin is spooled to a file, Windows Python 3.15 compression.zstd converts file to file (no
+# cross-OS pipes: streaming through WSL interop deadlocked), and the result is written to stdout.
+set -euo pipefail
+echo "zstd $*" >> "${ZSTD_LOG:-/dev/null}"
+PY=/mnt/c/Users/bedor/AppData/Local/Programs/Python/Python315/python.exe
+mode=c
+for a in "$@"; do case "$a" in -d|--decompress) mode=d ;; -V|--version) echo "zstd stand-in (python compression.zstd)"; exit 0 ;; esac; done
+t="$(mktemp -d "$G3/ztmp/z.XXXXXX")"; trap 'rm -rf "$t"' EXIT
+cat > "$t/in"
+"$PY" -I -c '
+import sys, shutil, compression.zstd as z
+mode, src, dst = sys.argv[1:]
+if mode == "d":
+    with z.ZstdFile(src, "rb") as f, open(dst, "wb") as o: shutil.copyfileobj(f, o, 1 << 20)
+else:
+    with open(src, "rb") as i, z.ZstdFile(dst, "wb", level=3) as f: shutil.copyfileobj(i, f, 1 << 20)
+' "$mode" "$(wslpath -w "$t/in")" "$(wslpath -w "$t/out")" </dev/null
+cat "$t/out"

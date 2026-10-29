@@ -1,0 +1,12 @@
+N1 ignore valid_from:
+[31m[31m[1m1 failed[0m, [32m6 passed[0m[31m in 3.65s[0m[0m
+N2 keep clashes:
+[31m[31m[1m1 failed[0m, [32m6 passed[0m[31m in 3.87s[0m[0m
+N3 no transaction:
+[31m[31m[1m1 failed[0m, [32m6 passed[0m[31m in 4.07s[0m[0m
+N4 read rolled-back links:
+[31m[31m[1m1 failed[0m, [32m6 passed[0m[31m in 3.98s[0m[0m
+N5 projection skips resolve:
+[32m[32m[1m7 passed[0m[32m in 3.54s[0m[0m
+N5 again:
+[31m[31m[1m1 failed[0m, [32m7 passed[0m[31m in 12.75s[0m[0m

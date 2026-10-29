@@ -1,0 +1,129 @@
+......................F................................................. [ 34%]
+........................................................................ [ 68%]
+.......................................................F..........       [100%]
+================================== FAILURES ===================================
+__________________________ test_db_update_end_to_end __________________________
+
+fake_net = <function fake_net.<locals>.install at 0x0000022D41A8A700>
+tmp_path = WindowsPath('C:/Users/bedor/OneDrive/Documents/FPL/fpl-ai-agent-1/artifacts/db-hardening-20261023T143050Z/r2-own-gw-cutoff/pt-mid/test_db_update_end_to_end0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000022CF1913E00>
+
+    def test_db_update_end_to_end(fake_net, tmp_path, capsys):
+        db_path = tmp_path / "f.duckdb"
+        code = cli.main(
+            [
+                "db-update",
+                "--db",
+                str(db_path),
+                "--points",
+                "--players",
+                "--export",
+                str(tmp_path / "pq"),
+            ]
+        )
+>       assert code == 0
+E       assert 3 == 0
+
+tests\test_cli.py:51: AssertionError
+---------------------------- Captured stdout call -----------------------------
+fpl:bootstrap: ok
+fpl:fixtures: ok
+fpl:players: ok rows=30
+fpl:points gw1: ok rows=30
+fpl:points gw2: ok rows=30
+fpl:points gw3: ok rows=30
+fpl:points gw4: ok rows=30
+fpl:points gw5: ok rows=30
+understat:league: ok
+understat:players: ok rows=1
+football-data:E0: ok rows=7
+football-data:E1: ok rows=7
+quality: [error] duplicate_player_fixture: 25 player-fixtures with more than one official row (two FPL ids linked to one player: feature joins would count the match twice)
+---------------------------- Captured stderr call -----------------------------
+schema: created missing tables ['competitions', 'teams', 'team_ids', 'players', 'player_ids', 'matches', 'match_ids', 'team_match', 'match_odds', 'appearances', 'player_match_stats', 'shots', 'transfers', 'fpl_players_gw', 'fpl_points_gw', 'projections', 'field_ownership', 'decisions', 'reviews', 'ingest_log', 'ingest_state', 'league_translation', 'match_odds_log', 'scout_cache', 'scout_calls', 'runs', 'lessons', 'news_evidence', 'player_codes', 'migration_log', 'repair_log', 'source_attempts', 'fpl_deadlines'] in C:\Users\bedor\OneDrive\Documents\FPL\fpl-ai-agent-1\artifacts\db-hardening-20261023T143050Z\r2-own-gw-cutoff\pt-mid\test_db_update_end_to_end0\f.duckdb
+__________ test_own_gameweek_snapshots_are_selected_as_of_the_cutoff __________
+
+    def test_own_gameweek_snapshots_are_selected_as_of_the_cutoff():
+        """A gameweek's own snapshot taken after the cutoff, whether its first or a correction, cannot
+        change what an earlier cutoff sees; nor can it fill team, price, status or chance."""
+        from datetime import datetime
+    
+        from fpl_agent.db.database import FootballDB
+    
+        db = FootballDB()
+        try:
+            db.upsert("fpl_points_gw", pd.DataFrame([
+                dict(season=2026, gw=gw, fpl_id=p, player_id=p, fixture_id=10 * gw + p, minutes=90)
+                for gw in (1, 2) for p in (1, 2)]))  # fmt: skip
+    
+            def snap(gw, p, day, pos, cost, status="a", team=1):
+                db.upsert("fpl_players_gw", pd.DataFrame([dict(
+                    season=2026, gw=gw, fpl_id=p, player_id=p, snapshot_at=datetime(2026, 8, day),
+                    position=pos, now_cost=cost, status=status, chance_next=100, team_id=team)]))  # fmt: skip
+    
+            snap(1, 1, 1, "MID", 50)  # player 1: GW1's own snapshot, corrected later
+            snap(2, 1, 2, "MID", 51)
+            snap(2, 2, 2, "FWD", 70)  # player 2: GW1 has no snapshot until a late one arrives
+            cut = datetime(2026, 8, 3)
+            fields = ["position", "position_source", "price", "status", "team_id", "chance"]
+    
+            def at(frame):
+                return frame.set_index(["player_id", "gw"])[fields].loc[[(1, 1), (2, 1), (1, 2)]]
+    
+            base = features.player_gw_frame(db)
+            expect = at(features.snapshot_as_of(base, db, cut))
+            assert expect.loc[(1, 1)].tolist() == ["MID", "snapshot", 50, "a", 1, 100]
+            p2 = expect.loc[(2, 1)]  # season fill only: nothing of GW1's own was known
+            assert p2["position"] == "FWD" and p2["position_source"] == "season"
+            assert p2[["price", "status", "team_id", "chance"]].isna().all()
+    
+            snap(1, 1, 4, "DEF", 55, status="i", team=2)  # late correction of GW1
+            snap(1, 2, 5, "GKP", 40, status="d", team=3)  # late initial GW1 snapshot, disagrees
+            rebuilt = features.player_gw_frame(db)
+            assert at(rebuilt).loc[(1, 1), "position"] == "DEF"  # whole database: newest
+            for c in (cut, datetime(2026, 8, 6), cut):  # repeated, mixed cutoffs
+                got = features.snapshot_as_of(rebuilt, db, c)
+                again = features.snapshot_as_of(got, db, c)
+                pd.testing.assert_frame_equal(got, again)
+                # row identity and every non-snapshot column are untouched
+                assert got.index.equals(rebuilt.index)
+                rest = [col for col in rebuilt.columns if col not in fields]
+>               pd.testing.assert_frame_equal(got[rest], rebuilt[rest])
+
+tests\test_minutes.py:282: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\pandas\_testing\asserters.py:817: in assert_extension_array_equal
+    assert_numpy_array_equal(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+left = array([False, False,  True, False])
+right = array([False, False, False, False]), err_msg = None
+
+    def _raise(left, right, err_msg) -> NoReturn:
+        if err_msg is None:
+            if left.shape != right.shape:
+                raise_assert_detail(
+                    obj, f"{obj} shapes are different", left.shape, right.shape
+                )
+    
+            diff = 0
+            for left_arr, right_arr in zip(left, right, strict=True):
+                # count up differences
+                if not array_equivalent(left_arr, right_arr, strict_nan=strict_nan):
+                    diff += 1
+    
+            diff = diff * 100.0 / left.size
+            msg = f"{obj} values are different ({np.round(diff, 5)} %)"
+>           raise_assert_detail(obj, msg, left, right, index_values=index_values)
+E           AssertionError: DataFrame.iloc[:, 25] (column name="snapshot_kind") NA mask are different
+E           
+E           DataFrame.iloc[:, 25] (column name="snapshot_kind") NA mask values are different (25.0 %)
+E           [index]: [0, 1, 2, 3]
+E           [left]:  [False, False, True, False]
+E           [right]: [False, False, False, False]
+
+.venv\Lib\site-packages\pandas\_testing\asserters.py:689: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_cli.py::test_db_update_end_to_end - assert 3 == 0
+FAILED tests/test_minutes.py::test_own_gameweek_snapshots_are_selected_as_of_the_cutoff
+2 failed, 208 passed in 316.88s (0:05:16)

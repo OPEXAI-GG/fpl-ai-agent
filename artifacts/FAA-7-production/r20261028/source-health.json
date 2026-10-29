@@ -1,0 +1,66 @@
+{
+ "at": "2026-10-28T20:24:32.900888",
+ "season": 2026,
+ "overall": "degraded",
+ "blocked": [],
+ "degraded": [
+  "fpl:bootstrap never (no recorded attempt)",
+  "fpl:fixtures never (no recorded attempt)",
+  "fpl:players never (no recorded attempt)"
+ ],
+ "sources": [
+  {
+   "source": "fpl:bootstrap",
+   "state": "never",
+   "critical": true,
+   "last_attempt_at": null,
+   "last_success_at": null,
+   "last_failure_at": null,
+   "failures_since_success": 0,
+   "last_rows": null,
+   "last_error": null,
+   "unfinished": 0
+  },
+  {
+   "source": "fpl:fixtures",
+   "state": "never",
+   "critical": true,
+   "last_attempt_at": null,
+   "last_success_at": null,
+   "last_failure_at": null,
+   "failures_since_success": 0,
+   "last_rows": null,
+   "last_error": null,
+   "unfinished": 0
+  },
+  {
+   "source": "fpl:players",
+   "state": "never",
+   "critical": true,
+   "last_attempt_at": null,
+   "last_success_at": null,
+   "last_failure_at": null,
+   "failures_since_success": 0,
+   "last_rows": null,
+   "last_error": null,
+   "unfinished": 0
+  }
+ ],
+ "data": {
+  "fpl_snapshot": {
+   "at": "2026-10-28T16:36:49.537727",
+   "age_hours": 3.8,
+   "state": "ok"
+  },
+  "fpl_points": {
+   "finished_gws_without_points": [],
+   "state": "ok"
+  },
+  "fotmob_detail": {
+   "finished_matches": 80,
+   "with_detail": 80,
+   "state": "ok"
+  }
+ },
+ "attempt_record": true
+}

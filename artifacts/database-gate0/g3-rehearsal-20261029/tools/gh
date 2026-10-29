@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# stand-in for the GitHub CLI: FAKE_MODE = missing | auth | ok | dropdated | badrolling |
+# keeprolling ; archives live in $FAKE_STORE, a file's mtime is its updatedAt
+echo "$*" >> "$FAKE_STORE/calls"
+case "$1 $2" in
+  "release view")
+    if [ "$FAKE_MODE" = missing ]; then echo "release not found" >&2; exit 1; fi
+    if [ "$FAKE_MODE" = auth ]; then echo "HTTP 401: Bad credentials" >&2; exit 1; fi
+    for f in "$FAKE_STORE"/*.tar.zst; do
+      [ -e "$f" ] || continue
+      case "$*" in
+        *size*) echo "$(basename "$f") $(stat -c %s "$f")" ;;
+        *updatedAt*) echo "$(basename "$f") $(date -u -r "$f" +%Y-%m-%dT%H:%M:%SZ)" ;;
+        *) basename "$f" ;;
+      esac
+    done ;;
+  "release download") cp "$FAKE_STORE/$5" "$7/" ;;
+  "release upload")
+    # dropdated: the dated upload "succeeds" but never appears on the release
+    if [ "$FAKE_MODE" = dropdated ] && [[ "$(basename "$4")" == football-db-* ]]; then exit 0; fi
+    # badrolling: the rolling replacement is cut short (an interrupted --clobber)
+    if [ "$FAKE_MODE" = badrolling ] && [ "$(basename "$4")" = football-db.tar.zst ]; then
+      head -c 10 "$4" > "$FAKE_STORE/football-db.tar.zst"; exit 0
+    fi
+    # keeprolling: the rolling replacement fails and the previous asset stays
+    if [ "$FAKE_MODE" = keeprolling ] && [ "$(basename "$4")" = football-db.tar.zst ]; then
+      echo "HTTP 502: upload failed" >&2; exit 1
+    fi
+    cp "$4" "$FAKE_STORE/" ;;
+  "release create") ;;
+esac

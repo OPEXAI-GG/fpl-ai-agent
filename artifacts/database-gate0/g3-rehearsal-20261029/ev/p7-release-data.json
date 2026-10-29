@@ -1,0 +1,14 @@
+{
+ "tag": "data",
+ "id": 407367915,
+ "assets": [
+  {
+   "name": "football-db.tar.zst",
+   "id": 687686806,
+   "size": 196104758,
+   "created_at": "2026-10-29T07:08:59Z",
+   "updated_at": "2026-10-29T07:09:08Z",
+   "state": "uploaded"
+  }
+ ]
+}

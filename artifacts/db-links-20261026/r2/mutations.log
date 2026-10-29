@@ -1,0 +1,21 @@
+M5 history never resets valid_from: 1 failed, 34 passed in 15.96s
+M8 absent ignored for rivals: 35 passed in 15.76s
+M2 player-side threshold: 1 failed, 34 passed in 16.08s
+M15 coverage ignores valid_from: 35 passed in 15.95s
+N1 coverage ignores recorded_at: 1 failed, 34 passed in 15.92s
+N2 coverage ignores season: 1 failed, 34 passed in 16.38s
+N3 reader ignores recorded_at: 4 failed, 31 passed in 14.90s
+N4 reader ignores revalidation: 2 failed, 33 passed in 15.50s
+N5 load ignores FPL ingested_at (propose still filters): 35 passed in 15.82s
+N6 propose ignores FPL ingested_at: 1 failed, 34 passed in 16.16s
+N7 propose ignores FotMob ingested_at: 35 passed in 16.13s
+N8 reconstructed snapshots allowed: 1 failed, 34 passed in 16.03s
+N9-noop sanity (should pass): 35 passed in 15.91s
+N10 conflicts ignore links: 1 failed, 34 passed in 16.46s
+N11 projection skips revalidation: 1 failed, 34 passed in 15.35s
+N12 batch id without unique suffix: 1 failed, 34 passed in 16.18s
+restored
+M8 absent ignored for rivals (rerun after new tests): 1 failed, 36 passed in 16.23s
+M15 coverage ignores valid_from (rerun after new tests): 1 failed, 36 passed in 16.57s
+N7 propose ignores FotMob ingested_at (rerun after new tests): 1 failed, 36 passed in 16.34s
+restored

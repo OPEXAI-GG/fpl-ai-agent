@@ -1,0 +1,189 @@
+﻿
+MATCH ...GITHUB_HEADERS
+r", name, prefix: `${word2} ` };
+    }
+    case "query": {
+      const name = auth.param.trim();
+      return QUERY_PARAM_RE.test(name) ? { where: "query", name, prefix: "" } : null;
+    }
+    case "basic": {
+      const user = auth.user.trim();
+      return BASIC_USER_RE.test(user) ? { where: "header", name: "authorization", prefix: "Basic ", basicUser: user } : null;
+    }
+    default:
+      return null;
+  }
+}
+function apiAuthParts(auth, secret) {
+  const constant = auth.mode === "github" ? { ...GITHUB_HEADERS } : {};
+  const slot = apiAuthSlot(auth);
+  if (!slot || !hasSecretValue(secret)) return { headers: constant, query: {} };
+  const value = slot.basicUser !== void 0 ? `${slot.prefix}${base64Utf8(`${slot.basicUser}:${secret}`)}` : `${slot.prefix}${secret}`;
+  return slot.where === "header" ? { headers: { ...constant, [slot.name]: value }, query: {} } : { headers: constant, query: { [slot.name]: value } };
+}
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function base64Utf8(input) {
+  const bytes = [];
+  for (const ch of input) {
+    const cp = ch.codePointAt(0) ?? 0;
+    if (cp < 128) bytes.push(cp);
+    else if (cp < 2048) bytes.push(192 | cp >> 6, 128 | cp & 63);
+    else if (cp < 65536) bytes.push(224 | cp >> 12, 128 | cp >> 6 & 63, 128 | cp & 63);
+    else bytes.push(240 | cp >> 18, 128 | cp >> 12 & 63, 128 | cp >> 6 & 63, 128 | cp & 63);
+  }
+  let out2 = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < bytes.length ? bytes[i + 1] : void 0;
+    const b2 = i + 2 < bytes.length ? bytes[i + 2] : void 0;
+    out2 += B64[b0 >> 2];
+    out2 += B64[(b0 & 3) << 4 | (b1 ?? 0) >> 4];
+    out2 += b1 === void 0 ? "=" : B64[(b1 & 15) << 2 | (b2 ?? 0) >> 6];
+    out2 += b2 === void 0 ? "=" : B64[b2 & 63];
+  }
+  return out2;
+}
+const INTEGRATION_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])
+
+MATCH STRIP_REQUEST.has
+et body2;
+    if (hasBody) {
+      try {
+        body2 = await readBodyCapped(req);
+      } catch (e) {
+        if (e.message === "too_large") {
+          return IntegrationBroker.sendError(res, 413, "payload_too_large", "request body too large");
+        }
+        return IntegrationBroker.sendError(res, 400, "bad_request", "could not read request body");
+      }
+    }
+    const outHeaders = {};
+    for (const [k, v] of Object.entries(req.headers)) {
+      const key = k.toLowerCase();
+      if (STRIP_REQUEST.has(key)) continue;
+      if (Array.isArray(v)) outHeaders[key] = v.join(", ");
+      else if (typeof v === "string") outHeaders[key] = v;
+    }
+    if (!outHeaders["user-agent"]) outHeaders["user-agent"] = DEFAULT_USER_AGENT;
+    const { headers: injected, query: injectedQuery } = buildAuthRequest(rec, secret);
+    for (const [k, v] of Object.entries(injected)) {
+      delete outHeaders[k];
+      outHeaders[k] = v;
+    }
+    for (const [k, v] of Object.entries(injectedQuery)) upstream.searchParams.set(k, v);
+    const ac = new AbortController();
+    const timer2 = setTimeout(() => ac.abort(), UPSTREAM_TIMEOUT_MS);
+    let upstreamRes;
+    try {
+      upstreamRes = await fetch(upstream, {
+        method,
+        headers: outHeaders,
+        body: body2,
+        redirect: "manual",
+        signal: ac.signal
+      });
+    } catch (e) {
+      clearTimeout(timer2);
+      return IntegrationBroker.sendError(res, 502, "bad_gateway", `upstream request failed: ${e.message}`);
+    }
+    const respHeaders = {};
+    upstreamRes.headers.forEach((value, key) => {
+      if (!STRIP_RESPONSE.has(key.toLowerCase())) respHeaders[key] = value;
+    });
+    res.writeHead(upstreamRes.status, respHeaders);
+    try {
+      if (upstreamRes.body) {
+        await pipeWebStream(upstreamRes.body, res);
+      } else {
+        res.end();
+      }
+    } catch {
+      try {
+        res.end();
+     
+
+MATCH headers: { ...
+assPrivateFieldGet(this, _AssistantStream_instances, "m", _AssistantStream_endRequest).call(this));
+    }
+    toReadableStream() {
+        const stream = new streaming_1.Stream(this[Symbol.asyncIterator].bind(this), this.controller);
+        return stream.toReadableStream();
+    }
+    static createToolAssistantStream(runId, runs, params, options) {
+        const runner = new _a();
+        runner._run(() => runner._runToolAssistantStream(runId, runs, params, {
+            ...options,
+            headers: { ...options?.headers, 'X-Stainless-Helper-Method': 'stream' },
+        }));
+        return runner;
+    }
+    async _createToolAssistantStream(run, runId, params, options) {
+        const signal = options?.signal;
+        if (signal) {
+            if (signal.aborted)
+                this.controller.abort();
+            signal.addEventListener('abort', () => this.controller.abort());
+        }
+        const body = { ...params, stream: true };
+        const stream = await run.submitToolOutputs(runId, body, {
+            ...options,
+            signal: this.controller.signal,
+        });
+        this._connected();
+        for await (const event of stream) {
+            tslib_1.__classPrivateFieldGet(this, _AssistantStream_instances, "m", _AssistantStream_addEvent).call(this, event);
+        }
+        if (stream.controller.signal?.aborted) {
+            throw new error_1.APIUserAbortError();
+        }
+        return this._addRun(tslib_1.__classPrivateFieldGet(this, _AssistantStream_instances, "m", _AssistantStream_endRequest).call(this));
+    }
+    static createThreadAssistantStream(params, thread, options) {
+        const runner = new _a();
+        runner._run(() => runner._threadAssistantStream(params, thread, {
+            ...options,
+            headers: { ...options?.headers, 'X-Stainless-Helper-Method': 'stream' },
+        }));
+        return runner;
+    }
+    static
+
+MATCH fetch(target
+eturn { ok: false, error: "path escapes the integration baseUrl", code: "bad_request" };
+  const secret = getSecret(rec.secretRef);
+  const { headers, query } = buildAuthRequest(rec, secret);
+  for (const [k, v] of Object.entries(query)) target2.searchParams.set(k, v);
+  try {
+    const ac = new AbortController();
+    const timer2 = setTimeout(() => ac.abort(), 15e3);
+    const gql = typeof p.path === "string" && p.path ? "" : probeQueryFor(INTEGRATION_TEMPLATES, rec);
+    const r = gql ? await fetch(target2, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ query: gql }), redirect: "manual", signal: ac.signal }) : await fetch(target2, { method: "GET", headers, redirect: "manual", signal: ac.signal });
+    clearTimeout(timer2);
+    logConnTest(rec.id, r.ok, r.status);
+    return { ok: r.ok, status: r.status };
+  } catch (e) {
+    logConnTest(rec.id, false);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+});
+function logConnTest(id, ok, status) {
+  try {
+    hive.appendLog({ kind: "conn-test", id, ok, ...status !== void 0 ? { status } : {} });
+  } catch {
+  }
+}
+electron.ipcMain.handle("integrations:activity", (_evt, key) => {
+  const root = hive.root();
+  let reg = { godId: null, agents: {} };
+  try {
+    reg = hive.registry();
+  } catch {
+  }
+  const nameOf2 = (id) => reg.agents[id]?.name ?? (id === "god" && reg.godId ? reg.agents[reg.godId]?.name : void 0);
+  return integrationActivity(root ? path.join(root, "log.jsonl") : null, key, { nameOf: nameOf2 });
+});
+electron.ipcMain.handle("config:get", () => readConfig());
+const DEV_NO_GOD = !electron.app.isPackaged && (process.argv.includes("--no-god") || process.env.MD_NO_GOD === "1");
+if (DEV_NO_GOD) console.log("[dev] --no-god: the orchestrator will not be spawned");
+electron.ipcMain.handle("dev:noGod", () => DEV_NO_GOD);
+electron.ipc

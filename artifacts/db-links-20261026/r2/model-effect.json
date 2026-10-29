@@ -1,0 +1,53 @@
+{
+ "now": "2026-10-26T19:46:40.640557",
+ "past_2026-10-20T20": {
+  "players": 668,
+  "xpts_changed": 0,
+  "rate_source_link": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  },
+  "rate_source_orig": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  }
+ },
+ "gw8_2026-10-24T10": {
+  "players": 668,
+  "xpts_changed": 0,
+  "rate_source_link": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  },
+  "rate_source_orig": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  }
+ },
+ "gw9_now": {
+  "players": 668,
+  "xpts_changed": 473,
+  "rate_source_link": {
+   "pl": 399,
+   "prior": 233,
+   "translated": 36
+  },
+  "rate_source_orig": {
+   "prior": 364,
+   "pl": 277,
+   "translated": 27
+  }
+ },
+ "revalidate_now": [],
+ "conflicts_linked_copy": 3,
+ "conflicts_via_link": [],
+ "excluded_matches_linked_copy": 3,
+ "conflicts_original": 3,
+ "excluded_matches_original": 3,
+ "undone_links": 131,
+ "gw9_after_undo_identical_to_original": true
+}

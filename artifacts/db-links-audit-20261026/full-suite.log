@@ -1,0 +1,695 @@
+Using CPython 3.13.12
+Creating virtual environment at: .venv
+   Building fpl-agent @ file:///C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo
+Downloading pandas (9.2MiB)
+Downloading pyarrow (26.6MiB)
+Downloading pydantic-core (1.9MiB)
+Downloading scikit-learn (7.9MiB)
+Downloading numpy (12.0MiB)
+Downloading scipy (34.9MiB)
+Downloading ruff (10.1MiB)
+ Downloaded pydantic-core
+ Downloaded scikit-learn
+      Built fpl-agent @ file:///C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo
+ Downloaded pandas
+ Downloaded ruff
+ Downloaded numpy
+ Downloaded pyarrow
+ Downloaded scipy
+Installed 38 packages in 1.07s
+........................................................................ [  8%]
+...........................s............................................ [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 35%]
+........................................................................ [ 44%]
+........................................................................ [ 53%]
+..........................................................ssss.......... [ 61%]
+........................................................................ [ 70%]
+........................................................................ [ 79%]
+........................................................................ [ 88%]
+.....................................F.................................. [ 97%]
+......ssFFFFFFFFFFFs.F                                                   [100%]
+================================== FAILURES ===================================
+____________ test_archive_scripts_refuse_where_they_are_unverified ____________
+
+tmp_path = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/pt/test_archive_scripts_refuse_wh0')
+
+    @pytest.mark.skipif(
+        __import__("platform").system() == "Linux", reason="the guard targets non-Linux"
+    )
+    def test_archive_scripts_refuse_where_they_are_unverified(tmp_path):
+        import shutil
+        import subprocess
+        from pathlib import Path
+    
+        bash = shutil.which("bash")
+        if not bash:
+            pytest.skip("no bash to run the scripts with")
+        root = Path(__file__).parent.parent
+        calls = tmp_path / "calls"
+        gh = tmp_path / "gh.sh"
+        gh.write_text(f'#!/usr/bin/env bash\necho "$*" >> "{calls.as_posix()}"\n', encoding="utf-8")
+        for script in ("data_restore.sh", "data_publish.sh"):
+            r = subprocess.run([bash, (root / "scripts" / script).as_posix(), (tmp_path / "x").as_posix()],
+                               env={**__import__("os").environ, "GH": f"bash {gh.as_posix()}",
+                                    "VERIFY": "true"}, capture_output=True, text=True)  # fmt: skip
+>           assert r.returncode == 2 and "unsupported environment" in r.stderr, (script, r.stderr)
+E           AssertionError: ('data_restore.sh', '/usr/bin/bash: C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/scripts/data_restore.sh: No such file or directory
+E             ')
+E           assert (127 == 2)
+E            +  where 127 = CompletedProcess(args=['C:\\Program Files\\Git\\usr\\bin\\bash.EXE', 'C:/Users/bedor/AppData/Local/Temp/claude/C--User...-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/scripts/data_restore.sh: No such file or directory\n').returncode
+
+tests\test_source_health.py:361: AssertionError
+__________ test_data_workflow_schedule_and_publish_only_after_update __________
+
+    def test_data_workflow_schedule_and_publish_only_after_update():
+>       wf = load(WF / "data.yml")
+             ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/data.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\data.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+________________________ test_ci_has_the_coverage_gate ________________________
+
+    def test_ci_has_the_coverage_gate():
+>       ci = (WF / "ci.yml").read_text(encoding="utf-8")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:49: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/ci.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\ci.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+________________ test_helper_scripts_are_executable_and_strict ________________
+
+    def test_helper_scripts_are_executable_and_strict():
+        import os
+    
+        for name in ("data_restore.sh", "data_publish.sh", "plan_publish.sh"):
+            path = WF.parent.parent / "scripts" / name
+            if os.name == "posix":
+                assert path.stat().st_mode & 0o111
+            else:  # Windows has no exec bit: check the mode Git will give a Linux checkout
+>               mode = _git_mode(path)
+                       ^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:60: in _git_mode
+    out = subprocess.run(["git", "ls-files", "-s", path.name], cwd=path.parent,
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:554: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['git', 'ls-files', '-s', 'data_restore.sh']>
+args = 'git ls-files -s data_restore.sh', executable = None, preexec_fn = None
+close_fds = False, pass_fds = ()
+cwd = 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\scripts'
+env = None, startupinfo = <subprocess.STARTUPINFO object at 0x00000165D5DDEE40>
+creationflags = 0, shell = False, p2cread = Handle(2424), p2cwrite = -1
+c2pread = 12, c2pwrite = Handle(2340), errread = 13, errwrite = Handle(2576)
+unused_restore_signals = True, unused_gid = None, unused_gids = None
+unused_uid = None, unused_umask = -1, unused_start_new_session = False
+unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+        assert not pass_fds, "pass_fds not supported on Windows."
+    
+        if isinstance(args, str):
+            pass
+        elif isinstance(args, bytes):
+            if shell:
+                raise TypeError('bytes args is not allowed on Windows')
+            args = list2cmdline([args])
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = list2cmdline([args])
+        else:
+            args = list2cmdline(args)
+    
+        if executable is not None:
+            executable = os.fsdecode(executable)
+    
+        # Process startup details
+        if startupinfo is None:
+            startupinfo = STARTUPINFO()
+        else:
+            # bpo-34044: Copy STARTUPINFO since it is modified above,
+            # so the caller can reuse it multiple times.
+            startupinfo = startupinfo.copy()
+    
+        use_std_handles = -1 not in (p2cread, c2pwrite, errwrite)
+        if use_std_handles:
+            startupinfo.dwFlags |= _winapi.STARTF_USESTDHANDLES
+            startupinfo.hStdInput = p2cread
+            startupinfo.hStdOutput = c2pwrite
+            startupinfo.hStdError = errwrite
+    
+        attribute_list = startupinfo.lpAttributeList
+        have_handle_list = bool(attribute_list and
+                                "handle_list" in attribute_list and
+                                attribute_list["handle_list"])
+    
+        # If we were given an handle_list or need to create one
+        if have_handle_list or (use_std_handles and close_fds):
+            if attribute_list is None:
+                attribute_list = startupinfo.lpAttributeList = {}
+            handle_list = attribute_list["handle_list"] = \
+                list(attribute_list.get("handle_list", []))
+    
+            if use_std_handles:
+                handle_list += [int(p2cread), int(c2pwrite), int(errwrite)]
+    
+            handle_list[:] = self._filter_handle_list(handle_list)
+    
+            if handle_list:
+                if not close_fds:
+                    warnings.warn("startupinfo.lpAttributeList['handle_list'] "
+                                  "overriding close_fds", RuntimeWarning)
+    
+                # When using the handle_list we always request to inherit
+                # handles but the only handles that will be inherited are
+                # the ones in the handle_list
+                close_fds = False
+    
+        if shell:
+            startupinfo.dwFlags |= _winapi.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = _winapi.SW_HIDE
+            if not executable:
+                # gh-101283: without a fully-qualified path, before Windows
+                # checks the system directories, it first looks in the
+                # application directory, and also the current directory if
+                # NeedCurrentDirectoryForExePathW(ExeName) is true, so try
+                # to avoid executing unqualified "cmd.exe".
+                comspec = os.environ.get('ComSpec')
+                if not comspec:
+                    system_root = os.environ.get('SystemRoot', '')
+                    comspec = os.path.join(system_root, 'System32', 'cmd.exe')
+                    if not os.path.isabs(comspec):
+                        raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+                if os.path.isabs(comspec):
+                    executable = comspec
+            else:
+                comspec = executable
+    
+            args = '{} /c "{}"'.format (comspec, args)
+    
+        if cwd is not None:
+            cwd = os.fsdecode(cwd)
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        # Start the process
+        try:
+>           hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                                     # no special security
+                                     None, None,
+                                     int(not close_fds),
+                                     creationflags,
+                                     env,
+                                     cwd,
+                                     startupinfo)
+E                                    NotADirectoryError: [WinError 267] The directory name is invalid
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:1554: NotADirectoryError
+_______ test_plan_workflow_defaults_to_dry_and_publishes_after_planning _______
+
+    def test_plan_workflow_defaults_to_dry_and_publishes_after_planning():
+>       wf = load(WF / "plan.yml")
+             ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/plan.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\plan.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+__________________ test_token_check_keeps_clear_of_plan_runs __________________
+
+    def test_token_check_keeps_clear_of_plan_runs():
+>       wf = load(WF / "token-check.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/token-check.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\token-check.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+__ test_auth_jobs_share_a_lease_and_check_token_freshness_after_acquisition ___
+
+    def test_auth_jobs_share_a_lease_and_check_token_freshness_after_acquisition():
+>       plan = load(WF / "plan.yml")["jobs"]["plan"]
+               ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/plan.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\plan.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+_______________ test_review_workflow_runs_after_the_data_update _______________
+
+    def test_review_workflow_runs_after_the_data_update():
+>       wf = load(WF / "review.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/review.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\review.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+_______________ test_backtest_workflow_is_read_only_and_manual ________________
+
+    def test_backtest_workflow_is_read_only_and_manual():
+>       wf = load(WF / "backtest.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/backtest.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\backtest.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+_________________ test_backtest_workflow_can_replay_a_season __________________
+
+    def test_backtest_workflow_can_replay_a_season():
+>       wf = load(WF / "backtest.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/backtest.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\backtest.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+__ test_review_workflow_sends_the_gameweek_summary_without_blocking_publish ___
+
+    def test_review_workflow_sends_the_gameweek_summary_without_blocking_publish():
+>       wf = load(WF / "review.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/review.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\review.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+____ test_discord_bot_workflows_reply_with_a_masked_token_and_never_write _____
+
+    def test_discord_bot_workflows_reply_with_a_masked_token_and_never_write():
+>       wf = load(WF / "discord.yml")
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/discord.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\discord.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+________ test_browser_ci_uses_the_local_dashboard_and_installs_python _________
+
+    def test_browser_ci_uses_the_local_dashboard_and_installs_python():
+>       steps = load(WF / "playwright.yml")["jobs"]["test"]["steps"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_workflows.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_workflows.py:15: in load
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/bedor/AppData/Local/Temp/claude/C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1/c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6/scratchpad/repo/.github/workflows/playwright.yml')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\AppData\\Local\\Temp\\claude\\C--Users-bedor-OneDrive-Documents-FPL-fpl-ai-agent-1\\c5d997bc-2e0a-4faf-8ba3-4a6534e7c1f6\\scratchpad\\repo\\.github\\workflows\\playwright.yml'
+
+..\..\..\..\..\..\..\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\pathlib\_local.py:537: FileNotFoundError
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.13.12-final-0 _______________
+
+Name                                       Stmts   Miss Branch BrPart  Cover   Missing
+--------------------------------------------------------------------------------------
+src\fpl_agent\__init__.py                      1      0      0      0   100%
+src\fpl_agent\agent.py                       331     38     88     19    86%   118->120, 120->126, 125, 171-172, 183, 190, 211-213, 259->264, 269-273, 276-278, 284-287, 294-297, 330->338, 340, 352-353, 365, 374-381, 457, 465-467, 475, 479-482, 485, 499->exit
+src\fpl_agent\cli.py                         649    109    152     21    82%   50->52, 53-61, 126->128, 129, 168-169, 177->179, 193->195, 251->257, 261->263, 283-309, 349-351, 356-361, 372, 381-383, 387-390, 402-413, 419-442, 448-461, 554-555, 557-559, 602-603, 610, 619-621, 633-638, 851-852, 857-881, 896, 898, 900, 931, 935
+src\fpl_agent\config.py                       33      2      4      0    95%   24-25
+src\fpl_agent\contracts.py                   129      6     72     15    90%   36, 38, 53->55, 56, 57->59, 81, 96, 98->100, 108->112, 112->114, 124, 128->133, 130->133, 146->148, 149->152
+src\fpl_agent\dashboard\__init__.py            0      0      0      0   100%
+src\fpl_agent\dashboard\jobs.py              256     25     56      9    89%   44, 51, 130-131, 152, 207-208, 225-227, 240, 263, 269, 272, 277-278, 298, 312, 324-330
+src\fpl_agent\dashboard\server.py            172     24     54      7    85%   68-69, 100, 103, 105, 116->121, 118->120, 170, 178-179, 196-197, 203-204, 206, 221-232
+src\fpl_agent\dashboard\service.py           274     28     60      8    89%   62, 70-71, 104, 148-149, 171-172, 341-342, 346-347, 385, 417-422, 467-468, 502, 521-522, 600, 604->606, 622-623, 643
+src\fpl_agent\data\__init__.py                 0      0      0      0   100%
+src\fpl_agent\data\calendar.py                16      1      4      1    90%   14
+src\fpl_agent\data\entry.py                   57      0     20      0   100%
+src\fpl_agent\data\fotmob.py                  45      0     10      0   100%
+src\fpl_agent\data\fpl_client.py              76      6     12      1    92%   57->67, 90, 93, 99, 102, 105, 108
+src\fpl_agent\data\id_map.py                 109      1     34      1    99%   67
+src\fpl_agent\data\leagues.py                 23      0      0      0   100%
+src\fpl_agent\data\oddsapi.py                 70      5     28      5    90%   41, 48-49, 51, 66->60, 68->67, 90
+src\fpl_agent\data\ownership.py               63      3     22      3    93%   54, 69, 76
+src\fpl_agent\data\players.py                 21      2      6      1    89%   23, 28
+src\fpl_agent\data\schemas.py                 42      0      0      0   100%
+src\fpl_agent\data\store.py                   31      0      4      0   100%
+src\fpl_agent\data\understat.py               53      0     16      0   100%
+src\fpl_agent\db\__init__.py                   0      0      0      0   100%
+src\fpl_agent\db\database.py                 365      9    122     11    96%   72, 78, 97->exit, 103, 131, 209, 357, 433->438, 528, 567, 574->576, 641
+src\fpl_agent\db\eligibility.py               72      2     30      4    94%   40->45, 50, 69->75, 80
+src\fpl_agent\db\fpl_identity.py             301     11    128     10    95%   305-307, 320->330, 329, 397, 399, 429, 434-435, 466, 469, 528
+src\fpl_agent\db\gameweeks.py                 23      3      6      1    86%   19-29, 45
+src\fpl_agent\db\ingest_football_data.py      49      4     10      2    90%   39-41, 96
+src\fpl_agent\db\ingest_fotmob.py            150      3     52      2    98%   198->200, 227-228, 249
+src\fpl_agent\db\ingest_fpl.py               104      3     32      2    96%   84, 109-110, 221->227
+src\fpl_agent\db\ingest_understat.py          61      1     18      3    95%   36->47, 78->77, 121
+src\fpl_agent\db\ingest_vaastav.py            75      3     22      3    94%   58-59, 66, 111->96, 124->129
+src\fpl_agent\db\link_audit.py                43      2     12      0    96%   38-39
+src\fpl_agent\db\link_candidates.py          142      4     42      3    96%   83->89, 87-88, 177, 181
+src\fpl_agent\db\player_links.py              69      4     20      4    91%   60, 62, 68, 90
+src\fpl_agent\db\quality.py                  291      1     94      3    99%   195, 379->381, 572->575
+src\fpl_agent\db\schema.py                    15      0      0      0   100%
+src\fpl_agent\db\source_health.py             58      0     20      0   100%
+src\fpl_agent\errors.py                        3      0      0      0   100%
+src\fpl_agent\execution\__init__.py            0      0      0      0   100%
+src\fpl_agent\execution\auth.py               81     13     18      2    81%   56, 67-77, 94-95, 113-114, 147->150
+src\fpl_agent\execution\execute.py           151     18     46      3    89%   53, 106-108, 111->113, 126-128, 154-155, 164-169, 193-194, 197->199, 201-204
+src\fpl_agent\execution\fpl_writer.py        133     11     60     12    88%   114, 118, 120, 123, 128->134, 133, 136, 138, 147, 160, 177, 181
+src\fpl_agent\execution\live_state.py         54      8     10      0    88%   33, 36, 103-108
+src\fpl_agent\execution\safety.py            129      8     60      8    92%   74-75, 118, 124->133, 126, 130, 132, 136, 141
+src\fpl_agent\gw_summary.py                   77      6     20      4    90%   24, 67, 73, 99-100, 103
+src\fpl_agent\health.py                       48      0      2      0   100%
+src\fpl_agent\lessons.py                     304     10     92     10    94%   156, 171, 210, 227, 244, 286-288, 367->370, 371, 434, 477->475
+src\fpl_agent\model\__init__.py                0      0      0      0   100%
+src\fpl_agent\model\backtest.py               68      2     28      2    96%   74, 126
+src\fpl_agent\model\calibration.py            34      2     14      2    92%   42, 49
+src\fpl_agent\model\features.py               87      3     14      2    95%   75, 120-121
+src\fpl_agent\model\minutes.py               103      1      8      1    98%   45
+src\fpl_agent\model\odds.py                   34      0      8      0   100%
+src\fpl_agent\model\players.py               106      0     26      3    98%   53->56, 56->50, 60->58
+src\fpl_agent\model\project.py               214     12     64      9    92%   100-101, 109, 113, 115, 169-170, 199, 317, 320, 328, 362, 377->376
+src\fpl_agent\model\replay.py                164      4     40      6    95%   78, 112, 256, 257->262, 262->264, 274
+src\fpl_agent\model\retro.py                  86      2     12      3    95%   50->49, 87, 108
+src\fpl_agent\model\simulate.py              172      0     16      1    99%   92->103
+src\fpl_agent\model\strength.py               93      4      6      1    95%   46-47, 74-75
+src\fpl_agent\model\translation.py            82      0     24      3    97%   72->78, 130->125, 133->120
+src\fpl_agent\news.py                        157     25     64     12    81%   29-33, 63->65, 66, 68, 81->exit, 95-96, 100-101, 102->exit, 103->105, 106, 117, 122, 183-184, 187-191, 199-200, 203, 219
+src\fpl_agent\notify.py                       62      4     20      2    93%   59-60, 62, 64
+src\fpl_agent\pipeline.py                    274     10     82      5    96%   79, 124, 147->144, 167-168, 170, 298, 369, 448-451
+src\fpl_agent\review.py                      113      1     24      2    98%   108->110, 214
+src\fpl_agent\rules\__init__.py                2      0      0      0   100%
+src\fpl_agent\rules\engine.py                 97      1     34      1    98%   37
+src\fpl_agent\runs.py                         58      0     10      0   100%
+src\fpl_agent\scout.py                       182      5     42      5    96%   73, 77, 144, 189, 254
+src\fpl_agent\solver\__init__.py               0      0      0      0   100%
+src\fpl_agent\solver\chips.py                127      8     40      5    92%   130, 133-135, 169-170, 182, 184, 185->166
+src\fpl_agent\solver\cover.py                 44      1     16      1    97%   47
+src\fpl_agent\solver\decide.py               252     10     82     14    93%   64, 66->70, 77->80, 101->103, 112->117, 115->112, 170, 173-174, 199, 316, 337-338, 356->379, 372, 383, 398->405, 416->421
+src\fpl_agent\solver\inputs.py                37      0      4      0   100%
+src\fpl_agent\solver\mip.py                   86      4     20      6    91%   52, 68->67, 92, 106, 115, 119->125
+src\fpl_agent\solver\planner.py              284      2     90      3    99%   254, 260, 322->321
+src\fpl_agent\solver\rank_target.py           54      0      8      0   100%
+src\fpl_agent\solver\timing.py                35      0     12      0   100%
+src\fpl_agent\solver\value.py                 24      1      8      1    94%   50
+--------------------------------------------------------------------------------------
+TOTAL                                       8380    476   2374    268    93%
+Required test coverage of 85% reached. Total coverage: 92.80%
+=========================== short test summary info ===========================
+FAILED tests/test_source_health.py::test_archive_scripts_refuse_where_they_are_unverified - AssertionError: ('data_restore.sh', '/usr/bin/bash: C:/Users/bedor/AppData/...
+FAILED tests/test_workflows.py::test_data_workflow_schedule_and_publish_only_after_update - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_ci_has_the_coverage_gate - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_helper_scripts_are_executable_and_strict - NotADirectoryError: [WinError 267] The directory name is invalid
+FAILED tests/test_workflows.py::test_plan_workflow_defaults_to_dry_and_publishes_after_planning - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_token_check_keeps_clear_of_plan_runs - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_auth_jobs_share_a_lease_and_check_token_freshness_after_acquisition - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_review_workflow_runs_after_the_data_update - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_backtest_workflow_is_read_only_and_manual - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_backtest_workflow_can_replay_a_season - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_review_workflow_sends_the_gameweek_summary_without_blocking_publish - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_discord_bot_workflows_reply_with_a_masked_token_and_never_write - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+FAILED tests/test_workflows.py::test_browser_ci_uses_the_local_dashboard_and_installs_python - FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\bedor\\...
+13 failed, 793 passed, 8 skipped, 13 deselected in 753.27s (0:12:33)
+exit=1

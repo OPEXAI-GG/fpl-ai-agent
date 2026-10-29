@@ -1,0 +1,14 @@
+M1 no team check:
+[31m[31m[1m1 failed[0m, [32m11 passed[0m[31m in 3.17s[0m[0m
+M2 no rival check:
+[31m[31m[1m2 failed[0m, [32m10 passed[0m[31m in 3.07s[0m[0m
+M3 no reverse uniqueness:
+[31m[31m[1m1 failed[0m, [32m11 passed[0m[31m in 3.03s[0m[0m
+M4 no cutoff on matches:
+[31m[31m[1m1 failed[0m, [32m11 passed[0m[31m in 3.15s[0m[0m
+M5 no stat contradiction:
+[31m[31m[1m1 failed[0m, [32m11 passed[0m[31m in 3.18s[0m[0m
+M6 no snapshot cutoff:
+[32m[32m[1m12 passed[0m[32m in 2.95s[0m[0m
+M6 again:
+[31m[31m[1m1 failed[0m, [32m12 passed[0m[31m in 3.24s[0m[0m

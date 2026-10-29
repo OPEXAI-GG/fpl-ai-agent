@@ -1,0 +1,400 @@
+{
+  "generated": "2026-10-28T20:01:19.195Z",
+  "states": {
+    "start@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "confirm@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "week@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "week-stale-range@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "compare@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-pitch@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-list@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "empty@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "preview@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start-invalid@360": {
+      "overflowX": false,
+      "scrollWidth": 360,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "confirm@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "week@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "week-stale-range@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "compare@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-pitch@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-list@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "empty@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "preview@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start-invalid@390": {
+      "overflowX": false,
+      "scrollWidth": 390,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "confirm@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "week@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "week-stale-range@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "compare@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-pitch@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "squad-list@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "empty@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "preview@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start-invalid@768": {
+      "overflowX": false,
+      "scrollWidth": 768,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "start@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "confirm@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "week@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "week-stale-range@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.29
+    },
+    "compare@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "squad-pitch@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "squad-list@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "empty@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    },
+    "preview@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 8.45
+    },
+    "start-invalid@1440": {
+      "overflowX": false,
+      "scrollWidth": 1440,
+      "smallTargets": [],
+      "smallText": [],
+      "lowContrast": [],
+      "unnamed": [],
+      "minContrast": 9.13
+    }
+  },
+  "keyboard": [
+    [
+      "Tab 1",
+      "a# \"Skip to content\""
+    ],
+    [
+      "Enter on skip link",
+      "main#main \"Check your team for this week\n\nEnter you\""
+    ],
+    [
+      "after submit",
+      "h1#h-confirm \"Is this your team?\""
+    ],
+    [
+      "tabbed to confirm button",
+      "true"
+    ],
+    [
+      "after confirm",
+      "h1#h-week \"Your move this week\""
+    ],
+    [
+      "tabbed to compare link",
+      "true"
+    ],
+    [
+      "after compare",
+      "h1#h-compare \"Compare two options\""
+    ],
+    [
+      "focus ring on back link",
+      "solid 3px"
+    ]
+  ],
+  "errors": []
+}

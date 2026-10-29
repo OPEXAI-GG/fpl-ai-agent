@@ -1,0 +1,4 @@
+run=1 exit=1
+run=2 exit=1
+run=1 gws=2-8 samples=200 seed=0 exit=1
+run=2 gws=2-8 samples=200 seed=0 exit=1

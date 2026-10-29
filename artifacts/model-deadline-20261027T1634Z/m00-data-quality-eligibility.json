@@ -1,0 +1,139 @@
+{
+  "schema_after": {
+    "missing_tables": [],
+    "extra_tables": [],
+    "column_differences": {},
+    "current": true
+  },
+  "created_tables_during_reconcile": [],
+  "quality_issues": [
+    {
+      "severity": "warn",
+      "check": "fpl_fotmob_conflict",
+      "detail": "3 player-matches where FPL and FotMob disagree on goals or minutes (>5); excluded from validated evaluations (db-eligibility)"
+    }
+  ],
+  "quality_issue_counts": {
+    "error": 0,
+    "warn": 1
+  },
+  "source_health": {
+    "at": "2026-10-27T16:38:46.712049",
+    "season": 2026,
+    "overall": "blocked",
+    "blocked": [
+      "FPL snapshot stale"
+    ],
+    "degraded": [
+      "fpl:bootstrap never (no recorded attempt)",
+      "fpl:fixtures never (no recorded attempt)",
+      "fpl:players never (no recorded attempt)"
+    ],
+    "sources": [
+      {
+        "source": "fpl:bootstrap",
+        "state": "never",
+        "critical": true,
+        "last_attempt_at": null,
+        "last_success_at": null,
+        "last_failure_at": null,
+        "failures_since_success": 0,
+        "last_rows": null,
+        "last_error": null,
+        "unfinished": 0
+      },
+      {
+        "source": "fpl:fixtures",
+        "state": "never",
+        "critical": true,
+        "last_attempt_at": null,
+        "last_success_at": null,
+        "last_failure_at": null,
+        "failures_since_success": 0,
+        "last_rows": null,
+        "last_error": null,
+        "unfinished": 0
+      },
+      {
+        "source": "fpl:players",
+        "state": "never",
+        "critical": true,
+        "last_attempt_at": null,
+        "last_success_at": null,
+        "last_failure_at": null,
+        "failures_since_success": 0,
+        "last_rows": null,
+        "last_error": null,
+        "unfinished": 0
+      }
+    ],
+    "data": {
+      "fpl_snapshot": {
+        "at": "2026-10-20T18:08:49.456263",
+        "age_hours": 166.5,
+        "state": "stale"
+      },
+      "fpl_points": {
+        "finished_gws_without_points": [],
+        "state": "ok"
+      },
+      "fotmob_detail": {
+        "finished_matches": 70,
+        "with_detail": 70,
+        "state": "ok"
+      }
+    },
+    "attempt_record": true
+  },
+  "eligibility": {
+    "season": 2026,
+    "eligible_gws": [],
+    "reconstructed_gws": [],
+    "unavailable_gws": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "excluded_matches": [
+      31,
+      40,
+      62
+    ],
+    "conflict_count": 3
+  },
+  "link_coverage": {
+    "season": 2026,
+    "at": null,
+    "players_played": 449,
+    "players_linked": 424,
+    "linked_by_name": 293,
+    "linked_by_evidence": 131,
+    "player_share": 0.9443,
+    "minutes": 137657,
+    "minutes_linked": 134078,
+    "minute_share": 0.974,
+    "unlinked_reasons": {
+      "no FotMob player with this name": 16,
+      "position differs": 9
+    },
+    "unlinked": [],
+    "unsupported_links": []
+  },
+  "feature_coverage": {
+    "season": 2026,
+    "fpl_rows": 4551,
+    "fpl_players": 668,
+    "fpl_xg_nonnull": 4551,
+    "fpl_xa_nonnull": 4551,
+    "fpl_xg_nonnull_share": 1.0,
+    "fpl_xa_nonnull_share": 1.0,
+    "fotmob_match_frame_rows": 6862,
+    "fotmob_players": 2870,
+    "fotmob_xg_nonnull": 2425,
+    "fotmob_xa_nonnull": 3499
+  }
+}

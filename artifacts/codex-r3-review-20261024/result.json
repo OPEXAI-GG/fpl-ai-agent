@@ -1,0 +1,1 @@
+{"command": ["C:\\Users\\bedor\\OneDrive\\Documents\\FPL\\fpl-ai-agent-1\\.venv\\Scripts\\python.exe", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_quality.py", "tests/test_persistence.py", "tests/test_source_health.py", "--basetemp", "C:\\Users\\bedor\\OneDrive\\Documents\\FPL\\fpl-ai-agent-1\\artifacts\\codex-r3-review-20261024\\temp"], "exit": 0}

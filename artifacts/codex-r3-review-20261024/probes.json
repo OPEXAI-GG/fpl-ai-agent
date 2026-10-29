@@ -1,0 +1,26 @@
+{
+  "eligibility_wrong_players": {
+    "season": 2026,
+    "gw": 1,
+    "class": "eligible",
+    "reasons": [],
+    "cutoff": "2026-08-07T12:00:00",
+    "cutoff_kind": "official",
+    "scoring_players": 2,
+    "observed_snapshot_players": 2,
+    "reconstructed_snapshot_players": 0,
+    "pre_cutoff_odds_matches": 0
+  },
+  "actual_scoring_players_covered": 0,
+  "health_at_before_recovery": {
+    "source": "fpl:bootstrap",
+    "state": "ok",
+    "critical": true,
+    "last_attempt_at": "2026-10-20T13:00:00",
+    "last_success_at": "2026-10-20T13:00:00",
+    "last_failure_at": "2026-10-20T11:00:00",
+    "failures_since_success": 0,
+    "last_rows": 600,
+    "last_error": null
+  }
+}

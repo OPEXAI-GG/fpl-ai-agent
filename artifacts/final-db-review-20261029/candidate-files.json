@@ -1,0 +1,237 @@
+[
+  {
+    "path": "README.md",
+    "bytes": 16530,
+    "sha256": "3bf8ec61d76c7c3f2883cf504dcfa1fcdeffefeb355e16ba42ba7b42e77cd3c6"
+  },
+  {
+    "path": "TASK.md",
+    "bytes": 287614,
+    "sha256": "ac1c7579130205a050071d1016b078f931d246846dbeb1424b16e0729a6ce6bd"
+  },
+  {
+    "path": "artifacts/db-hardening-20261023T143050Z/model-handoff-spec.md",
+    "bytes": 7311,
+    "sha256": "ed5dba24737cb7db228887d6d0abd665093a2cce4b001180df863dba7fc7a792"
+  },
+  {
+    "path": "artifacts/db-hardening-20261023T143050Z/runbook.md",
+    "bytes": 4878,
+    "sha256": "1c0a5081467863f77a4f4dffde694f6c38fde822f7468734b98aeef1723a7a1e"
+  },
+  {
+    "path": "docs/design/team-import-api-v0.md",
+    "bytes": 25385,
+    "sha256": "e023ee25e48a268cd098885308c73172c2b8ada235acdddfebb2a0c067baaf04"
+  },
+  {
+    "path": "docs/quality-first-roadmap.md",
+    "bytes": 9783,
+    "sha256": "842426bc8c5fb58f12e413826b6394938fa5cfecbe20af76b03f5152d26cf51d"
+  },
+  {
+    "path": "docs/research/customer-discovery-draft.md",
+    "bytes": 16006,
+    "sha256": "ef3224b794d46fc2d944a8bbce0b752de168834fb79c38aa70b61735cc5c52fb"
+  },
+  {
+    "path": "docs/research/database-link-audit.md",
+    "bytes": 19503,
+    "sha256": "abc2884acf0ea892a58c369d773a3099549113486f6e1329efff457a75b9747c"
+  },
+  {
+    "path": "docs/research/database-production-verification.md",
+    "bytes": 9786,
+    "sha256": "7f810ab20cd2e2c0ff2f502a063759ae2631c3a4ac3cb998a8bac736d488ac75"
+  },
+  {
+    "path": "docs/research/database-strengthening.md",
+    "bytes": 13885,
+    "sha256": "74902f35a593ec98934a56c44808e17a769d59c88ae9047f92928118d8f8f48b"
+  },
+  {
+    "path": "scripts/check_archive.sh",
+    "bytes": 809,
+    "sha256": "b7a3102724c47d1ce5d87ed1363af4c7feeec54390345af9dbd344a32e540036"
+  },
+  {
+    "path": "scripts/data_publish.sh",
+    "bytes": 3924,
+    "sha256": "3821d5a61c72fe2f53a2205cf5544f8003c00a7f97cbba0e7393bd0502218956"
+  },
+  {
+    "path": "scripts/data_restore.sh",
+    "bytes": 4867,
+    "sha256": "f8835a2118b364e2a0e860e6e98c6deb4eeed921cd93a42737e1590bbb5a954d"
+  },
+  {
+    "path": "src/fpl_agent/agent.py",
+    "bytes": 23594,
+    "sha256": "bb09be03e611a6400dab867b60f1ff36f9953fed6f39c378caa9b92808f35fc1"
+  },
+  {
+    "path": "src/fpl_agent/cli.py",
+    "bytes": 41420,
+    "sha256": "089ef9a542d76916fa12f66592c0f82f24acfe905fb1d8528059c7693a8b6942"
+  },
+  {
+    "path": "src/fpl_agent/db/database.py",
+    "bytes": 29793,
+    "sha256": "789ab80217e1b472160b0d5ee464c1b1a6a7194b35ce4d706d4a262e49d1cea7"
+  },
+  {
+    "path": "src/fpl_agent/db/eligibility.py",
+    "bytes": 9132,
+    "sha256": "18e5834d2b7f2c073c17c6d91dbd525763ec215a7d9d5ee8a564d878faec1ec1"
+  },
+  {
+    "path": "src/fpl_agent/db/link_audit.py",
+    "bytes": 5317,
+    "sha256": "0369d7273cdc28e27726f9e002211e4003ae84942e668c4d5e1d90ca1c4bd317"
+  },
+  {
+    "path": "src/fpl_agent/db/link_candidates.py",
+    "bytes": 16392,
+    "sha256": "dbb8e60c6147bff66f1277f545560301ca0fdb53842ba67d3a2361f3bc2b96f7"
+  },
+  {
+    "path": "src/fpl_agent/db/player_links.py",
+    "bytes": 8111,
+    "sha256": "120bf98b7b4f6a9b0e980c31e7f80599ba4bfebcd08d17ffe5269c455445aa60"
+  },
+  {
+    "path": "src/fpl_agent/db/quality.py",
+    "bytes": 41118,
+    "sha256": "9e85bb0ad216ad1a68ce64dff8096686655b9b2893751f4b01a09d67c9f4f379"
+  },
+  {
+    "path": "src/fpl_agent/db/schema.py",
+    "bytes": 9689,
+    "sha256": "bceea463063eff9bd88d857919872eebd10f8aacd36102d0b74671ad8e63b484"
+  },
+  {
+    "path": "src/fpl_agent/db/source_health.py",
+    "bytes": 7966,
+    "sha256": "a593d93f42ec455e8a0ab214498c37a8ac95cb92267c106643cdb3e81ecd2a2b"
+  },
+  {
+    "path": "src/fpl_agent/execution/safety.py",
+    "bytes": 8139,
+    "sha256": "c1c4b2196933360859199180ffecc6fd27b654bfd707b73dcfc96cec8cb28a41"
+  },
+  {
+    "path": "src/fpl_agent/health.py",
+    "bytes": 2604,
+    "sha256": "bd8808c79e0b6c1bcbd1abea4060461427cda15427c33ba585fedfa64e667d69"
+  },
+  {
+    "path": "src/fpl_agent/model/backtest.py",
+    "bytes": 6329,
+    "sha256": "1494b55d9eb401d8a44011963308a66ff3b3b3f8beb5bd6294e7f730f84a502d"
+  },
+  {
+    "path": "src/fpl_agent/model/features.py",
+    "bytes": 10963,
+    "sha256": "22c5abf5864e9369cbbdecda2d1b4773233bb7340a4789cfa87e69ebff20f14d"
+  },
+  {
+    "path": "src/fpl_agent/model/players.py",
+    "bytes": 12420,
+    "sha256": "9b8a2a1534869f772f8e27e5127f7faf94f6b0f40a82130a24ebb68add4b45bb"
+  },
+  {
+    "path": "src/fpl_agent/model/project.py",
+    "bytes": 18284,
+    "sha256": "4c85076e00ae7580e559ea73a96681c083a37d84493059a34b3e44abde8812c8"
+  },
+  {
+    "path": "src/fpl_agent/model/replay.py",
+    "bytes": 13758,
+    "sha256": "3bb5322f5f414c3d1341deedc6293797f529066c729c64e92112693b0d0d89ad"
+  },
+  {
+    "path": "src/fpl_agent/pipeline.py",
+    "bytes": 20858,
+    "sha256": "967ed47482c903dad9275c98de6136a6b8885de39973d3090e0285be73d6bb2e"
+  },
+  {
+    "path": "tests/test_agent.py",
+    "bytes": 14402,
+    "sha256": "176a12665a85e5e462ecb14d44bca22cae65522cf2bbd8e554b0a2f7ec4e4350"
+  },
+  {
+    "path": "tests/test_backfill.py",
+    "bytes": 9854,
+    "sha256": "e7450eac57190ee530b63853538742354eb600fdb13b4abd124cbee8c6f19621"
+  },
+  {
+    "path": "tests/test_export_release.py",
+    "bytes": 18700,
+    "sha256": "134f57aa1ff1d35f7e6caa2a609ca59123b095347ef7d131c6244e8c88c5f8af"
+  },
+  {
+    "path": "tests/test_link_audit.py",
+    "bytes": 3847,
+    "sha256": "7643ba6d179be27ae3c691a9a24b6fdb9343ecf8fd0cd94ae1799f026c4539ed"
+  },
+  {
+    "path": "tests/test_link_candidates.py",
+    "bytes": 13658,
+    "sha256": "e862589e095fd3d9869076373527afaae420f304e704c5a125ffa0b8f58767ba"
+  },
+  {
+    "path": "tests/test_minutes.py",
+    "bytes": 15115,
+    "sha256": "d01fcc222cc339b037fa4c74affbcae9c84f929438970057cfcfe32887982805"
+  },
+  {
+    "path": "tests/test_persistence.py",
+    "bytes": 32747,
+    "sha256": "fb4d080cc91fb233d17171e91fd6d1f6295b432c3f4f5f57389c6b2f1b2e12fd"
+  },
+  {
+    "path": "tests/test_pipeline.py",
+    "bytes": 21232,
+    "sha256": "d8ec74242062aac6b070a478a2b3455220b08e4037f84dd72cd4bc601a6beb62"
+  },
+  {
+    "path": "tests/test_player_links.py",
+    "bytes": 16009,
+    "sha256": "6e5e6fb43dbaa90aea27b5bd56833bbe5acdb0711cb2baa43f2cdce1cb8be992"
+  },
+  {
+    "path": "tests/test_players_fpl_fallback.py",
+    "bytes": 4304,
+    "sha256": "d427fc0208363c1dda9bb62d98aac31506d4fd565baa0e81b643c3be4c68c983"
+  },
+  {
+    "path": "tests/test_point_in_time.py",
+    "bytes": 13300,
+    "sha256": "b25971f5ff68fbac2ac9a37db33cf09532590c385402e430ac2eec8f363df005"
+  },
+  {
+    "path": "tests/test_provenance.py",
+    "bytes": 8800,
+    "sha256": "a299f6997c9c67c5b57d1f99e257f0d8439a83cbd1dfaf48243d785450a66219"
+  },
+  {
+    "path": "tests/test_quality.py",
+    "bytes": 26648,
+    "sha256": "abe8761721e0319abdefca24ebf6dd5c241022a57d3aa826e798eb23d6cde378"
+  },
+  {
+    "path": "tests/test_repair_optin.py",
+    "bytes": 7562,
+    "sha256": "4a22c56d8dd7fefaf78fb9330c48f754ec5ae2d195637a32b0e12e4755558131"
+  },
+  {
+    "path": "tests/test_source_health.py",
+    "bytes": 19299,
+    "sha256": "26130c3c0d1dd2821593fee818aacb97c66ceb2c83ed206c368e25fb8f1bde6e"
+  },
+  {
+    "path": "tests/test_validated_eval.py",
+    "bytes": 11712,
+    "sha256": "cce80e78ec47eb35c1f514545a9dbec8e23b8fe331432c5cec5b5dbca4d9a342"
+  }
+]

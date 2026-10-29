@@ -1,0 +1,18 @@
+M1 MIN_SHARED 2->1: KILLED | [] | 4 failed, 21 passed in 14.83s
+M2 drop n_p agreement: SURVIVED | [] | 25 passed in 13.66s
+M3 fpl kickoff cutoff removed: SURVIVED | [] | 25 passed in 12.92s
+M4 snapshot cutoff removed in propose: KILLED | [] | 1 failed, 24 passed in 13.02s
+M5 history no reset: SURVIVED | [] | 25 passed in 13.58s
+M6 rival check off: KILLED | [] | 2 failed, 23 passed in 13.48s
+M7 reverse uniqueness off: KILLED | [] | 1 failed, 24 passed in 14.59s
+M8 absent check off: SURVIVED | [] | 25 passed in 13.05s
+M9 has_other conflict off: KILLED | [] | 2 failed, 23 passed in 12.92s
+M10 resolve <= -> always: KILLED | [] | 2 failed, 23 passed in 12.11s
+M11 resolve no clash drop: KILLED | [] | 1 failed, 24 passed in 12.34s
+M12 match_frame ignores rollback: KILLED | [] | 1 failed, 24 passed in 12.61s
+M13 apply post-insert dup check off: SURVIVED | [] | 25 passed in 12.39s
+M14 apply held conflict off: SURVIVED | [] | 25 passed in 12.65s
+M15 audit ignores valid_from: SURVIVED | [] | 25 passed in 12.64s
+M16 project skips resolve: KILLED | [] | 1 failed, 24 passed in 13.30s
+M17 undo no-op: KILLED | [] | 2 failed, 23 passed in 13.11s
+M18 stat contradiction off: KILLED | [] | 1 failed, 24 passed in 12.93s

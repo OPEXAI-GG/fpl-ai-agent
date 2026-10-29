@@ -1,0 +1,949 @@
+diff --git a/src/fpl_agent/data/oddsapi.py b/src/fpl_agent/data/oddsapi.py
+index 282d899..11fd1c5 100644
+--- a/src/fpl_agent/data/oddsapi.py
++++ b/src/fpl_agent/data/oddsapi.py
+@@ -100,5 +100,6 @@ def load_events(db: FootballDB, events: list[dict[str, Any]], comp: str = "ENG1"
+                      "closing": False, **cons, "ah_line": None, "ah_home": None,
+                      "ah_away": None, "ingested_at": stamp})  # fmt: skip
+     n = db.upsert("match_odds", pd.DataFrame(rows))
++    db.log_odds(pd.DataFrame(rows))
+     db.log(SOURCE, "match_odds", n, comp)
+     return n
+diff --git a/src/fpl_agent/db/database.py b/src/fpl_agent/db/database.py
+index d8124bf..c63082c 100644
+--- a/src/fpl_agent/db/database.py
++++ b/src/fpl_agent/db/database.py
+@@ -252,6 +252,29 @@ class FootballDB:
+             self.con.unregister("_df")
+         return len(df)
+ 
++    def log_odds(self, df: pd.DataFrame) -> int:
++        """Append odds observations to match_odds_log, skipping any whose prices equal the
++        newest already logged for that match/source/bookmaker/closing (re-reading the same
++        file adds nothing; a price change is a new observation)."""
++        if df.empty:
++            return 0
++        price = ("home", "draw", "away", "over25", "under25")
++        self.con.register("_odds", df)
++        try:
++            n = self.con.execute(f"""
++                INSERT INTO match_odds_log ({", ".join(df.columns)})
++                SELECT {", ".join("o." + c for c in df.columns)} FROM _odds o
++                LEFT JOIN (SELECT * FROM match_odds_log QUALIFY row_number() OVER (
++                    PARTITION BY match_id, source, bookmaker, closing
++                    ORDER BY ingested_at DESC) = 1) l
++                  USING (match_id, source, bookmaker, closing)
++                WHERE l.match_id IS NULL OR {" OR ".join(
++                    f"o.{c} IS DISTINCT FROM l.{c}" for c in price)}
++            """).fetchone()  # fmt: skip
++        finally:
++            self.con.unregister("_odds")
++        return int(n[0]) if n else 0
++
+     def append(self, table: str, df: pd.DataFrame) -> int:
+         if df.empty:
+             return 0
+diff --git a/src/fpl_agent/db/gameweeks.py b/src/fpl_agent/db/gameweeks.py
+index c494473..86c1b45 100644
+--- a/src/fpl_agent/db/gameweeks.py
++++ b/src/fpl_agent/db/gameweeks.py
+@@ -8,6 +8,9 @@ gameweek empty rather than a guess.
+ 
+ from __future__ import annotations
+ 
++from datetime import datetime
++from typing import Any
++
+ from fpl_agent.db.database import FootballDB
+ 
+ 
+@@ -26,3 +29,36 @@ def assign_gameweeks(db: FootballDB, comp: str = "ENG1") -> int:
+     return db.con.execute(
+         "SELECT count(*) FROM matches WHERE competition_id = ? AND matchday IS NOT NULL", [comp]
+     ).fetchone()[0]
++
++
++def _utc(value: str) -> datetime:
++    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
++
++
++def log_deadlines(db: FootballDB, events: list[dict[str, Any]], season: int,
++                  observed_at: datetime) -> int:  # fmt: skip
++    """Store each gameweek's official deadline as observed now, only when it differs from the
++    newest stored observation (a moved deadline is a new version). Returns rows added."""
++    added = 0
++    for ev in events:
++        if not ev.get("deadline_time"):
++            continue
++        at = _utc(ev["deadline_time"])
++        if official_deadline(db, season, int(ev["id"])) == at:
++            continue
++        db.con.execute("INSERT OR REPLACE INTO fpl_deadlines VALUES (?, ?, ?, ?)",
++                       [season, int(ev["id"]), at, observed_at])  # fmt: skip
++        added += 1
++    return added
++
++
++def official_deadline(db: FootballDB, season: int, gw: int,
++                      as_of: datetime | None = None) -> datetime | None:  # fmt: skip
++    """The official deadline as last observed at or before `as_of` (newest when None); None
++    when it was never observed by then (callers fall back to an approximation and say so)."""
++    row = db.con.execute(
++        "SELECT deadline_time FROM fpl_deadlines WHERE season = ? AND gw = ? "
++        "AND (CAST(? AS TIMESTAMP) IS NULL OR observed_at <= ?) ORDER BY observed_at DESC LIMIT 1",
++        [season, gw, as_of, as_of],
++    ).fetchone()
++    return row[0] if row else None
+diff --git a/src/fpl_agent/db/ingest_football_data.py b/src/fpl_agent/db/ingest_football_data.py
+index 9085387..d50d3fb 100644
+--- a/src/fpl_agent/db/ingest_football_data.py
++++ b/src/fpl_agent/db/ingest_football_data.py
+@@ -114,5 +114,6 @@ def load_csv(db: FootballDB, text: str, div: str, season: int) -> int:
+         n += 1
+     db.upsert("team_match", pd.DataFrame(team_rows))
+     db.upsert("match_odds", pd.DataFrame(odds_rows))
++    db.log_odds(pd.DataFrame(odds_rows))
+     db.log("football-data", "matches", n, f"{div} {season}")
+     return n
+diff --git a/src/fpl_agent/db/ingest_fpl.py b/src/fpl_agent/db/ingest_fpl.py
+index 95ecc52..b6262bb 100644
+--- a/src/fpl_agent/db/ingest_fpl.py
++++ b/src/fpl_agent/db/ingest_fpl.py
+@@ -10,6 +10,7 @@ import pandas as pd
+ 
+ from fpl_agent.data.players import POSITIONS
+ from fpl_agent.db.database import FootballDB, now
++from fpl_agent.db.gameweeks import log_deadlines
+ 
+ COMPETITION = "ENG1"
+ 
+@@ -65,6 +66,7 @@ def load_bootstrap(
+             }
+         )
+     n = db.upsert("fpl_players_gw", pd.DataFrame(rows))
++    log_deadlines(db, raw.get("events") or [], season, snapshot_at)
+     db.log("fpl", "fpl_players_gw", n, f"gw{gw}")
+     return n
+ 
+diff --git a/src/fpl_agent/db/quality.py b/src/fpl_agent/db/quality.py
+index 455c557..556e14d 100644
+--- a/src/fpl_agent/db/quality.py
++++ b/src/fpl_agent/db/quality.py
+@@ -7,8 +7,10 @@ from __future__ import annotations
+ import json
+ from dataclasses import dataclass
+ 
++import duckdb
++
+ from fpl_agent.data.leagues import REPEATING
+-from fpl_agent.db.database import DISTINCT_CLUBS, FootballDB, team_key
++from fpl_agent.db.database import DISTINCT_CLUBS, FootballDB, now, team_key
+ from fpl_agent.rules import Rules, score
+ 
+ VALID_STATUS = {"a", "d", "i", "n", "s", "u"}
+@@ -182,11 +184,136 @@ def format_issues(issues: list[Issue]) -> str:
+     return "\n".join(f"[{i.severity}] {i.check}: {i.detail}" for i in issues) or "no issues"
+ 
+ 
+-MATCH_TABLES = ("team_match", "appearances", "player_match_stats", "shots", "match_odds",
+-                "match_ids", "matches")  # fmt: skip
++# Every column that holds a canonical id, per kind of id. `test_quality` reconciles this with
++# the declared schema, so a table added later cannot be missed by a merge or a delete.
++REFERENCES: dict[str, tuple[tuple[str, str], ...]] = {
++    "match": (("team_match", "match_id"), ("appearances", "match_id"),
++              ("player_match_stats", "match_id"), ("shots", "match_id"),
++              ("match_odds", "match_id"), ("match_odds_log", "match_id"),
++              ("match_ids", "match_id"), ("matches", "match_id")),
++    "team": (("team_ids", "team_id"), ("team_match", "team_id"), ("appearances", "team_id"),
++             ("matches", "home_team_id"), ("matches", "away_team_id"),
++             ("fpl_players_gw", "team_id"), ("transfers", "from_team_id"),
++             ("transfers", "to_team_id"), ("teams", "team_id")),
++    "player": (("player_ids", "player_id"), ("player_codes", "player_id"),
++               ("appearances", "player_id"), ("player_match_stats", "player_id"),
++               ("shots", "player_id"), ("transfers", "player_id"),
++               ("fpl_players_gw", "player_id"), ("fpl_points_gw", "player_id"),
++               ("projections", "player_id"), ("scout_cache", "player_id"),
++               ("player_links", "from_player_id"), ("player_links", "to_player_id"),
++               ("players", "player_id")),
++}  # fmt: skip
++# id-like columns that are deliberately not canonical references, and why
++NOT_REFERENCES = {
++    ("migration_log", "canonical_id"): "journal of the R1 relabel; restored by its own rollback",
++    ("shots", "source_match_id"): "the source's own match id (text), not a canonical id",
++}
++
++# a match's rows, children first (the parent is deleted last)
++MATCH_TABLES = tuple(t for t, _ in REFERENCES["match"])
+ REPAIR_KEY = "repeat-pairings-v1"
+ 
+ 
++# ---- reversible changes (R2) -------------------------------------------------------------
++class RepairConflict(Exception):
++    """A rollback that would not restore exactly what a repair changed; nothing was written."""
++
++
++class Journal:
++    """Before and after images of every row one repair step removes or rewrites, kept in
++    `repair_log` inside the step's own transaction, so the change and its record commit or fail
++    together. `rollback_repair(db, journal.repair_id)` undoes the step exactly."""
++
++    def __init__(self, db: FootballDB, step: str) -> None:
++        self.db, self.step = db, step
++        self.repair_id = f"{step}:{now():%Y%m%dT%H%M%S%f}"
++        self.seq = 0
++
++    def _keep(self, table: str, action: str, select: str, params: list, reason: str) -> int:
++        n = self.db.con.execute(
++            "INSERT INTO repair_log SELECT ?, ? + row_number() OVER (), ?, ?, ?, "
++            f"{_image(self.db, table)}, ?, ?, NULL FROM ({select}) t",
++            [self.repair_id, self.seq, self.step, table, action, reason, now(), *params],
++        ).fetchone()[0]
++        self.seq += n
++        return n
++
++    def delete(self, table: str, where: str, params: list, reason: str) -> int:
++        n = self._keep(table, "removed", f"SELECT * FROM {table} WHERE {where}", params, reason)
++        if n:
++            self.db.con.execute(f"DELETE FROM {table} WHERE {where}", params)
++        return n
++
++    def move(self, table: str, col: str, old: int, new: int, reason: str) -> int:
++        """Re-point every `col = old` reference at `new`."""
++        n = self._keep(table, "removed", f"SELECT * FROM {table} WHERE {col} = ?", [old], reason)
++        if n:
++            self._keep(table, "added", f"SELECT * REPLACE (?::INTEGER AS {col}) FROM {table} "
++                       f"WHERE {col} = ?", [new, old], reason)  # fmt: skip
++            self.db.con.execute(f"UPDATE {table} SET {col} = ? WHERE {col} = ?", [new, old])
++        return n
++
++    def rewrite(self, table: str, where: str, params: list, run, reason: str) -> int:
++        """Rows selected by `where` (a key the change leaves alone) before and after `run()`."""
++        n = self._keep(table, "removed", f"SELECT * FROM {table} WHERE {where}", params, reason)
++        run()
++        self._keep(table, "added", f"SELECT * FROM {table} WHERE {where}", params, reason)
++        return n
++
++
++def _columns(db: FootballDB, table: str) -> list[tuple[str, str]]:
++    return [(c[0], c[1]) for c in db.con.execute(f"DESCRIBE {table}").fetchall()]
++
++
++def _image(db: FootballDB, table: str, alias: str = "t") -> str:
++    """A row of `table` as JSON text. A JSON column is kept as its stored text, not re-encoded
++    (re-encoding changes spacing and escapes, and the restored row would not be the same)."""
++    fields = ", ".join(
++        f"'{c}': {alias}.\"{c}\"" + ("::VARCHAR" if t == "JSON" else "")
++        for c, t in _columns(db, table)
++    )
++    return f"to_json({{{fields}}})::VARCHAR"
++
++
++def _struct(db: FootballDB, table: str) -> str:
++    return json.dumps({c: "VARCHAR" if t == "JSON" else t for c, t in _columns(db, table)})
++
++
++def rollback_repair(db: FootballDB, repair_id: str) -> dict[str, int]:
++    """Undo one journalled repair step, newest change first, all or nothing. A row the step
++    wrote must still be exactly as written, and a row it removed must fit back without a key
++    collision; otherwise something changed it since, and RepairConflict is raised with
++    nothing written. Returns {table: rows restored}. Repeating a completed rollback is a no-op
++    that writes nothing and returns {}; an id the journal does not hold is a RepairConflict."""
++    rows = db.con.execute(
++        "SELECT seq, table_name, action, image FROM repair_log WHERE repair_id = ? "
++        "AND rolled_back_at IS NULL ORDER BY seq DESC", [repair_id]).fetchall()  # fmt: skip
++    if not rows:
++        if db.con.execute("SELECT 1 FROM repair_log WHERE repair_id = ? LIMIT 1",
++                          [repair_id]).fetchone():  # fmt: skip
++            return {}  # already rolled back (rolled_back_at is set for the whole step at once)
++        raise RepairConflict(f"{repair_id}: no journalled change to roll back")
++    restored: dict[str, int] = {}
++    with db.transaction():
++        for seq, table, action, row in rows:
++            if action == "added":
++                gone = db.con.execute(
++                    f"DELETE FROM {table} WHERE rowid = (SELECT min(rowid) FROM {table} t "
++                    f"WHERE {_image(db, table)} = ?)", [row]).fetchone()[0]  # fmt: skip
++                if not gone:
++                    raise RepairConflict(f"{repair_id}: {table} row {seq} changed since the repair")
++            else:
++                try:
++                    db.con.execute(f"INSERT INTO {table} BY NAME SELECT unnest(json_transform("
++                                   "?::JSON, ?))", [row, _struct(db, table)])  # fmt: skip
++                except duckdb.ConstraintException as e:
++                    raise RepairConflict(f"{repair_id}: {table} row {seq} collides: {e}") from e
++                restored[table] = restored.get(table, 0) + 1
++        db.con.execute("UPDATE repair_log SET rolled_back_at = ? WHERE repair_id = ?",
++                       [now(), repair_id])  # fmt: skip
++    return restored
++
++
+ def repair(db: FootballDB) -> list[Issue]:
+     """Fixes for data stored by older code, run before every load."""
+     return _repair_once(db) + merge_split_teams(db)
+@@ -208,6 +335,7 @@ def _repair_once(db: FootballDB) -> list[Issue]:
+         return []
+     comps = sorted(lg for lg in REPEATING if not lg.startswith("U"))  # leagues, not the cups
+     marks = ", ".join("?" for _ in comps)
++    j = Journal(db, REPAIR_KEY)
+     with db.transaction():
+         ids = [r[0] for r in db.con.execute(
+             f"SELECT match_id FROM matches WHERE competition_id IN ({marks})", comps
+@@ -215,88 +343,91 @@ def _repair_once(db: FootballDB) -> list[Issue]:
+         if ids:
+             id_marks = ", ".join("?" for _ in ids)
+             for table in MATCH_TABLES:
+-                db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({id_marks})", ids)
++                j.delete(table, f"match_id IN ({id_marks})", ids, "split-season pairing merged")
+         for comp in comps:
+-            db.con.execute(
+-                "DELETE FROM ingest_state WHERE source = 'fotmob' AND detail LIKE ?", [f"{comp} %"]
+-            )
++            j.delete("ingest_state", "source = 'fotmob' AND detail LIKE ?", [f"{comp} %"],
++                     "page of a removed split-season match: read again")  # fmt: skip
+         stale = 0
+         for source, sid, name, key in db.con.execute(
+             "SELECT i.source, i.source_id, i.source_name, t.key FROM team_ids i "
+             "JOIN teams t USING (team_id)"
+         ).fetchall():
+             if frozenset({team_key(name), key}) in DISTINCT_CLUBS:
+-                db.con.execute(
+-                    "DELETE FROM team_ids WHERE source = ? AND source_id = ?", [source, sid]
+-                )
++                j.delete("team_ids", "source = ? AND source_id = ?", [source, sid],
++                         f"{name} was linked to the club {key!r}")  # fmt: skip
+                 stale += 1
+-        db.con.execute(
+-            "INSERT OR REPLACE INTO ingest_state VALUES ('repair', ?, 'done', ?, now())",
+-            [REPAIR_KEY, f"{len(ids)} matches, {stale} team links"],
+-        )
++        j.rewrite("ingest_state", "source = 'repair' AND key = ?", [REPAIR_KEY], lambda: (
++            db.con.execute(
++                "INSERT OR REPLACE INTO ingest_state VALUES ('repair', ?, 'done', ?, now())",
++                [REPAIR_KEY, f"{len(ids)} matches, {stale} team links"])), "done marker")  # fmt: skip
+     if not ids and not stale:
+         return []
+     return [Issue("warn", "repaired", f"removed {len(ids)} {'/'.join(comps)} matches merged by "
+-                  f"pairing and {stale} wrong club links; they reload over the next runs")]  # fmt: skip
++                  f"pairing and {stale} wrong club links; they reload over the next runs "
++                  f"(undo: {j.repair_id})")]  # fmt: skip
+ 
+ 
+-# every column that holds a canonical team id
+-TEAM_COLUMNS = (("team_ids", "team_id"), ("team_match", "team_id"), ("appearances", "team_id"),
+-                ("matches", "home_team_id"), ("matches", "away_team_id"),
+-                ("fpl_players_gw", "team_id"), ("transfers", "from_team_id"),
+-                ("transfers", "to_team_id"))  # fmt: skip
+-# child tables of a match, with the primary-key columns a moved row could collide on
++# every column that holds a canonical team id (except the teams row itself)
++TEAM_COLUMNS = tuple(r for r in REFERENCES["team"] if r[0] != "teams")
++# child tables of a match, with the primary-key columns a moved row could collide on (a table
++# without a key, such as match_odds_log, is moved as it is)
+ MATCH_CHILDREN = {"team_match": ("team_id", "source"), "appearances": ("player_id", "source"),
+                   "player_match_stats": ("player_id", "source", "stat"),
+-                  "match_odds": ("source", "bookmaker", "closing")}  # fmt: skip
++                  "match_odds": ("source", "bookmaker", "closing"),
++                  "match_ids": ("source", "source_id")}  # fmt: skip
+ 
+ 
+ def merge_split_teams(db: FootballDB) -> list[Issue]:
+     """Merge clubs stored twice because their names were matched before an alias existed
+     ("Peterboro" from football-data and "Peterborough United" from FotMob), and then the matches
+     that split stored twice (one per source). Runs on every load, so a new alias takes effect on
+-    data already stored without a one-off repair."""
++    data already stored without a one-off repair. Every change is journalled (`Journal`)."""
+     groups: dict[str, list[tuple[int, str]]] = {}
+     for tid, name in db.con.execute("SELECT team_id, name FROM teams ORDER BY team_id").fetchall():
+         groups.setdefault(team_key(name), []).append((tid, name))
+     split = {k: g for k, g in groups.items() if len(g) > 1}
+     stale = [(k, g[0][0]) for k, g in groups.items() if len(g) == 1]
+     out: list[Issue] = []
++    j = Journal(db, "merge-split-teams")
+     with db.transaction():
+         for key, members in split.items():
+             (keep, name), *dups = members
+             for dup, dup_name in dups:
+-                _move_team(db, dup, keep)
++                _move_team(j, dup, keep)
+                 out.append(Issue("warn", "merged_teams",
+                                  f"{dup_name} merged into {name} (same club, key {key!r})"))  # fmt: skip
+-            db.con.execute("UPDATE teams SET key = ? WHERE team_id = ?", [key, keep])
++            _set_key(j, keep, key)
+         for key, tid in stale:  # keys stored under older aliases, so new names find the club
+-            db.con.execute(
+-                "UPDATE teams SET key = ? WHERE team_id = ? AND key IS DISTINCT FROM ?",
+-                [key, tid, key],
+-            )
++            _set_key(j, tid, key)
+         if split:
+-            n = _merge_duplicate_matches(db)
++            n = _merge_duplicate_matches(j)
+             if n:
+                 out.append(Issue("warn", "merged_matches",
+                                  f"{n} matches stored once per source were merged"))  # fmt: skip
+     return out
+ 
+ 
+-def _move_team(db: FootballDB, dup: int, keep: int) -> None:
+-    db.con.execute(
+-        "DELETE FROM team_match t WHERE team_id = ? AND EXISTS (SELECT 1 FROM team_match k "
+-        "WHERE k.match_id = t.match_id AND k.team_id = ? AND k.source = t.source)",
+-        [dup, keep],
+-    )
++def _set_key(j: Journal, tid: int, key: str) -> None:
++    db = j.db
++    if db.con.execute("SELECT 1 FROM teams WHERE team_id = ? AND key IS DISTINCT FROM ?",
++                      [tid, key]).fetchone():  # fmt: skip
++        j.rewrite("teams", "team_id = ?", [tid], lambda: db.con.execute(
++            "UPDATE teams SET key = ? WHERE team_id = ?", [key, tid]), "club key alias")  # fmt: skip
++
++
++def _move_team(j: Journal, dup: int, keep: int) -> None:
++    j.delete("team_match", "team_id = ? AND EXISTS (SELECT 1 FROM team_match k WHERE "
++             "k.match_id = team_match.match_id AND k.team_id = ? AND k.source = team_match.source)",
++             [dup, keep], f"team {dup} row already held by team {keep}")  # fmt: skip
+     for table, col in TEAM_COLUMNS:
+-        db.con.execute(f"UPDATE {table} SET {col} = ? WHERE {col} = ?", [keep, dup])
+-    db.con.execute("DELETE FROM teams WHERE team_id = ?", [dup])
++        j.move(table, col, dup, keep, f"team {dup} merged into {keep}")
++    j.delete("teams", "team_id = ?", [dup], f"merged into {keep}")
+ 
+ 
+-def _merge_duplicate_matches(db: FootballDB) -> int:
++def _merge_duplicate_matches(j: Journal) -> int:
+     """Matches of one fixture stored twice: keep the first, fill its gaps from the other and
+     move the other's rows onto it (a row both already have is kept from the first)."""
++    db = j.db
+     rows = db.con.execute(
+         "SELECT min(match_id), list(match_id ORDER BY match_id) FROM matches WHERE "
+         f"competition_id NOT IN ({', '.join(repr(c) for c in sorted(REPEATING))}) "
+@@ -309,26 +440,26 @@ def _merge_duplicate_matches(db: FootballDB) -> int:
+     n = 0
+     for keep, ids in rows:
+         for dup in ids[1:]:
+-            db.con.execute(
++            j.rewrite("matches", "match_id = ?", [keep], lambda dup=dup, keep=keep: db.con.execute(
+                 "UPDATE matches SET matchday = coalesce(matches.matchday, d.matchday), "
+                 "kickoff = coalesce(matches.kickoff, d.kickoff), "
+                 "home_goals = coalesce(matches.home_goals, d.home_goals), "
+                 "away_goals = coalesce(matches.away_goals, d.away_goals), "
+                 "finished = coalesce(matches.finished, false) OR coalesce(d.finished, false) "
+                 "FROM (SELECT * FROM matches WHERE match_id = ?) d WHERE matches.match_id = ?",
+-                [dup, keep],
+-            )
+-            for table, cols in MATCH_CHILDREN.items():
+-                same = " AND ".join(f"k.{c} = t.{c}" for c in cols)
+-                db.con.execute(
+-                    f"DELETE FROM {table} t WHERE match_id = ? AND EXISTS (SELECT 1 FROM {table} "
+-                    f"k WHERE k.match_id = ? AND {same})",
+-                    [dup, keep],
+-                )
+-                db.con.execute(f"UPDATE {table} SET match_id = ? WHERE match_id = ?", [keep, dup])
+-            for table in ("shots", "match_ids"):
+-                db.con.execute(f"UPDATE {table} SET match_id = ? WHERE match_id = ?", [keep, dup])
+-            db.con.execute("DELETE FROM matches WHERE match_id = ?", [dup])
++                [dup, keep]), f"gaps filled from duplicate {dup}")  # fmt: skip
++            why = f"match {dup} merged into {keep}"
++            for table, col in REFERENCES["match"]:
++                if table == "matches":
++                    continue
++                cols = MATCH_CHILDREN.get(table)
++                if cols and table != "match_ids":
++                    same = " AND ".join(f"k.{c} = {table}.{c}" for c in cols)
++                    j.delete(table, f"match_id = ? AND EXISTS (SELECT 1 FROM {table} k WHERE "
++                             f"k.match_id = ? AND {same})", [dup, keep],
++                             f"{why}; the kept match already has this row")  # fmt: skip
++                j.move(table, col, dup, keep, why)
++            j.delete("matches", "match_id = ?", [dup], why)
+             n += 1
+     return n
+ 
+@@ -338,26 +469,21 @@ def quarantine(db: FootballDB) -> list[Issue]:
+ 
+     One bad shot or one mis-mapped match must not throw away a multi-hour load, and it must not
+     be used either, so the rows are dropped and named (with enough context to find the cause).
+-    Anything systematic is still caught by `run_checks`, which runs after this.
++    Anything systematic is still caught by `run_checks`, which runs after this. Every removed
++    row is kept in `repair_log` (see `rollback_repair`).
+     """
+     out: list[Issue] = []
++    j = Journal(db, "quarantine")
+     with db.transaction():
+-        n = _count(
+-            db,
+-            "SELECT count(*) FROM shots WHERE xg < 0 OR xg > 1 OR x < 0 OR x > 1 OR y < 0 "
+-            "OR y > 1 OR minute < 0 OR minute > 130",
+-        )
++        n = j.delete("shots", "xg < 0 OR xg > 1 OR x < 0 OR x > 1 OR y < 0 OR y > 1 "
++                     "OR minute < 0 OR minute > 130", [], "impossible shot value")  # fmt: skip
+         if n:
+-            db.con.execute(
+-                "DELETE FROM shots WHERE xg < 0 OR xg > 1 OR x < 0 OR x > 1 OR y < 0 OR y > 1 "
+-                "OR minute < 0 OR minute > 130"
+-            )
+             out.append(
+                 Issue("warn", "quarantined_shots", f"dropped {n} shots with impossible values")
+             )
+-        n = _count(db, "SELECT count(*) FROM fpl_players_gw WHERE now_cost < 30 OR now_cost > 250")
++        n = j.delete("fpl_players_gw", "now_cost < 30 OR now_cost > 250", [],
++                     "price outside the possible range")  # fmt: skip
+         if n:
+-            db.con.execute("DELETE FROM fpl_players_gw WHERE now_cost < 30 OR now_cost > 250")
+             out.append(Issue("warn", "quarantined_prices",
+                              f"dropped {n} FPL price rows outside the possible range"))  # fmt: skip
+         own = db.query(
+@@ -372,27 +498,20 @@ def quarantine(db: FootballDB) -> list[Issue]:
+         if len(own):
+             ids = [int(i) for i in own["match_id"]]
+             marks = ", ".join("?" for _ in ids)
+-            for table in (
+-                "team_match",
+-                "appearances",
+-                "player_match_stats",
+-                "shots",
+-                "match_odds",
+-                "match_ids",
+-                "matches",
+-            ):
+-                db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
+-        out += _quarantine_scores(db)
++            for table in MATCH_TABLES:
++                j.delete(table, f"match_id IN ({marks})", ids, "a club playing itself")
++        out += _quarantine_scores(j)
+     return out
+ 
+ 
+ SCORE_QUARANTINE_LIMIT = 0.05  # beyond this share something systematic is broken: fail instead
+ 
+ 
+-def _quarantine_scores(db: FootballDB) -> list[Issue]:
++def _quarantine_scores(j: Journal) -> list[Issue]:
+     """Matches whose sources disagree on the score are dropped (and their FotMob pages marked
+     unread, so a fixed loader stores them again), as long as they are a small share. One wrong
+     result must not stop a whole backfill from saving; a broken source or mapping still does."""
++    db = j.db
+     bad = db.query(
+         "SELECT DISTINCT m.match_id FROM matches m JOIN team_match t ON t.match_id = m.match_id "
+         "AND t.team_id = m.home_team_id WHERE m.finished AND t.goals_for <> m.home_goals"
+@@ -403,12 +522,10 @@ def _quarantine_scores(db: FootballDB) -> list[Issue]:
+     where = _where(db)
+     ids = [int(i) for i in bad["match_id"]]
+     marks = ", ".join("?" for _ in ids)
+-    db.con.execute(
+-        "DELETE FROM ingest_state WHERE source = 'fotmob' AND key IN (SELECT source_id FROM "
+-        f"match_ids WHERE source = 'fotmob' AND match_id IN ({marks}))",
+-        ids,
+-    )
++    j.delete("ingest_state", "source = 'fotmob' AND key IN (SELECT source_id FROM match_ids "
++             f"WHERE source = 'fotmob' AND match_id IN ({marks}))", ids,
++             "page of a match whose sources disagree: read again")  # fmt: skip
+     for table in MATCH_TABLES:
+-        db.con.execute(f"DELETE FROM {table} WHERE match_id IN ({marks})", ids)
++        j.delete(table, f"match_id IN ({marks})", ids, "sources disagree on the score")
+     return [Issue("warn", "quarantined_scores",
+                   f"dropped {len(ids)} matches where sources disagree on the score ({where})")]  # fmt: skip
+diff --git a/src/fpl_agent/db/schema.py b/src/fpl_agent/db/schema.py
+index 1d39fca..a64bd82 100644
+--- a/src/fpl_agent/db/schema.py
++++ b/src/fpl_agent/db/schema.py
+@@ -82,6 +82,80 @@ TABLES["league_translation"] = """
+     from_comp VARCHAR, to_comp VARCHAR, stat VARCHAR, factor DOUBLE, n_players INTEGER,
+     minutes DOUBLE, updated_at TIMESTAMP, PRIMARY KEY (from_comp, to_comp, stat)"""
+ 
++# every odds observation, append-only: match_odds keeps only the newest price per bookmaker,
++# so a past decision's prices can only be reconstructed from here (prospectively, from now on)
++TABLES["match_odds_log"] = """
++    match_id INTEGER, source VARCHAR, bookmaker VARCHAR, closing BOOLEAN,
++    home DOUBLE, draw DOUBLE, away DOUBLE, over25 DOUBLE, under25 DOUBLE,
++    ah_line DOUBLE, ah_home DOUBLE, ah_away DOUBLE, ingested_at TIMESTAMP"""
++
++# the scout's validated answers, reused while nothing that went into them changed
++TABLES["scout_cache"] = """
++    key VARCHAR PRIMARY KEY, player_id INTEGER, p_play DOUBLE, reason VARCHAR,
++    created_at TIMESTAMP, expires_at TIMESTAMP"""
++
++# one row per scout call: counts, usage and outcome (never the key or the raw reply)
++TABLES["scout_calls"] = """
++    called_at TIMESTAMP, model VARCHAR, prompt_version INTEGER, season INTEGER, gw INTEGER,
++    eligible INTEGER, cached INTEGER, sent INTEGER, accepted INTEGER, rejected INTEGER,
++    input_bytes INTEGER, input_tokens INTEGER, output_tokens INTEGER, stop_reason VARCHAR,
++    latency_ms INTEGER, outcome VARCHAR"""
++
++TABLES["runs"] = """
++    run_id VARCHAR PRIMARY KEY, version INTEGER, season INTEGER, gw INTEGER, entry_id INTEGER,
++    mode VARCHAR, started_at TIMESTAMP, ended_at TIMESTAMP, status VARCHAR, state VARCHAR,
++    exit_code INTEGER, snapshot_at TIMESTAMP, projection_run VARCHAR, decision_at TIMESTAMP,
++    stages JSON, reasons JSON, report_key VARCHAR, delivered BOOLEAN, delivered_at TIMESTAMP"""
++
+ TABLES["lessons"] = """
+     season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
+     rule VARCHAR, created_at TIMESTAMP"""
++
++TABLES["news_evidence"] = """
++    observation_id VARCHAR PRIMARY KEY, observed_at TIMESTAMP, url VARCHAR, payload JSON"""
++
++# Identity evidence (R1). `player_codes` records a source's stable per-person code (FPL's `code`)
++# against the canonical player, so a person is linked across seasons by evidence, not by name.
++# `migration_log` is the journal of the reversible relabel of legacy `fpl` identity rows.
++TABLES["player_codes"] = """
++    source VARCHAR, code VARCHAR, player_id INTEGER, evidence VARCHAR,
++    first_season INTEGER, recorded_at TIMESTAMP, PRIMARY KEY (source, code)"""
++
++TABLES["migration_log"] = """
++    migration_id VARCHAR, table_name VARCHAR, source_id VARCHAR, canonical_id INTEGER,
++    source_name VARCHAR, old_source VARCHAR, new_source VARCHAR, applied_at TIMESTAMP,
++    rolled_back_at TIMESTAMP, PRIMARY KEY (migration_id, table_name, source_id)"""
++
++# Before/after images of every row an automatic repair or quarantine removed or rewrote (R2), in
++# the same transaction as the change; `quality.rollback_repair` restores one step exactly.
++TABLES["repair_log"] = """
++    repair_id VARCHAR, seq INTEGER, step VARCHAR, table_name VARCHAR, action VARCHAR,
++    image VARCHAR, reason VARCHAR, logged_at TIMESTAMP, rolled_back_at TIMESTAMP,
++    PRIMARY KEY (repair_id, seq)"""
++
++# The outcome of every source a data update or backfill attempted, failures included (U05).
++# Owned by `pipeline.record_attempts`, which writes it in its own transaction after the data work
++# committed or rolled back: recording a failed attempt never changes the data or a source's
++# success markers (`ingest_state`), and the data's rollback never loses the record. Operational
++# only: a source name, times, rows and a short sanitised error, never a payload, a URL's query
++# string, a credential or a team id.
++TABLES["source_attempts"] = """
++    attempt_id VARCHAR, seq INTEGER, job VARCHAR, source VARCHAR, ok BOOLEAN, critical BOOLEAN,
++    rows BIGINT, error VARCHAR, started_at TIMESTAMP, finished_at TIMESTAMP, exit_code INTEGER,
++    PRIMARY KEY (attempt_id, seq)"""
++
++# Every observed official FPL deadline, versioned: a row is added only when the deadline FPL
++# reports for a gameweek differs from the newest one stored, so `observed_at` says what was
++# known when (prospective from 2026-10-23; earlier deadlines were never stored).
++TABLES["fpl_deadlines"] = """
++    season INTEGER, gw INTEGER, deadline_time TIMESTAMP, observed_at TIMESTAMP,
++    PRIMARY KEY (season, gw, observed_at)"""
++
++# Identity links found from appearance evidence (`db.link_candidates`) and applied only on request
++# (`db-links --apply`), so source rows keep their own ids: a reader maps `from_player_id` (a
++# FotMob-only record) to `to_player_id` (an FPL player) only when `valid_from` is at or before
++# its cutoff, and never for a rolled-back batch. `evidence` is the proposal, kept for audit.
++TABLES["player_links"] = """
++    link_id VARCHAR PRIMARY KEY, batch_id VARCHAR, source VARCHAR, season INTEGER,
++    from_player_id INTEGER, to_player_id INTEGER, valid_from TIMESTAMP, evidence VARCHAR,
++    recorded_at TIMESTAMP, rolled_back_at TIMESTAMP"""
+diff --git a/src/fpl_agent/health.py b/src/fpl_agent/health.py
+index 31e4265..ff3843f 100644
+--- a/src/fpl_agent/health.py
++++ b/src/fpl_agent/health.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ 
+ from collections.abc import Callable
+ from dataclasses import dataclass, field
++from datetime import UTC, datetime
+ from typing import Any
+ 
+ from fpl_agent.errors import SourceError
+@@ -17,6 +18,8 @@ class SourceResult:
+     critical: bool = False
+     rows: int | None = None
+     error: str | None = None
++    started_at: datetime | None = None  # naive UTC, like the database's timestamps
++    finished_at: datetime | None = None
+ 
+ 
+ @dataclass
+@@ -46,15 +49,23 @@ def guard(
+ ) -> Any | None:
+     """Run fn. Source problems and any unexpected exception become a failed result; the caller
+     gets None and carries on with the remaining sources."""
++    start = _now()
+     try:
+         out = fn()
+     except SourceError as exc:
+-        report.results.append(SourceResult(name, False, critical, error=str(exc)[:300]))
++        report.results.append(SourceResult(name, False, critical, error=str(exc)[:300],
++                                           started_at=start, finished_at=_now()))  # fmt: skip
+         return None
+     except Exception as exc:  # noqa: BLE001 - a bug in one source must not stop the others
+         msg = f"unexpected {type(exc).__name__}: {exc}"
+-        report.results.append(SourceResult(name, False, critical, error=msg[:300]))
++        report.results.append(SourceResult(name, False, critical, error=msg[:300],
++                                           started_at=start, finished_at=_now()))  # fmt: skip
+         return None
+     rows = out if isinstance(out, int) else None
+-    report.results.append(SourceResult(name, True, critical, rows=rows))
++    report.results.append(SourceResult(name, True, critical, rows=rows, started_at=start,
++                                       finished_at=_now()))  # fmt: skip
+     return out
++
++
++def _now() -> datetime:
++    return datetime.now(UTC).replace(tzinfo=None)
+diff --git a/src/fpl_agent/pipeline.py b/src/fpl_agent/pipeline.py
+index fa39e4d..bcd1d68 100644
+--- a/src/fpl_agent/pipeline.py
++++ b/src/fpl_agent/pipeline.py
+@@ -1,14 +1,19 @@
+ """The weekly/daily database update, with every source guarded, validated against its contract
+ and written in a transaction. A broken source is skipped and reported; the database is only
+-exported when the quality checks pass."""
++exported when the quality checks pass. Every run records each source's outcome in
++`source_attempts`, failed and blocked runs included."""
+ 
+ from __future__ import annotations
+ 
++import re
+ import time
++import uuid
+ from dataclasses import dataclass
+ from pathlib import Path
+ 
++import duckdb
+ import httpx
++import pandas as pd
+ 
+ from fpl_agent import contracts, notify
+ from fpl_agent.data import leagues
+@@ -370,8 +375,35 @@ def run_backfill(
+     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
+ 
+ 
++_QUERY = re.compile(r"\?\S*")  # a URL's query string may carry a key: never stored
++
++
++def record_attempts(db: FootballDB, report: HealthReport, job: str, code: int) -> str | None:
++    """Store every attempted source's outcome in `source_attempts`, in a transaction of its own
++    (see the table's note in schema.py). Returns the attempt id, or None when there was nothing
++    to record. A failure to record is added to the report; it never changes the exit code."""
++    if not report.results:
++        return None
++    attempt = uuid.uuid4().hex
++    rows = pd.DataFrame([{
++        "attempt_id": attempt, "seq": i, "job": job, "source": r.name, "ok": r.ok,
++        "critical": r.critical, "rows": r.rows,
++        "error": _QUERY.sub("?…", r.error)[:300] if r.error else None,
++        "started_at": r.started_at, "finished_at": r.finished_at, "exit_code": code,
++    } for i, r in enumerate(report.results)])  # fmt: skip
++    try:
++        with db.transaction():
++            db.append("source_attempts", rows)
++    except duckdb.Error as exc:
++        report.results.append(SourceResult("record:attempts", False,
++                                           error=f"{type(exc).__name__}"))  # fmt: skip
++        return None
++    return attempt
++
++
+ def _finish(db, report, issues, code, opts, alert, what: str = "data update") -> UpdateResult:
+     result = UpdateResult(code, report, issues)
++    record_attempts(db, report, what, code)
+     if code == OK and opts.export:
+         db.export_parquet(opts.export)
+     if alert and (report.failed or code != OK):
+diff --git a/tests/test_backfill.py b/tests/test_backfill.py
+index af03451..602c38e 100644
+--- a/tests/test_backfill.py
++++ b/tests/test_backfill.py
+@@ -89,9 +89,10 @@ def test_backfill_fills_every_source_for_every_season():
+ 
+ def test_backfill_is_resumable_and_idempotent():
+     db, first = backfill()
+-    counts = {k: v for k, v in db.counts().items() if k != "ingest_log"}
++    logs = ("ingest_log", "source_attempts")  # every run is recorded; the data is unchanged
++    counts = {k: v for k, v in db.counts().items() if k not in logs}
+     _, second = backfill(db=db)
+-    assert {k: v for k, v in db.counts().items() if k != "ingest_log"} == counts
++    assert {k: v for k, v in db.counts().items() if k not in logs} == counts
+     # finished past seasons are remembered and not fetched again
+     assert "vaastav:2024" not in names(second)
+     assert "vaastav:2024" in names(first)
+diff --git a/tests/test_pipeline.py b/tests/test_pipeline.py
+index 55b9d4a..c3223a2 100644
+--- a/tests/test_pipeline.py
++++ b/tests/test_pipeline.py
+@@ -43,7 +43,8 @@ def test_happy_path(alerts, tmp_path):
+ 
+ def test_rerun_is_idempotent(alerts):
+     db, _ = run()
+-    skip = {"ingest_log", "fpl_players_gw"}  # snapshots accumulate by design (point-in-time)
++    # snapshots accumulate by design (point-in-time); logs record every run
++    skip = {"ingest_log", "fpl_players_gw", "source_attempts"}
+     first = {k: v for k, v in db.counts().items() if k not in skip}
+     snaps = db.counts()["fpl_players_gw"]
+     run(db=db)
+diff --git a/tests/test_provenance.py b/tests/test_provenance.py
+new file mode 100644
+index 0000000..27d5203
+--- /dev/null
++++ b/tests/test_provenance.py
+@@ -0,0 +1,175 @@
++"""Gate 0 provenance: every declared table is exported, official deadlines, source attempts and
++odds observations are recorded as they are seen, and every automatic repair is journalled so it
++can be undone exactly."""
++
++from copy import deepcopy
++from datetime import date, datetime
++
++import pytest
++
++from fpl_agent import notify, pipeline
++from fpl_agent.db import ingest_football_data, ingest_fpl
++from fpl_agent.db.database import FootballDB, verify_export
++from fpl_agent.db.gameweeks import official_deadline
++from fpl_agent.db.quality import Issue, quarantine, repair, rollback_repair
++from fpl_agent.db.schema import TABLES
++from fpl_agent.health import HealthReport, SourceResult
++from fpl_agent.pipeline import BAD_DATA, CRITICAL_SOURCE_FAILED, OK, UpdateOptions, run_update
++from tests.helpers import FIX, clients, fixture
++
++PROVENANCE = {"fpl_deadlines", "source_attempts", "match_odds_log"}
++OPTS = UpdateOptions(season=2026, football_data=("E0", "E1"))
++
++
++@pytest.fixture
++def alerts(monkeypatch):
++    sent = []
++    monkeypatch.setattr(notify, "send", lambda msg, *a, **k: sent.append(msg) or True)
++    return sent
++
++
++def run(overrides=None, opts=OPTS, db=None):
++    db = db or FootballDB()
++    fpl, us, http = clients(overrides)
++    return db, run_update(db, opts, fpl=fpl, us=us, http=http)
++
++
++def digests(db):
++    return {
++        t: db.con.execute(f"SELECT count(*), sum(hash(x))::VARCHAR FROM {t} x").fetchone()
++        for t in TABLES
++        if t != "repair_log"
++    }
++
++
++def test_schema_declares_the_34_tables_and_an_export_carries_every_one(tmp_path):
++    assert len(TABLES) == 34 and PROVENANCE | {"repair_log", "migration_log"} <= set(TABLES)
++    db = FootballDB()
++    counts = db.export_parquet(tmp_path / "out")
++    assert set(counts) == set(TABLES) and counts["fpl_deadlines"] == 0  # empty tables too
++    assert verify_export(tmp_path / "out") == []
++    assert {p.stem for p in (tmp_path / "out").glob("*.parquet")} == set(TABLES)
++
++
++def test_official_deadlines_are_versioned_observations():
++    """A deadline is stored once per value; a moved deadline is a new version, and an as-of
++    reader sees the version known at that time (none before the first observation)."""
++    db = FootballDB()
++    boot = fixture("bootstrap-static.json")
++    t1, t2, t3 = datetime(2026, 8, 1), datetime(2026, 8, 2), datetime(2026, 8, 3)
++    ingest_fpl.load_bootstrap(db, boot, 2026, 1, snapshot_at=t1)
++    ingest_fpl.load_bootstrap(db, boot, 2026, 1, snapshot_at=t2)
++    events = len([e for e in boot["events"] if e.get("deadline_time")])
++    assert events and db.con.execute("SELECT count(*) FROM fpl_deadlines").fetchone()[0] == events
++    moved = deepcopy(boot)
++    moved["events"][0]["deadline_time"] = "2026-08-22T10:00:00Z"
++    ingest_fpl.load_bootstrap(db, moved, 2026, 1, snapshot_at=t3)
++    assert db.con.execute("SELECT count(*) FROM fpl_deadlines").fetchone()[0] == events + 1
++    gw1 = boot["events"][0]["id"]
++    first = datetime.fromisoformat(boot["events"][0]["deadline_time"].replace("Z", ""))
++    assert official_deadline(db, 2026, gw1, as_of=datetime(2026, 7, 1)) is None
++    assert official_deadline(db, 2026, gw1, as_of=t2) == first
++    assert official_deadline(db, 2026, gw1, as_of=t3) == datetime(2026, 8, 22, 10)
++
++
++def test_an_update_records_deadlines_attempts_and_odds_once(alerts):
++    db, res = run()
++    assert res.exit_code == OK, res.message()
++    assert db.counts()["fpl_deadlines"] > 0 and db.counts()["match_odds_log"] > 0
++    got = db.query("SELECT * FROM source_attempts ORDER BY seq")
++    assert got["source"].tolist() == [r.name for r in res.report.results]
++    assert got["attempt_id"].nunique() == 1 and got["ok"].all() and (got.exit_code == OK).all()
++    assert got.job.eq("data update").all()
++    assert (got["started_at"] <= got["finished_at"]).all() and got["finished_at"].notna().all()
++    odds, deadlines = db.counts()["match_odds_log"], db.counts()["fpl_deadlines"]
++    run(db=db)  # the same prices and deadlines again add nothing; the attempts are new
++    assert db.counts()["match_odds_log"] == odds and db.counts()["fpl_deadlines"] == deadlines
++    assert db.query("SELECT count(DISTINCT attempt_id) n FROM source_attempts").n[0] == 2
++
++
++def test_a_changed_price_is_a_new_odds_observation():
++    db = FootballDB()
++    csv = (FIX / "fd_E0_2026.csv").read_text()
++    ingest_football_data.load_csv(db, csv, "E0", 2026)
++    n = db.counts()["match_odds_log"]
++    ingest_football_data.load_csv(db, csv, "E0", 2026)
++    assert db.counts()["match_odds_log"] == n
++    db.con.execute("UPDATE match_odds SET home = home + 0.5")
++    moved = db.query("SELECT * FROM match_odds")
++    assert db.log_odds(moved) == len(moved) and db.counts()["match_odds_log"] == n + len(moved)
++
++
++def test_a_critical_failure_is_recorded_with_exit_2(alerts):
++    db, res = run({"bootstrap-static": (503, "")})
++    assert res.exit_code == CRITICAL_SOURCE_FAILED
++    got = db.query("SELECT job, source, ok, critical, exit_code FROM source_attempts")
++    assert got.to_dict("records") == [{"job": "data update", "source": "fpl:bootstrap",
++                                       "ok": False, "critical": True, "exit_code": 2}]  # fmt: skip
++    assert db.counts()["fpl_deadlines"] == 0 and alerts
++
++
++def test_bad_data_stays_exit_3_unexported_alerted_and_is_recorded(alerts, monkeypatch, tmp_path):
++    """Exit 3 keeps its behaviour (no export, an alert) and is now visible in source_attempts."""
++    monkeypatch.setattr(pipeline, "run_checks", lambda db: [Issue("error", "x", "broken")])
++    opts = UpdateOptions(season=2026, football_data=("E0",), export=tmp_path / "out")
++    db, res = run(opts=opts)
++    assert res.exit_code == BAD_DATA and not (tmp_path / "out").exists()
++    assert alerts and "exit 3" in alerts[0]
++    codes = db.query("SELECT DISTINCT exit_code FROM source_attempts").exit_code.tolist()
++    assert codes == [BAD_DATA]
++
++
++def test_an_attempt_error_never_keeps_a_query_string():
++    db = FootballDB()
++    rep = HealthReport([SourceResult("x", False, error="HTTP 403 https://h/p?key=SECRET&a=1")])
++    assert pipeline.record_attempts(db, rep, "data update", 0)
++    err = db.query("SELECT error FROM source_attempts").error[0]
++    assert "SECRET" not in err and err.startswith("HTTP 403 https://h/p")
++    assert pipeline.record_attempts(db, HealthReport(), "data update", 0) is None
++
++
++def _quality_db():
++    db = FootballDB()
++    boot = fixture("bootstrap-static.json")
++    ingest_fpl.load_bootstrap(db, boot, 2026, 7)
++    ingest_football_data.load_csv(db, (FIX / "fd_E0_2026.csv").read_text(), "E0", 2026)
++    return db
++
++
++def test_quarantine_is_journalled_and_rolls_back_exactly():
++    db = _quality_db()
++    mid = db.con.execute("SELECT min(match_id) FROM matches").fetchone()[0]
++    db.con.execute("UPDATE matches SET away_team_id = home_team_id WHERE match_id = ?", [mid])
++    db.con.execute("UPDATE fpl_players_gw SET now_cost = 5 WHERE fpl_id = 1")
++    before = digests(db)
++    assert {i.check for i in quarantine(db)} >= {"quarantined_match", "quarantined_prices"}
++    assert db.con.execute("SELECT count(*) FROM match_odds_log WHERE match_id = ?",
++                          [mid]).fetchone()[0] == 0  # fmt: skip
++    rid = db.con.execute("SELECT DISTINCT repair_id FROM repair_log").fetchall()
++    assert len(rid) == 1
++    restored = rollback_repair(db, rid[0][0])
++    assert restored["matches"] == 1 and restored["match_odds_log"] >= 1
++    assert digests(db) == before
++    assert rollback_repair(db, rid[0][0]) == {}  # a repeat changes nothing
++
++
++def test_a_merge_repair_is_journalled_and_rolls_back_exactly():
++    db = FootballDB()
++    mk = db.team_id("fotmob", "1", "Milton Keynes Dons")
++    db.con.execute("INSERT INTO teams VALUES (90, 'Peterboro', 'peterboro')")
++    db.con.execute("INSERT INTO team_ids VALUES ('football-data', 'Peterboro', 90, 'Peterboro')")
++    db.con.execute("INSERT INTO teams VALUES (91, 'Peterborough United', 'peterborough united')")
++    db.con.execute("INSERT INTO team_ids VALUES ('fotmob', '8677', 91, 'Peterborough United')")
++    fd = db.match_id("football-data", "x", "ENG3", 2026, date(2026, 9, 12), mk, 90,
++                     home_goals=1, away_goals=1, finished=True)  # fmt: skip
++    db.match_id("fotmob", 5, "ENG3", 2026, date(2026, 9, 12), mk, 91, matchday=6)
++    before = digests(db)
++    assert any(i.check == "merged_matches" for i in repair(db))
++    assert db.query(
++        "SELECT match_id FROM matches WHERE competition_id = 'ENG3'"
++    ).match_id.tolist() == [fd]
++    for (rid,) in db.con.execute(
++        "SELECT DISTINCT repair_id FROM repair_log ORDER BY 1 DESC"
++    ).fetchall():
++        rollback_repair(db, rid)
++    assert digests(db) == before

@@ -1,0 +1,1 @@
+﻿const fs=require('fs');const s=fs.readFileSync('C:/Program Files/Munder Difflin/resources/app.asar').toString();for(const needle of ['...GITHUB_HEADERS','STRIP_REQUEST.has','headers: { ...','fetch(target']){let i=s.indexOf(needle);console.log('\nMATCH '+needle);if(i>=0)console.log(s.slice(Math.max(0,i-500),i+1400));}

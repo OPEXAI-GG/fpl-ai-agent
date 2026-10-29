@@ -47,3 +47,4 @@ artifacts/**/chain-work/
 artifacts/**/probe-export/
 artifacts/**/scratch-materialized/
 artifacts/**/smoke-output/
+artifacts/**/tmp-*/

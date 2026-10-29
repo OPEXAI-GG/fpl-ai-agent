@@ -1,0 +1,78 @@
+{
+ "snapshot": "artifacts\\db-hardening-20261023T143050Z\\prod-snapshot.duckdb",
+ "copy_sha256": "b453b7c932db03e613d54853520edc8f577d11e15cb780bde8b2895907bbcbd9",
+ "migrate": {
+  "created_tables": [
+   "player_codes",
+   "migration_log",
+   "repair_log",
+   "source_attempts",
+   "fpl_deadlines"
+  ],
+  "preflight_problems": [],
+  "migrate": {
+   "status": "migrated",
+   "migration_id": "fpl-season-labels-v1:20261024T112856472571",
+   "rows": 1068,
+   "counts": {
+    "player_ids": 668,
+    "team_ids": 20,
+    "match_ids": 380
+   }
+  },
+  "noop": {
+   "status": "noop-verified",
+   "rows": 1068
+  },
+  "seed": {
+   "recorded": 668,
+   "flagged": 0
+  }
+ },
+ "seconds": {
+  "migrate": 4.32,
+  "refresh": 9.0,
+  "export": 0.62,
+  "restore": 1.4,
+  "rollback": 2.06
+ },
+ "refresh": {
+  "exit": 0,
+  "stdout_tail": "fpl:bootstrap: ok\nfpl:fixtures: ok\nfpl:players: ok rows=668\nunderstat:league: ok\nfootball-data:E0: ok rows=70\nquality: [warn] fpl_fotmob_conflict: 3 player-matches where FPL and FotMob disagree on goals or minutes (>5); excluded from validated evaluations (db-eligibility)\n",
+  "stderr_tail": ""
+ },
+ "refresh_changed_tables": [
+  "fpl_deadlines",
+  "fpl_players_gw",
+  "ingest_log",
+  "match_odds",
+  "match_odds_log",
+  "matches",
+  "source_attempts",
+  "team_match"
+ ],
+ "export": {
+  "counts_total": 158878,
+  "verify": []
+ },
+ "restore": {
+  "tables_loaded": 33
+ },
+ "restore_differences": [],
+ "rollback": {
+  "status": "rolled-back",
+  "migration_id": "fpl-season-labels-v1:20261024T112856472571",
+  "rows": 1068
+ },
+ "identity_labels_after_rollback": [
+  [
+   "fpl",
+   668
+  ]
+ ],
+ "pre_tables": 28,
+ "after_tables": 33,
+ "snapshot_unchanged": true,
+ "total_seconds": 17.9,
+ "ok": true
+}

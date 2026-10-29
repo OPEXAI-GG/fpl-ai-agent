@@ -1,0 +1,4 @@
+[1;32mAll checks passed![0m
+ruff-check exit=0
+137 files already formatted
+ruff-format exit=0

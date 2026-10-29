@@ -1,0 +1,18 @@
+{
+ "declared_columns": 276,
+ "db01_ledger_columns": 237,
+ "carried_from_db01": 237,
+ "new_classified": 39,
+ "ledger_columns_no_longer_declared": [],
+ "model_inputs": 44,
+ "model_inputs_by_check": 37,
+ "model_inputs_by_test_only": 4,
+ "model_inputs_degraded_only": [
+  "competitions.tier",
+  "matches.matchday",
+  "player_match_stats.stat"
+ ],
+ "corruption_cases": 38,
+ "problems": [],
+ "ok": true
+}

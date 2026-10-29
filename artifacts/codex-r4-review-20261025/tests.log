@@ -1,0 +1,34 @@
+..............F...                                                       [100%]
+================================== FAILURES ===================================
+____________ test_archive_scripts_refuse_where_they_are_unverified ____________
+
+tmp_path = WindowsPath('C:/Users/bedor/OneDrive/Documents/FPL/fpl-ai-agent-1/artifacts/codex-r4-review-20261025/temp/test_archive_scripts_refuse_wh0')
+
+    @pytest.mark.skipif(
+        __import__("platform").system() == "Linux", reason="the guard targets non-Linux"
+    )
+    def test_archive_scripts_refuse_where_they_are_unverified(tmp_path):
+        import shutil
+        import subprocess
+        from pathlib import Path
+    
+        bash = shutil.which("bash")
+        if not bash:
+            pytest.skip("no bash to run the scripts with")
+        root = Path(__file__).parent.parent
+        calls = tmp_path / "calls"
+        gh = tmp_path / "gh.sh"
+        gh.write_text(f'#!/usr/bin/env bash\necho "$*" >> "{calls.as_posix()}"\n', encoding="utf-8")
+        for script in ("data_restore.sh", "data_publish.sh"):
+            r = subprocess.run([bash, (root / "scripts" / script).as_posix(), (tmp_path / "x").as_posix()],
+                               env={**__import__("os").environ, "GH": f"bash {gh.as_posix()}",
+                                    "VERIFY": "true"}, capture_output=True, text=True)  # fmt: skip
+>           assert r.returncode == 2 and "unsupported environment" in r.stderr, (script, r.stderr)
+E           AssertionError: ('data_restore.sh', '')
+E           assert (1 == 2)
+E            +  where 1 = CompletedProcess(args=['C:\\WINDOWS\\system32\\bash.EXE', 'C:/Users/bedor/OneDrive/Documents/FPL/fpl-ai-agent-1/artifa...\x00n\x00c\x00e\x00/\x00E\x00_\x00A\x00C\x00C\x00E\x00S\x00S\x00D\x00E\x00N\x00I\x00E\x00D\x00\n\x00\n\x00', stderr='').returncode
+
+tests\test_source_health.py:360: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_source_health.py::test_archive_scripts_refuse_where_they_are_unverified
+1 failed, 17 passed in 40.36s

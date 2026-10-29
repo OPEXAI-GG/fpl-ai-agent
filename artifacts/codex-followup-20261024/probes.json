@@ -1,0 +1,19 @@
+{
+  "original_other_gw": {
+    "before": "MID",
+    "after": "MID",
+    "cutoff_invariant": true
+  },
+  "late_own_gw": {
+    "before": "MID",
+    "after": "DEF",
+    "cutoff_invariant": false
+  },
+  "manifest": {
+    "problems": [
+      "teams.parquet: file not listed in the manifest"
+    ],
+    "refused": true,
+    "imported_rows": 0
+  }
+}

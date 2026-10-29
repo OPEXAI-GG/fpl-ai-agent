@@ -1,0 +1,38 @@
+zstd 
+zstd -d
+zstd -d
+zstd -d
+zstd -d
+zstd -d
+verify --complete $G3/w/export1
+zstd 
+zstd -d
+zstd -d
+verify --complete /tmp/tmp.mrCPcbOJOM/check
+zstd -d
+zstd -d
+verify /tmp/tmp.BCz0r3f54j/x
+zstd -d
+zstd -d
+zstd -d
+zstd -d
+verify /tmp/tmp.PaHOinKQyx/x
+verify --complete $G3/w/export1
+zstd 
+zstd -d
+zstd -d
+verify --complete /tmp/tmp.QTeKI0ZzD2/check
+zstd -d
+zstd -d
+verify /tmp/tmp.1ZvzER1UK1/x
+zstd -d
+zstd -d
+zstd -d
+verify /tmp/tmp.3ftYLJPGl9/x
+zstd -d
+zstd -d
+zstd -d
+verify /tmp/tmp.zLXEkqDLTv/x
+zstd 
+zstd -d
+verify --complete $G3/w/partial

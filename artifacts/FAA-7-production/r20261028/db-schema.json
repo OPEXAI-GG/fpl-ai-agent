@@ -1,0 +1,7 @@
+{
+ "db": "artifacts/FAA-7-production/r20261028/scratch.duckdb",
+ "missing_tables": [],
+ "extra_tables": [],
+ "column_differences": {},
+ "current": true
+}

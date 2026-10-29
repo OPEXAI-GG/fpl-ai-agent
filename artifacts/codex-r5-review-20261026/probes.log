@@ -1,0 +1,18 @@
+{
+  "matching_seasons_false_conflicts": [],
+  "matching_seasons_false_exclusions": [],
+  "backtest_fit_history": {
+    "rows": 1938,
+    "unchanged": true,
+    "changed_positions": 0
+  },
+  "replay_fit_history": {
+    "rows": 1938,
+    "unchanged": true,
+    "changed_positions": 0
+  },
+  "replay_pool_late_prices": {
+    "changed_players": 0,
+    "gameweek_still_eligible": "eligible"
+  }
+}
