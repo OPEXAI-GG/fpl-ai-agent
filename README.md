@@ -41,8 +41,8 @@ What to expect:
     the data snapshot; in live mode also when a global rail fires. The report is then a
     diagnostic, not a recommendation.
 * Without `--force`, `plan` only acts when the next deadline is 45 minutes to 26 hours away;
-  otherwise it reports "outside the action window" and stops. `--force` bypasses only this
-  window, not the kill switch or the rails.
+  otherwise it reports "outside the action window" and stops. `--force` skips this window and
+  the wait for team news; it does not bypass the kill switch or the rails.
 * Your team id is the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
 
 For a browser view, run `uv run fpl-agent dashboard` and open http://127.0.0.1:8765
