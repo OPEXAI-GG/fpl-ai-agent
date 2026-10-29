@@ -36,11 +36,13 @@ What to expect:
   and prints a report. It can still stop, or print a diagnostic instead of a recommendation, when
   data is missing, stale or fails a safety rail. Exit codes:
   * 0 = report produced or skipped; a rail may still hold moves, listed in the report.
-  * 2 = error or failed moves.
-  * 3 = the data was unusable (a critical FPL source failed after the snapshot) or, in live mode,
-    a global rail stopped the run; the report is then a diagnostic, not a recommendation.
+  * 2 = error (or, in live mode, moves that failed).
+  * 3 = the run was stopped as a whole: in dry mode only when a critical FPL source failed after
+    the data snapshot; in live mode also when a global rail fires. The report is then a
+    diagnostic, not a recommendation.
 * Without `--force`, `plan` only acts when the next deadline is 45 minutes to 26 hours away;
-  otherwise it reports "outside the action window" and stops.
+  otherwise it reports "outside the action window" and stops. `--force` bypasses only this
+  window, not the kill switch or the rails.
 * Your team id is the number in `fantasy.premierleague.com/entry/<id>/event/<n>`.
 
 For a browser view, run `uv run fpl-agent dashboard` and open http://127.0.0.1:8765
@@ -63,8 +65,8 @@ For a browser view, run `uv run fpl-agent dashboard` and open http://127.0.0.1:8
 * `AGENT_MODE` is `dry` unless set to `live`. In dry mode no credentials are read and no
   authenticated request is made; the scheduled plan workflow also defaults to `dry`.
 * `AGENT_ENABLED=false` is a kill switch: every run becomes a no-op.
-* Rails block or hold a plan on stale data, hit caps, doubtful players, chip misuse, budget or squad
-  errors, and changes you made by hand ([architecture](docs/architecture.md)).
+* Rails block or hold moves on stale data, hit caps, doubtful players, chip misuse, and budget or
+  squad errors, and respect changes you made by hand ([architecture](docs/architecture.md)).
 * Keys come only from environment variables or GitHub secrets and are never printed.
 * The dashboard listens on 127.0.0.1 only and its actions are dry-only.
 
