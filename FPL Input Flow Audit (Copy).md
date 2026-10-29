@@ -516,7 +516,7 @@ execute.py:153-169 posts confirmed=False as a 'preview', compares the reply (ski
 
 On real data
 
-Run 37996069114 (preview-only code d434245) logged 'preview differs from plan ... preview \[\]' at 21:56:26.97Z, yet GET entry/8700026/transfers/ shows all 13 planned element_in for event 6 at 21:56:24.16Z and history shows the Wildcard at 21:56:24.157827Z. Run 38034976732 (two-POST code 3f30ec4): FPL logged its 6 planned swaps at 2026-10-10T07:37:22.98Z, then the run got 'HTTP 400 POST /api/transfers/: Element in is already picked / Element out is not a current pick' at 07:37:25.31Z, 'lineup not set', exit 2. Both were Wildcard-week payloads; a non-chip week was not observed (gh run view \<id> --log).
+Run 37996069114 (preview-only code d434245) logged 'preview differs from plan ... preview \[\]' at 21:56:26.97Z, yet GET entry/<owner-entry-id>/transfers/ shows all 13 planned element_in for event 6 at 21:56:24.16Z and history shows the Wildcard at 21:56:24.157827Z. Run 38034976732 (two-POST code 3f30ec4): FPL logged its 6 planned swaps at 2026-10-10T07:37:22.98Z, then the run got 'HTTP 400 POST /api/transfers/: Element in is already picked / Element out is not a current pick' at 07:37:25.31Z, 'lineup not set', exit 2. Both were Wildcard-week payloads; a non-chip week was not observed (gh run view \<id> --log).
 
 How it goes wrong
 
@@ -1880,7 +1880,7 @@ decision_review scores the newest decisions row for the gameweek (review.py:165-
 
 On real data
 
-GW6 2026: 22 decision rows (4 dry, 18 live, 0 live-done). Stored review: 47 XI points, captain Mbeumo (8), transfer_gain +10, from the 10-10 08:44:05 row whose 13 Wildcard transfers were never sent. FPL entry/8700026 picks and history: 41 points, Wildcard (played 21:56:24Z on 10-09), captain Haaland (6), vice Saka; the engine on the real picks also gives 41; the 08:44 plan shares 8/11 starters, and no GW6 row matches the fielded squad. GW7: bench order and the live-done XI differ from what was fielded, and FPL shows 3 hand transfers that no row plans (entry_vs_decisions.py, decisions.py, q2.py, q3.py).
+GW6 2026: 22 decision rows (4 dry, 18 live, 0 live-done). Stored review: 47 XI points, captain Mbeumo (8), transfer_gain +10, from the 10-10 08:44:05 row whose 13 Wildcard transfers were never sent. FPL entry/<owner-entry-id> picks and history: 41 points, Wildcard (played 21:56:24Z on 10-09), captain Haaland (6), vice Saka; the engine on the real picks also gives 41; the 08:44 plan shares 8/11 starters, and no GW6 row matches the fielded squad. GW7: bench order and the live-done XI differ from what was fielded, and FPL shows 3 hand transfers that no row plans (entry_vs_decisions.py, decisions.py, q2.py, q3.py).
 
 How it goes wrong
 
@@ -1910,7 +1910,7 @@ I reproduced the defect on the live data. decision_review (review.py:165-169) sc
 GW6 2026 on the real data:
 
 - The stored review gives 47 XI points, captain points 8 (Mbeumo) and transfer_gain +10, taken from the 2026-10-10 08:44:05 live row.
-- FPL's entry/8700026 history gives 41 points, a Wildcard played at 2026-10-09T21:56:24Z, and captain Haaland. Running the engine's own score_lineup on the real picks also gives 41, with 6 captain points.
+- FPL's entry/<owner-entry-id> history gives 41 points, a Wildcard played at 2026-10-09T21:56:24Z, and captain Haaland. Running the engine's own score_lineup on the real picks also gives 41, with 6 captain points.
 - None of the 22 GW6 rows (4 dry, 18 live, 0 live-done) matches the fielded squad. The best overlap is 12 of 15. The newest row shares 11 of 15 squad players and 8 of 11 starters, and none of the 22 rows has the real captain.
 - The report therefore overstated the week by 6 points and named the wrong captain.
 
@@ -3322,7 +3322,7 @@ decide.py:236-243 removes players sold this week (was-now) from the candidates a
 
 On real data
 
-Public /api/entry/8700026/transfers/, event 6 (Wildcard week): the bot's decision row at 2026-10-10 07:37:22.142 (in \[1,106,61,12,4,418\], out \[411,112,8,94,109,258\]) matches the batch FPL accepted at 07:37:22.98, which bought back Raya (1) and Gabriel (4), sold at 21:56:24 the evening before, and resold Van Hecke (112), Calafiori (8), Schade (94) and Castagne (258), bought at 21:56:24. At 08:50:15.66 FPL accepted rebuying Haaland (411; sold at 155 at 07:37, rebought at 156) and selling Thiago (106, bought 07:37) and Palmer (154, bought 21:56). The 07:53 refusal (in 109, out 250) is unexplained.
+Public /api/entry/<owner-entry-id>/transfers/, event 6 (Wildcard week): the bot's decision row at 2026-10-10 07:37:22.142 (in \[1,106,61,12,4,418\], out \[411,112,8,94,109,258\]) matches the batch FPL accepted at 07:37:22.98, which bought back Raya (1) and Gabriel (4), sold at 21:56:24 the evening before, and resold Van Hecke (112), Calafiori (8), Schade (94) and Castagne (258), bought at 21:56:24. At 08:50:15.66 FPL accepted rebuying Haaland (411; sold at 155 at 07:37, rebought at 156) and selling Thiago (106, bought 07:37) and Palmer (154, bought 21:56). The 07:53 refusal (in 109, out 250) is unexplained.
 
 How it goes wrong
 
@@ -3464,7 +3464,7 @@ p3_crowd.py 19 (real GW8 squad and pool, as_of 2026-10-17, gws 19-26). FH19 gain
 
 How it goes wrong
 
-Entry 8700026 still holds FH and BB for windows ending at GW19. Both chips reach GW19 unused in three ways: the GW18 crowded Free Hit is held and the last-call run is missed (F001 plus the next finding); the user makes a hand transfer in GW18, so live_changed turns chips off (agent.py:274); or a GW18 run fails. Then the GW19 run plays the Free Hit (+4.8) and loses the Bench Boost (+9.1 discounted, +10.8 undiscounted). The same tie happens at GW18 whenever both chips peak in GW18.
+Entry <owner-entry-id> still holds FH and BB for windows ending at GW19. Both chips reach GW19 unused in three ways: the GW18 crowded Free Hit is held and the last-call run is missed (F001 plus the next finding); the user makes a hand transfer in GW18, so live_changed turns chips off (agent.py:274); or a GW18 run fails. Then the GW19 run plays the Free Hit (+4.8) and loses the Bench Boost (+9.1 discounted, +10.8 undiscounted). The same tie happens at GW18 whenever both chips peak in GW18.
 
 Code check · confirmed · rates it high
 
@@ -3474,7 +3474,7 @@ b3cacf0 picked the chip with the largest now.gain (`now.gain > best_now.gain`), 
 
 I found nothing downstream that overrides the choice. decide.py:257-276 passes cd.chosen and cd.held straight into the report, and agent.py:274 does turn chips off when live_changed is set, as the finding says.
 
-The scenario applies to this user. The public history of entry 8700026 shows only 3xc (GW3) and wildcard (GW6) used, so Free Hit and Bench Boost are both still open for the window ending at GW19. \_crowded marks both as crowded from GW18 (2 chips, 2 weeks left). At GW19 the tie is guaranteed whenever both are still unplayed. At GW18 it happens whenever both chips peak in GW18.
+The scenario applies to this user. The public history of entry <owner-entry-id> shows only 3xc (GW3) and wildcard (GW6) used, so Free Hit and Bench Boost are both still open for the window ending at GW19. \_crowded marks both as crowded from GW18 (2 chips, 2 weeks left). At GW19 the tie is guaranteed whenever both are still unplayed. At GW18 it happens whenever both chips peak in GW18.
 
 The correct comparison is the cost of waiting: now.when minus the next week's value. The current key cannot express that when the best week is now, because it floors at 0. I reproduced this on \_decide directly (results under Evidence).
 
@@ -3486,7 +3486,7 @@ The defect is real, I reproduced it, and it is a regression from our fixes. In t
 
 The tie-break is also wrong when nothing ties. With two chips and two weeks left, the right comparison is (a18 - a19) against (b18 - b19). The key `max(a) - a18` throws away the later week whenever a chip peaks now. So the proposed fix, regret measured against the best later week, is correct.
 
-The entry really is exposed. Public GET /api/entry/8700026/history/ shows 3xc used in GW3 and the wildcard in GW6, so the Free Hit and Bench Boost both remain in windows that close at GW19.
+The entry really is exposed. Public GET /api/entry/<owner-entry-id>/history/ shows 3xc used in GW3 and the wildcard in GW6, so the Free Hit and Bench Boost both remain in windows that close at GW19.
 
 Why I lower the severity from high to medium:
 
@@ -4767,7 +4767,7 @@ entry.py:7-11 claims the opening-price fallback 'can only understate the selling
 
 On real data
 
-engine.selling_price: opened 60, fell to 55 at entry, now 58 -> code 58, true 56; a later start snapshot of 57 with purchase 55 and now 61 -> 59 vs true 58. fpl_players_gw 2026 holds only GWs 6-8 (first snapshot 2026-10-09 00:16), so any GW2-5 entry falls back to opening prices. Entry 8700026 started GW1 and is unaffected.
+engine.selling_price: opened 60, fell to 55 at entry, now 58 -> code 58, true 56; a later start snapshot of 57 with purchase 55 and now 61 -> 59 vs true 58. fpl_players_gw 2026 holds only GWs 6-8 (first snapshot 2026-10-09 00:16), so any GW2-5 entry falls back to opening prices. Entry <owner-entry-id> started GW1 and is unaffected.
 
 How it goes wrong
 
@@ -4777,7 +4777,7 @@ Skeptic · confirmed · rates it low
 
 The defect is real as stated. engine.selling_price(buy, now) returns now when now \<= buy, otherwise buy + (now-buy)//2. For a fixed now this never decreases as buy rises. So a stand-in purchase price only understates the selling price when it is at or below the true purchase price. A late entry whose player had already fallen below their opening price when the entry bought them gets an overstated selling price from the opening-price fallback. That contradicts the docstring at entry.py:7-11 ("it can only understate the selling price, never promise money that is not there") and the agent.py:190-195 note ("a low estimate"). The start_prices branch (entry.py:125-126) leaves approx False. \_start_prices (agent.py:69-79) takes the latest snapshot labelled gw=first. Snapshots are labelled with the is_next event (pipeline.py: gw = nxt.id), so that snapshot falls inside the entry-creation window. It can still come after the actual purchase, and a price that rose in between makes it overstate too, without being flagged.
 
-Impact is small. The user's entry 8700026 started in GW1, so it takes the exact opening-price path and is unaffected. Live mode overlays FPL's own purchase_price and selling_price (live_state.py:44-45). The worst case is about 0.1-0.2m per player in dry mode for a late entry.
+Impact is small. The user's entry <owner-entry-id> started in GW1, so it takes the exact opening-price path and is unaffected. Live mode overlays FPL's own purchase_price and selling_price (live_state.py:44-45). The worst case is about 0.1-0.2m per player in dry mode for a late entry.
 
 Origin nuance: the opening-price fallback for late entries, and the overstatement it causes, already existed in b3cacf0, where every non-transferred player used the opening price. The fixes made it smaller with start_prices. What they introduced is the false "can only understate" and "low estimate" claim, and start_prices not being flagged as approximate. So the label introduced-by-fixes is right for the misleading guarantee, while the overstatement itself is partly pre-existing. Severity stays low.
 
@@ -6556,7 +6556,7 @@ ripgrep over tests/\*.py finds 0 hits for double_gw_players and 0 for plan_chang
 
 On real data
 
-One read-only GET of entry 8700026's public history: first event 1, chips 3xc@3 and wildcard@6. So \_start_prices returns None on the live path, while the DGW, chip-hold and plan_changes paths are live. Effect not measured.
+One read-only GET of entry <owner-entry-id>'s public history: first event 1, chips 3xc@3 and wildcard@6. So \_start_prices returns None on the live path, while the DGW, chip-hold and plan_changes paths are live. Effect not measured.
 
 How it goes wrong
 
@@ -6874,7 +6874,7 @@ Live execution14 raw findings · 16 checks passed
 - Dry mode is a hard stop. execute() returns before any token exchange when not live (execute.py:120-131), and read_live only runs when settings.is_live (agent.py:198). A dry dispatch forces AGENT_MODE=dry, drops --notify and skips the DB publish (plan.yml:70,109,121). test_dry_mode_makes_no_requests_and_reports_what_it_would_do passes.
 - Live moves are never built on the last deadline's squad. A failed sign-in or my-team read gives live_ok=False and an error outcome with nothing sent (agent.py:339-341). Production run 38038627433 (2026-10-10) reported 'your current FPL team could not be read: nothing was sent' after one sign-in attempt (one correlation id). The older run 38028274116 had made two attempts.
 - One token exchange per run: the tokens from read_live are reused by execute through Signed (agent.py:352, live_state.py:24-32). Rotation write-back works in production: token-check run 39047123009 logged 'FPL sign-in OK: token rotated and saved', and every GW7 live run signed in.
-- The live overlay and hand-change detection work against the real my-team reply. Run 38710714861 logged 'live team read from FPL: matches the last deadline's squad'. After the user's 3 hand transfers (FPL /entry/8700026/transfers/: 2026-10-15T09:19:31Z and 09:20:13Z), runs 38712781248 and later reported 'differs ... by 3 player(s)' and 'you changed 3 player(s) by hand', and set only the lineup.
+- The live overlay and hand-change detection work against the real my-team reply. Run 38710714861 logged 'live team read from FPL: matches the last deadline's squad'. After the user's 3 hand transfers (FPL /entry/<owner-entry-id>/transfers/: 2026-10-15T09:19:31Z and 09:20:13Z), runs 38712781248 and later reported 'differs ... by 3 player(s)' and 'you changed 3 player(s) by hand', and set only the lineup.
 - The lineup payload matches FPL's contract as seen in production. Ordering the XI GKP/DEF/MID/FWD with the spare keeper in slot 12 fixed two HTTP 400s: 'sub_position_not_allowed' (run 38003793666) and 'squad_invalid_element_type_order' (run 38004869587). Later lineup POSTs were accepted (run 38006217696 and all 8 GW7 runs: 'DID: set captain ...').
 - Transfers are paired by position. paired_transfers raises before any POST when a position has no outgoing partner. FPL's 'transfer_element_type_mismatch' (run 37994183940) has not come back, and the 6 transfers FPL recorded at 2026-10-10T07:37:22Z are all same-position pairs.
 - Idempotent re-send: execute GETs my-team and sends nothing when FPL already holds the incoming players (execute.py:143-150; test_transfers_already_on_fpl_are_not_sent_again passes).

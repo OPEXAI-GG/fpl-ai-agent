@@ -5,7 +5,7 @@ from pathlib import Path
 import duckdb
 from fpl_agent.db.fpl_identity import season_map
 
-W = Path(sys.argv[1]); ENTRY = 8700026
+W = Path(sys.argv[1]); ENTRY = 0  # owner's FPL entry id redacted
 UA = {"User-Agent": "fpl-agent-dry/1.0"}
 def get(url, name):
     body = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()

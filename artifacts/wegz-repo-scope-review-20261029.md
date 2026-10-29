@@ -53,7 +53,7 @@ approval to merge into master, deploy, or run the production data gates.
   and `data_restore.sh`.
 
 **C3. Personal data: an FPL entry ID.**
-- `TASK.md` (in the candidate) contains the owner's FPL entry ID `8700026` at L2145 and L2157.
+- `TASK.md` (in the candidate) contains the owner's FPL entry ID `<owner entry ID>` at L2145 and L2157.
 - It is **already** on `origin/task/phase1-dashboard` in five files, including `TASK.md`,
   `FPL Input Flow Audit (Copy).md` and two `coverage.csv` artifacts.
 - Before pushing, Sami must confirm the repository is private. Then one of:
@@ -81,3 +81,87 @@ approval to merge into master, deploy, or run the production data gates.
 | Merge to master or release | **Not approved.** Not reviewed by me: `pipeline.py` provenance and repair integration, `schema.py` provenance tables (FAA-41), `quality.py`, `agent.py`, `execution/safety.py`, `health.py`, backtest and replay `--validated`, `player_links` apply. Safety-rail files need review first. |
 | Linux CI with zstd (15 archive cases) | Not run |
 | Production: migration and rollback rehearsal, verified prospective export (deadlines, source attempts), link apply | Not verified; no production writes are authorised |
+
+---
+
+# Re-check of Sami's actual commits (branch `sami/faa-43-publish-db-hardening`, HEAD `450e9fe`), 2026-10-29
+
+Commits on top of `c6a0c5f`:
+- `7505aa5`: ignore rules and attributes;
+- `dc1e325`: 37 source, test and script files;
+- `1e2e3cd`: 10 docs;
+- `450e9fe`: 360 evidence files.
+
+I could see no `origin/sami/…` ref locally, so I could not confirm the push.
+
+## Verdict: CHANGES NEEDED (two items) before the branch is treated as published and reviewed
+
+### Passed
+
+- **C2 (modes):** closed. `check_archive.sh`, `data_publish.sh`, `data_restore.sh` and `plan_publish.sh` are
+  100755 at HEAD.
+- **Content matches the 47-file candidate.**
+  - 24 blobs match the manifest hashes exactly.
+  - The other 23 differ **only** in line endings: the working copies are CRLF and the blobs are LF, after
+    `core.autocrlf` normalisation. No blob contains CRLF. Script blobs equal the Gate 0 r3 approved hashes.
+- **C1 (staging):** closed for new material.
+  - The new ignore rules cover `hive/`, `palace*`, `roster*`, `restore-gate.json`, `research/hires/`, archives and
+    temp/copied trees. No new parquet, duckdb or zst file was added.
+  - The 360 evidence files are md/json/log/png/csv/patch and small scripts.
+  - `.gitattributes` sets `*.sh eol=lf`; `*.py` is not covered, which is fine given the normalisation above.
+  - `ruff` now excludes `artifacts/`.
+- **Secrets:** none in `git diff c6a0c5f 450e9fe`. I scanned for GitHub, AWS, Slack, Anthropic and OpenAI keys,
+  private keys, webhooks, bearer tokens, FPL cookies and the broker token. `download.cjs` reads the token from an
+  environment variable; there's no literal.
+- **Authors:** the commit author email is the same one used on earlier public commits, so nothing new is exposed.
+
+### Required
+
+**X1. Redact the owner's FPL identity from the current tree (god's decision: a new commit, no history rewrite).**
+At HEAD, 13 tracked files contain entry ID `<owner entry ID>`:
+- `FPL Input Flow Audit (Copy).md`;
+- `TASK.md`;
+- `artifacts/codex-db-review-r2-604dd0fef9/coverage.csv`;
+- `artifacts/db-audit-20261022/coverage.csv`;
+- `artifacts/db-hardening-20261023T143050Z/lint-smoke.log`;
+- `artifacts/deadline-20261023/{c03_no_lock_diag.py, check_refresh.py, inputs/entry.json, inputs/transfers.json}`;
+- `artifacts/dry-run-verification.json`;
+- `artifacts/gw8-analysis.md`;
+- `artifacts/gw8-injury-aware-analysis.md`;
+- my own `artifacts/wegz-repo-scope-review-20261029.md`. I have already redacted my own file on disk. Its new
+  SHA-256 is printed in the outbox message; recommit that version.
+
+`artifacts/deadline-20261023/inputs/entry.json` holds more than the ID: the owner's **first and last name**,
+region, join date and league ranks. `transfers.json` holds the team's transfer history.
+- Fix: remove those two from the index with `git rm --cached` (keep the local copies, add an ignore rule).
+- Replace the ID with a placeholder in the other text files.
+- In the commit message and PR, say honestly that the ID and name stay in public history at `c6a0c5f` and
+  earlier, and that removing them from history needs a separate human decision.
+
+**X2. Drop the excerpt of the Munder Difflin app.**
+- `artifacts/FAA-7-production/broker-header-inspection.txt` is copied source from
+  `C:/Program Files/Munder Difflin/resources/app.asar`: how the broker builds GitHub and auth headers.
+  `inspect-broker.cjs` is the script that extracted it.
+- It's third-party, non-project code, now in a public repository, and it describes how credentials are injected.
+- Remove both from the commit, or `git rm --cached` them. Keep the local copies for evidence.
+
+### Recommended (not blocking)
+
+- **R1.** `artifacts/windows-sandbox-fix/` (Codex sandbox configuration for this PC) is local-machine tooling, not
+  project evidence. Consider leaving it out.
+- **R2.** 26 added lines contain `C:/Users/<account>` and 5 contain `/c/Users/<account>`, all local paths.
+  The privacy risk is low; consider normalising them over time.
+- **R3.** 368 parquet export files (in 12 folders, for example `db-hardening-20261023T143050Z/*/export`,
+  `db-migration-rehearsal-*/export`, `deadline-20261023/work-export`) were **already tracked** before this branch.
+  The new `*.parquet` rule doesn't untrack them.
+  - Optional index-only cleanup: `git rm -r --cached` on them. They stay in history and on disk.
+  - Check they don't hold owner-specific data before deciding.
+
+## Gates after X1-X2
+
+| Gate | Status |
+|---|---|
+| Publishing the source branch and opening a PR | Acceptable once X1-X2 are in a new commit. I re-check that SHA. |
+| Merge to master | **Not approved.** Several source files are not reviewed by me (see the table above). |
+| Linux CI with zstd (15 archive cases) | Not run; required before merge |
+| Production (migration/rollback rehearsal, prospective export with deadlines and source attempts, link apply) | Unverified; no production writes |

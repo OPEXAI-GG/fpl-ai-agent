@@ -682,7 +682,7 @@ I001 [*] Import block is un-sorted or un-formatted
 6 | | from fpl_agent.db.fpl_identity import season_map
   | |________________________________________________^
 7 |
-8 |   W = Path(sys.argv[1]); ENTRY = 8700026
+8 |   W = Path(sys.argv[1]); ENTRY = <owner-entry-id>
   |
 help: Organize imports
    |
@@ -704,7 +704,7 @@ E702 Multiple statements on one line (semicolon)
    |
  6 | from fpl_agent.db.fpl_identity import season_map
  7 |
- 8 | W = Path(sys.argv[1]); ENTRY = 8700026
+ 8 | W = Path(sys.argv[1]); ENTRY = <owner-entry-id>
    |                      ^
  9 | UA = {"User-Agent": "fpl-agent-dry/1.0"}
 10 | def get(url, name):

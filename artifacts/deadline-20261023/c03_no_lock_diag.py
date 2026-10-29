@@ -6,4 +6,4 @@ from fpl_agent import cli
 from fpl_agent.solver import decide
 
 decide.TEMPLATE_KEEP = 101.0  # nobody is "kept for ownership"
-sys.exit(cli.main(["plan", "--db", sys.argv[1], "--entry", "8700026", "--out", sys.argv[2]]))
+sys.exit(cli.main(["plan", "--db", sys.argv[1], "--entry", "<owner-entry-id>", "--out", sys.argv[2]]))

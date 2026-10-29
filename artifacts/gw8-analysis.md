@@ -1,4 +1,4 @@
-# GW8 dry analysis — entry 8700026
+# GW8 dry analysis — entry <owner-entry-id>
 
 No account changes were made. This uses the public squad and refreshed local inputs; current
 post-transfer account state is unavailable without signing in, which this run did not do.

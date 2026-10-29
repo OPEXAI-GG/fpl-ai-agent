@@ -1,6 +1,6 @@
 # Your GW8 analysis
 
-Generated 21 October 2026 (Dubai), using public entry 8700026. Dry run only: no account
+Generated 21 October 2026 (Dubai), using public entry <owner-entry-id>. Dry run only: no account
 changes. Recorded run `ebf7b3d8409f4255`, projection `aa41fa953903`, job `4fdcb72c3272`.
 The final run exited 0, status `ok`, state `planned`, with no safety blocks.
 
