@@ -21,3 +21,29 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Hive office runtime and agent manifests (local only, never published)
+/hive/
+/palace/
+/palace.lock
+/palace.rebuilt-*
+/roster.json
+/roster-backups/
+/restore-gate.json
+/research/hires/
+
+# Database archives and raw exports (published as release assets, not source)
+*.tar.zst
+*.parquet
+
+# Disposable test output and copied review trees under artifacts/
+artifacts/**/pt-*/
+artifacts/**/pytest-*/
+artifacts/**/*temp*/
+artifacts/**/repo/
+artifacts/**/tree/
+artifacts/**/base/
+artifacts/**/chain-work/
+artifacts/**/probe-export/
+artifacts/**/scratch-materialized/
+artifacts/**/smoke-output/
