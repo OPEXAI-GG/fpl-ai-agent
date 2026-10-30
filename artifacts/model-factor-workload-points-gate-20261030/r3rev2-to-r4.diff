@@ -1,0 +1,92 @@
+--- superseded-r3rev2/comparison-plan-r3.json	2026-10-30 04:01:08.007109500 +0400
++++ comparison-plan-r4.json	2026-10-30 04:03:13.313404700 +0400
+@@ -9,8 +9,8 @@
+     "never": "sim-v1",
+     "change": "The three sim-v1 minutes classifiers (P(start), P(60+|start), P(cameo)) receive 7 extra inputs, all from the obs_ variant only: obs_mins_7d, obs_mins_14d, obs_starts_7d, obs_starts_14d, obs_apps_14d, obs_euro_mins_14d, obs_rest_days (NULL is kept as missing; HistGradientBoosting handles it natively). It also receives the flags linked and obs_link_suspect. Nothing else changes: the availability overlay, horizon decay, scoring rules, seed and hyperparameters stay the same."
+   },
+-  "baseline": "sim-v1 minutes classifiers as on master 51f0def, with features MINUTES_FEATURES, the same training rows and the same seed.",
+-  "training_data_rule": "VALIDATED route (the only one that can support promotion; r3 change to r2 P1, Wegz F4 option b): (1) Shared minutes features (MINUTES_FEATURES): BOTH arms train on the full history visible at each evaluated gameweek's cutoff, exactly as production sim-v1 does, so the baseline is production sim-v1. (2) Workload inputs (the 7 obs_ values plus linked and obs_link_suspect): the candidate's training rows carry obs_ values computed at each training row's own cutoff ONLY for eligible gameweeks with repair_proof 'repair_log present' before the evaluated gameweek; on every other training row they are NULL. rec_ values are never used on the validated route. (3) Minimum workload training: an evaluated gameweek counts only if at least 2 eligible gameweeks with repair proof precede it (so the candidate has observed workload rows to learn from). (4) Both arms use one training hook (training rows, shared features, refit schedule) applied identically; only the workload columns differ. Named skew risk: in training, workload is NULL on most rows (pre-eligibility history) and present only on recent eligible rows, while at evaluation it is present for every trusted linked player. Presence is therefore confounded with recency; the model may learn era effects through the NULL pattern. Mitigation and disclosure: report the count of training rows with non-NULL workload per evaluated gameweek, and report the paired result separately for trusted linked rows (workload present) and for unlinked/link-suspect rows (workload NULL at evaluation, where any change can only come from this skew). EXPLORATORY route, declared in r2 and kept, never counted as validated: rec_ workload on reconstructed history for training, obs_ for evaluation. No other mixture is allowed.",
++  "baseline": "sim-v1 minutes classifiers at the same code revision as the candidate at run time (so both arms share the P0-repaired simulator), without the extra workload inputs: features MINUTES_FEATURES, the same training rows, refits and seeds.",
++  "training_data_rule": "VALIDATED route (the only one that can support promotion). r4 change to r2 P1, option (b), signed off by god 2026-10-30 (Wegz F4). (1) Shared minutes features (MINUTES_FEATURES): both arms train on the same full history visible at the evaluated gameweek's cutoff C_g, exactly as production sim-v1 does (project.history_as_of(frame, db, season, g, C_g)). The baseline is therefore production sim-v1. (2) Workload inputs (the 7 obs_ values plus linked and obs_link_suspect): on a training row from gameweek t they are the obs_ values workload.py computes at C_t, and only when t is an eligible gameweek with repair_proof 'repair_log present' and t < g. On every other training row (reconstructed, unavailable, earlier seasons, no repair proof) they are NULL. rec_ values are never used on this route. (3) Stated limitation: this is an intentional train/serve missingness risk, not historical evidence. In training, workload is NULL on most rows and present only on recent eligible rows; at evaluation it is present for every trusted linked player. Presence is confounded with recency, so the model can learn era effects through the NULL pattern. Disclosure: the count of non-NULL workload training rows per evaluated gameweek, and the paired result reported separately on rows whose workload is NULL at evaluation (unlinked, link-suspect), where any change can only come from this skew. (4) Exact paired regime, identical for both arms: for each evaluated gameweek g in order, cutoff C_g = eligibility.gameweek(...).cutoff (official deadline); both arms are refit at every evaluated gameweek (refit_every=1) on the same training rows from (1); only the workload columns differ; strength ratings, odds (known-at only), pool and simulation config are shared; excluded matches are removed from inputs and scoring (validated_inputs). Implemented through one reviewed training hook used by both arms; without it the result is exploratory and cannot gate promotion. EXPLORATORY route, declared in r2 and kept, never counted as validated: rec_ workload on reconstructed history for training, obs_ for evaluation. No other mixture is allowed.",
+   "evaluation_rows": "Every player in the observed bootstrap pull that eligibility.gameweek uses, for each eligible gameweek, with excluded matches removed (db-eligibility). Targets: official FPL minutes in that gameweek's fixture(s). Players in a double gameweek count once per fixture. Each gameweek must be eligible AND have repair_proof starting 'repair_log present'.",
+   "paired_unit": "The same player-fixture rows, cutoff, targets and exclusions for baseline and candidate.",
+   "cohorts": [
+@@ -34,16 +34,16 @@
+   "points_metrics": {
+     "purpose": "Gate so a minutes-model gain cannot be presented as a points gain without evidence.",
+     "unit": "One row per (player, eligible gameweek): predicted = sim expected FPL points for that gameweek (sum over its fixtures, proj xpts); actual = official total_points from fpl_points_gw summed over the gameweek. Same unit and row filter as model/backtest.projection_backtest(validated=True), including dropping player-gameweeks that touch an excluded match.",
+-    "pairing": "Baseline sim-v1 and candidate sim-v1-workload on exactly the same rows, cutoffs, refit schedule (refit_every=6), SimConfig samples and seed. Row pairing in projection_backtest is exact (refit gameweeks depend only on gw and history; same pool, actual table and excluded-match drops). Rows missing on either side are counted and reported (as backtest.paired_comparison does), never silently dropped.",
++    "pairing": "Baseline sim-v1 and candidate sim-v1-workload under the exact regime in training_data_rule (4): same rows, cutoffs, refits (every evaluated gameweek), shared inputs and SimConfig n; seeds as in uncertainty. Rows missing on either side are counted and reported (as backtest.paired_comparison does), never silently dropped.",
+     "metric": "RMSE of xP vs actual points (primary); MAE and bias reported.",
+     "cohorts": [
+       "all rows",
+-      "decision-relevant: FPL price (now_cost) >= 5.0 at the decision snapshot, a cutoff-time quantity neither arm produces (GW8 2026: 323 of 668 players)",
++      "decision-relevant: fpl_players_gw.now_cost >= 50 (GBP 5.0m; now_cost is stored in tenths of a million) on the player's row in the decision snapshot (the observed bootstrap pull eligibility.gameweek uses for that gameweek, snapshot_at <= C_g). Cutoff-time and produced by neither arm. 2026 GW8 snapshot: 323 of 668 players.",
+       "secondary, reported only: last-5 points per fixture >= 3.0 at the cutoff",
+       "by position",
+       "the r2 cohorts (trusted linked, unlinked, link-suspect, euro_mins_14d > 0, rest_days < 4)"
+     ],
+-    "uncertainty": "Paired bootstrap of the RMSE difference (candidate - baseline), resampling PLAYERS as clusters with all their evaluated gameweeks, 2000 draws, seed 20261030; 95% interval reported with every number. Monte Carlo error: each arm is run with seeds 20261030 and 20261031 at the same SimConfig n; the gate uses the mean of the two runs; MC SE of the all-rows RMSE ratio is estimated as |ratio_seed1 - ratio_seed2| / 2. It must be <= 0.001 (a fifth of the 0.5% margin); if not, n is doubled and both seeds rerun, starting at n=800. This rule is fixed now and is not tuning.",
++    "uncertainty": "Sampling: paired bootstrap of the RMSE difference (candidate - baseline), resampling PLAYERS as clusters with all their evaluated gameweeks, 2000 draws, seed 20261030; 95% interval reported with every number. Monte Carlo (simulation) error: each arm runs with seeds 20261030 and 20261031 at the same SimConfig n; every reported metric is the mean of the two runs; MCSE of each reported RMSE ratio = |ratio_seed1 - ratio_seed2| / 2, reported next to it. Predeclared tolerance: the MCSE of the all-rows ratio must be <= 0.001, i.e. at most one fifth of the 0.005 non-inferiority margin; if not, n is doubled (starting at n=800) and both seeds rerun until it is. Fixed now; not tuning.",
+     "non_inferiority_gate": {
+       "basis": "point estimates (mean of the two seeds); shows no harm detected within margin, not absence of harm",
+       "all_rows_rmse_ratio_max": 1.005,
+@@ -51,8 +51,8 @@
+       "position_cohort_min_rows": 300,
+       "position_cohort_rmse_ratio_max": 1.01
+     },
+-    "points_improvement_claim_bar": "All of: paired RMSE reduction >= 1% on all rows; upper bound of the player-cluster bootstrap 95% interval of the difference < 0; decision-relevant (price) cohort ratio <= 1.0; leave-one-evaluated-gameweek-out: the reduction keeps its sign in at least two thirds of folds (rounded up; 2 of 3, 3 of 4, 4 of 5, 4 of 6).",
+-    "implementation_note": "Requires a new reviewed training hook in projection_backtest (or a wrapper) that applies training_data_rule identically to both arms; without it the points result is exploratory and cannot gate promotion. Then the paired_comparison logic with the candidate in place of a baseline. No code is written until the run is authorised."
++    "points_improvement_claim_bar": "All of: paired RMSE reduction >= 1% on all rows; upper bound of the player-cluster bootstrap 95% interval of the difference < 0; decision-relevant (price) cohort ratio <= 1.0; leave-one-evaluated-gameweek-out: with k evaluated gameweeks, k folds each dropping one; the reduction keeps its sign in at least ceil(2k/3) folds (2 of 3, 3 of 4, 4 of 5, 4 of 6, 5 of 7).",
++    "implementation_note": "Requires the one reviewed training hook named in training_data_rule (4), used by both arms; without it the points result is exploratory and cannot gate promotion. Scoring reuses the backtest.projection_backtest(validated=True) row logic and the paired_comparison logic with the candidate in place of a baseline. No code is written until the run is authorised."
+   },
+   "team_points_report": {
+     "role": "REPORTED ONLY. Never a gate, never evidence of a points gain.",
+@@ -66,16 +66,21 @@
+     "label": "descriptive; not evidence of a points gain"
+   },
+   "sample_minimum_for_any_performance_claim": {
+-    "eligible_gameweeks": 5,
+-    "player_fixture_rows": 1500,
+-    "linked_rows_with_euro_mins_14d_gt_0": 150,
+-    "starts": 300,
+-    "non_starts_among_prior_starters": 100,
+-    "trusted_linked_rows": 1000,
+-    "player_gw_rows_for_points": 1500,
+-    "evaluated_gameweeks": 3
++    "workload_training": {
++      "eligible_repair_proven_gameweeks_before_first_evaluated": 3,
++      "trusted_linked_rows_with_non_null_obs_workload_before_first_evaluated": 1200
++    },
++    "evaluation": {
++      "eligible_repair_proven_gameweeks_evaluated": 3,
++      "player_fixture_rows": 1500,
++      "linked_rows_with_euro_mins_14d_gt_0": 150,
++      "starts": 300,
++      "non_starts_among_prior_starters": 100,
++      "trusted_linked_rows": 1000,
++      "player_gw_rows_for_points": 1500
++    }
+   },
+-  "acceptance_rule": "Promotion requires all of the following: every sample minimum passes; both primary metrics improve by at least 2% (paired, all rows); the calibration slope is within 0.8-1.2; no cohort with at least 300 rows regresses by more than 1% on either primary metric; the unlinked and link-suspect cohorts (workload NULL) must each regress by no more than 1% on either primary metric whatever their size, and are reported even below 300 rows; and the improvement holds in a leave-one-evaluated-gameweek-out check (same sign in at least two thirds of folds, rounded up). In addition, the points_metrics non_inferiority_gate must pass (all rows, decision-relevant cohort and every position cohort with at least 300 rows). Otherwise the candidate is labelled experimental or rejected. Synthetic checks and reconstructed history never count as performance evidence. No factor or hyperparameter tuning on the evaluated gameweeks.",
++  "acceptance_rule": "Promotion requires all of the following: every sample minimum passes (workload_training and evaluation); both primary metrics improve by at least 2% (paired, all rows); the calibration slope is within 0.8-1.2; no cohort with at least 300 rows regresses by more than 1% on either primary metric; the unlinked and link-suspect cohorts (workload NULL) must each regress by no more than 1% on either primary metric whatever their size, and are reported even below 300 rows; and the improvement holds in a leave-one-evaluated-gameweek-out check (with k evaluated gameweeks there are k folds, each dropping one; the improvement keeps its sign in at least ceil(2k/3) folds). In addition, the points_metrics non_inferiority_gate must pass (all rows, decision-relevant cohort and every position cohort with at least 300 rows). Otherwise the candidate is labelled experimental or rejected. Synthetic checks and reconstructed history never count as performance evidence. No factor or hyperparameter tuning on the evaluated gameweeks.",
+   "claims_rule": [
+     "Minutes metrics pass, points gate fails: 'improves minutes forecasts; no points benefit shown'. Not promoted.",
+     "Minutes metrics pass, points non-inferior: 'improves minutes forecasts with no points harm detected (point estimate within margin)'. Promotion allowed if all other conditions hold.",
+@@ -83,7 +88,7 @@
+     "Team-points replay results never support 'scored more points', whatever the sign.",
+     "Exploratory or reconstructed gameweeks support no claim."
+   ],
+-  "earliest_possible_run": "After FAA-41 (6767d6d0) is live and records fpl_deadlines and repair_log before each deadline: 5 eligible gameweeks with repair proof (2 for workload training only, then 3 evaluated). If the first eligible gameweek were GW9 that is GW13; each later start moves it by the same amount. FotMob appearances must keep being ingested before each cutoff; obs_ coverage is reported per gameweek by workload.py.",
++  "earliest_possible_run": "After FAA-41 (6767d6d0) is live and records fpl_deadlines and repair_log before each deadline: at least 6 eligible, repair-proven gameweeks (3 workload-training only, then 3 evaluated; each evaluated gameweek also joins the training set of later ones). If GW9 were the first eligible gameweek the earliest claim is after GW14 is scored; each later start moves it by the same amount. FotMob appearances must keep being ingested before each cutoff; obs_ coverage is reported per gameweek by workload.py.",
+   "known_limits_declared_now": [
+     "Domestic cups (FA Cup, EFL Cup) and international matches are not in the database, so workload is a lower bound, worst just after international breaks.",
+     "About 18% of FPL players have no FotMob link (NULL workload).",
+@@ -91,5 +96,5 @@
+     "Name-based links merge namesakes. Rows for another club are dropped (153-187 rows per gameweek in GW6-8). A player with only other-club rows in 30 days is link-suspect (NULL), 60-69 per gameweek.",
+     "Master's automatic repairs rewrite appearances.team_id/match_id in place and keep the old ingested_at. obs_ is only proven against repairs when repair_log (FAA-41) is present; the production export r20261028 has none."
+   ],
+-  "revision": "r3 2026-10-30 (Nabil; god request 2026-10-29T23-55-26-290Z-11e5f3; Wegz review 70ece5dc F1-F5 addressed). Supersedes r2 (artifacts/model-factor-workload-20261030/comparison-plan.json 48cb7e26) for any future comparison. Adds points_metrics gate, team_points_report (reported only), claims_rule, player_gw_rows_for_points; amends acceptance_rule, training_data_rule (F4 option b), sample minimum (5 eligible / 3 evaluated gameweeks) and earliest_possible_run. Declared before any comparison; none has been run. Previous: r2 2026-10-30, after Wegz review (wegz-review.md 3e5e3f0a): C1 link_suspect, C2 repair exclusion, P1 training rule. Declared before any comparison; none has been run."
++  "revision": "r4 2026-10-30 (Nabil). Supersedes r2 (artifacts/model-factor-workload-20261030/comparison-plan.json 48cb7e26) for any future comparison. Built after god's request 2026-10-29T23-55-26-290Z-11e5f3, Wegz review 70ece5dc (F1-F5) and god's sign-off of training option (b) 2026-10-30T00-01-08-296Z-dde877. Adds points_metrics gate, team_points_report (reported only), claims_rule; amends acceptance_rule, training_data_rule, sample minimums (3 eligible workload-training + 3 eligible evaluated gameweeks) and earliest_possible_run. Declared before any comparison; none has been run. Previous: r2 2026-10-30, after Wegz review (wegz-review.md 3e5e3f0a): C1 link_suspect, C2 repair exclusion, P1 training rule. Declared before any comparison; none has been run."
+ }
+\ No newline at end of file
