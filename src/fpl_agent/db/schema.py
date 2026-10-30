@@ -82,6 +82,80 @@ TABLES["league_translation"] = """
     from_comp VARCHAR, to_comp VARCHAR, stat VARCHAR, factor DOUBLE, n_players INTEGER,
     minutes DOUBLE, updated_at TIMESTAMP, PRIMARY KEY (from_comp, to_comp, stat)"""
 
+# every odds observation, append-only: match_odds keeps only the newest price per bookmaker,
+# so a past decision's prices can only be reconstructed from here (prospectively, from now on)
+TABLES["match_odds_log"] = """
+    match_id INTEGER, source VARCHAR, bookmaker VARCHAR, closing BOOLEAN,
+    home DOUBLE, draw DOUBLE, away DOUBLE, over25 DOUBLE, under25 DOUBLE,
+    ah_line DOUBLE, ah_home DOUBLE, ah_away DOUBLE, ingested_at TIMESTAMP"""
+
+# the scout's validated answers, reused while nothing that went into them changed
+TABLES["scout_cache"] = """
+    key VARCHAR PRIMARY KEY, player_id INTEGER, p_play DOUBLE, reason VARCHAR,
+    created_at TIMESTAMP, expires_at TIMESTAMP"""
+
+# one row per scout call: counts, usage and outcome (never the key or the raw reply)
+TABLES["scout_calls"] = """
+    called_at TIMESTAMP, model VARCHAR, prompt_version INTEGER, season INTEGER, gw INTEGER,
+    eligible INTEGER, cached INTEGER, sent INTEGER, accepted INTEGER, rejected INTEGER,
+    input_bytes INTEGER, input_tokens INTEGER, output_tokens INTEGER, stop_reason VARCHAR,
+    latency_ms INTEGER, outcome VARCHAR"""
+
+TABLES["runs"] = """
+    run_id VARCHAR PRIMARY KEY, version INTEGER, season INTEGER, gw INTEGER, entry_id INTEGER,
+    mode VARCHAR, started_at TIMESTAMP, ended_at TIMESTAMP, status VARCHAR, state VARCHAR,
+    exit_code INTEGER, snapshot_at TIMESTAMP, projection_run VARCHAR, decision_at TIMESTAMP,
+    stages JSON, reasons JSON, report_key VARCHAR, delivered BOOLEAN, delivered_at TIMESTAMP"""
+
 TABLES["lessons"] = """
     season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
     rule VARCHAR, created_at TIMESTAMP"""
+
+TABLES["news_evidence"] = """
+    observation_id VARCHAR PRIMARY KEY, observed_at TIMESTAMP, url VARCHAR, payload JSON"""
+
+# Identity evidence (R1). `player_codes` records a source's stable per-person code (FPL's `code`)
+# against the canonical player, so a person is linked across seasons by evidence, not by name.
+# `migration_log` is the journal of the reversible relabel of legacy `fpl` identity rows.
+TABLES["player_codes"] = """
+    source VARCHAR, code VARCHAR, player_id INTEGER, evidence VARCHAR,
+    first_season INTEGER, recorded_at TIMESTAMP, PRIMARY KEY (source, code)"""
+
+TABLES["migration_log"] = """
+    migration_id VARCHAR, table_name VARCHAR, source_id VARCHAR, canonical_id INTEGER,
+    source_name VARCHAR, old_source VARCHAR, new_source VARCHAR, applied_at TIMESTAMP,
+    rolled_back_at TIMESTAMP, PRIMARY KEY (migration_id, table_name, source_id)"""
+
+# Before/after images of every row an automatic repair or quarantine removed or rewrote (R2), in
+# the same transaction as the change; `quality.rollback_repair` restores one step exactly.
+TABLES["repair_log"] = """
+    repair_id VARCHAR, seq INTEGER, step VARCHAR, table_name VARCHAR, action VARCHAR,
+    image VARCHAR, reason VARCHAR, logged_at TIMESTAMP, rolled_back_at TIMESTAMP,
+    PRIMARY KEY (repair_id, seq)"""
+
+# The outcome of every source a data update or backfill attempted, failures included (U05).
+# Owned by `pipeline.record_attempts`, which writes it in its own transaction after the data work
+# committed or rolled back: recording a failed attempt never changes the data or a source's
+# success markers (`ingest_state`), and the data's rollback never loses the record. Operational
+# only: a source name, times, rows and a short sanitised error, never a payload, a URL's query
+# string, a credential or a team id.
+TABLES["source_attempts"] = """
+    attempt_id VARCHAR, seq INTEGER, job VARCHAR, source VARCHAR, ok BOOLEAN, critical BOOLEAN,
+    rows BIGINT, error VARCHAR, started_at TIMESTAMP, finished_at TIMESTAMP, exit_code INTEGER,
+    PRIMARY KEY (attempt_id, seq)"""
+
+# Every observed official FPL deadline, versioned: a row is added only when the deadline FPL
+# reports for a gameweek differs from the newest one stored, so `observed_at` says what was
+# known when (prospective from 2026-10-23; earlier deadlines were never stored).
+TABLES["fpl_deadlines"] = """
+    season INTEGER, gw INTEGER, deadline_time TIMESTAMP, observed_at TIMESTAMP,
+    PRIMARY KEY (season, gw, observed_at)"""
+
+# Identity links found from appearance evidence (`db.link_candidates`) and applied only on request
+# (`db-links --apply`), so source rows keep their own ids: a reader maps `from_player_id` (a
+# FotMob-only record) to `to_player_id` (an FPL player) only when `valid_from` is at or before
+# its cutoff, and never for a rolled-back batch. `evidence` is the proposal, kept for audit.
+TABLES["player_links"] = """
+    link_id VARCHAR PRIMARY KEY, batch_id VARCHAR, source VARCHAR, season INTEGER,
+    from_player_id INTEGER, to_player_id INTEGER, valid_from TIMESTAMP, evidence VARCHAR,
+    recorded_at TIMESTAMP, rolled_back_at TIMESTAMP"""
