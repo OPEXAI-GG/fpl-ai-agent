@@ -389,6 +389,22 @@ def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def verify_export_cmd(args: argparse.Namespace) -> int:
+    """Check an export folder against its manifest; non-zero when it must not be published."""
+    from fpl_agent.db.database import missing_tables, verify_export
+
+    problems = verify_export(args.dir)
+    if args.complete and not problems:
+        # a fresh export must hold every declared table (empty ones too); only an older export
+        # being restored may lack tables added since
+        problems = [f"{n}: declared table not in the export" for n in missing_tables(args.dir)]
+    for p in problems:
+        print(f"export problem: {p}")
+    if not problems:
+        print(f"export {args.dir} is complete and matches its manifest")
+    return 1 if problems else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -505,7 +521,16 @@ def main(argv: list[str] | None = None) -> int:
     rt.add_argument("--no-chips", action="store_true")
     rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rt.add_argument("--out", default=None)
+    ve = sub.add_parser("verify-export", help="check an export folder against its manifest")
+    ve.add_argument("dir")
+    ve.add_argument(
+        "--complete",
+        action="store_true",
+        help="also require every declared table (used before publishing)",
+    )
     args = parser.parse_args(argv)
+    if args.cmd == "verify-export":
+        return verify_export_cmd(args)
     settings = Settings.from_env()
     if args.cmd == "explain":
         return explain_cmd(args)
