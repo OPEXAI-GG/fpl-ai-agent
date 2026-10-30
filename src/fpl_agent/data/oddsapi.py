@@ -100,5 +100,6 @@ def load_events(db: FootballDB, events: list[dict[str, Any]], comp: str = "ENG1"
                      "closing": False, **cons, "ah_line": None, "ah_home": None,
                      "ah_away": None, "ingested_at": stamp})  # fmt: skip
     n = db.upsert("match_odds", pd.DataFrame(rows))
+    db.log_odds(pd.DataFrame(rows))
     db.log(SOURCE, "match_odds", n, comp)
     return n

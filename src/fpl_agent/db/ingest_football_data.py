@@ -114,5 +114,6 @@ def load_csv(db: FootballDB, text: str, div: str, season: int) -> int:
         n += 1
     db.upsert("team_match", pd.DataFrame(team_rows))
     db.upsert("match_odds", pd.DataFrame(odds_rows))
+    db.log_odds(pd.DataFrame(odds_rows))
     db.log("football-data", "matches", n, f"{div} {season}")
     return n

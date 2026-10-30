@@ -43,7 +43,8 @@ def test_happy_path(alerts, tmp_path):
 
 def test_rerun_is_idempotent(alerts):
     db, _ = run()
-    skip = {"ingest_log", "fpl_players_gw"}  # snapshots accumulate by design (point-in-time)
+    # snapshots accumulate by design (point-in-time); logs record every run
+    skip = {"ingest_log", "fpl_players_gw", "source_attempts"}
     first = {k: v for k, v in db.counts().items() if k not in skip}
     snaps = db.counts()["fpl_players_gw"]
     run(db=db)

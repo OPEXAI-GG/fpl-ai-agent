@@ -89,9 +89,10 @@ def test_backfill_fills_every_source_for_every_season():
 
 def test_backfill_is_resumable_and_idempotent():
     db, first = backfill()
-    counts = {k: v for k, v in db.counts().items() if k != "ingest_log"}
+    logs = ("ingest_log", "source_attempts")  # every run is recorded; the data is unchanged
+    counts = {k: v for k, v in db.counts().items() if k not in logs}
     _, second = backfill(db=db)
-    assert {k: v for k, v in db.counts().items() if k != "ingest_log"} == counts
+    assert {k: v for k, v in db.counts().items() if k not in logs} == counts
     # finished past seasons are remembered and not fetched again
     assert "vaastav:2024" not in names(second)
     assert "vaastav:2024" in names(first)
@@ -133,7 +134,7 @@ def test_changed_fotmob_format_is_skipped_and_nothing_written():
 
 def test_unknown_competition_is_reported_not_fatal():
     db, res = backfill(competitions=("XXX9",), sources=("fotmob",))
-    assert not any(names(res).values())
+    assert not any(ok for name, ok in names(res).items() if not name.startswith("step:"))
 
 
 # ---- FotMob inside the weekly update -----------------------------------------------------------

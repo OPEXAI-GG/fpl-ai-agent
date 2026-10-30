@@ -10,6 +10,7 @@ import pandas as pd
 
 from fpl_agent.data.players import POSITIONS
 from fpl_agent.db.database import FootballDB, now
+from fpl_agent.db.gameweeks import log_deadlines
 
 COMPETITION = "ENG1"
 
@@ -65,6 +66,7 @@ def load_bootstrap(
             }
         )
     n = db.upsert("fpl_players_gw", pd.DataFrame(rows))
+    log_deadlines(db, raw.get("events") or [], season, snapshot_at)
     db.log("fpl", "fpl_players_gw", n, f"gw{gw}")
     return n
 

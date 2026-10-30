@@ -252,6 +252,29 @@ class FootballDB:
             self.con.unregister("_df")
         return len(df)
 
+    def log_odds(self, df: pd.DataFrame) -> int:
+        """Append odds observations to match_odds_log, skipping any whose prices equal the
+        newest already logged for that match/source/bookmaker/closing (re-reading the same
+        file adds nothing; a price change is a new observation)."""
+        if df.empty:
+            return 0
+        price = ("home", "draw", "away", "over25", "under25")
+        self.con.register("_odds", df)
+        try:
+            n = self.con.execute(f"""
+                INSERT INTO match_odds_log ({", ".join(df.columns)})
+                SELECT {", ".join("o." + c for c in df.columns)} FROM _odds o
+                LEFT JOIN (SELECT * FROM match_odds_log QUALIFY row_number() OVER (
+                    PARTITION BY match_id, source, bookmaker, closing
+                    ORDER BY ingested_at DESC) = 1) l
+                  USING (match_id, source, bookmaker, closing)
+                WHERE l.match_id IS NULL OR {" OR ".join(
+                    f"o.{c} IS DISTINCT FROM l.{c}" for c in price)}
+            """).fetchone()  # fmt: skip
+        finally:
+            self.con.unregister("_odds")
+        return int(n[0]) if n else 0
+
     def append(self, table: str, df: pd.DataFrame) -> int:
         if df.empty:
             return 0

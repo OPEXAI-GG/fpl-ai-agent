@@ -1,14 +1,19 @@
 """The weekly/daily database update, with every source guarded, validated against its contract
 and written in a transaction. A broken source is skipped and reported; the database is only
-exported when the quality checks pass."""
+exported when the quality checks pass. Every run records each source's outcome in
+`source_attempts`, failed and blocked runs included."""
 
 from __future__ import annotations
 
+import re
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+import duckdb
 import httpx
+import pandas as pd
 
 from fpl_agent import contracts, notify
 from fpl_agent.data import leagues
@@ -26,7 +31,15 @@ from fpl_agent.db import (
     ingest_vaastav,
 )
 from fpl_agent.db.database import FootballDB
-from fpl_agent.db.quality import Issue, errors, format_issues, quarantine, repair, run_checks
+from fpl_agent.db.quality import (
+    Issue,
+    blocked_writes,
+    errors,
+    format_issues,
+    quarantine,
+    repair,
+    run_checks,
+)
 from fpl_agent.errors import SourceFormatError, SourceUnavailable
 from fpl_agent.health import HealthReport, SourceResult, guard
 
@@ -44,6 +57,9 @@ class UpdateOptions:
     fotmob: tuple[str, ...] = ()  # competition ids, e.g. ("ENG1", "ENG2"); () = skip FotMob
     fotmob_matches: int = 60  # match pages per competition per run (the rest wait for next run)
     understat_leagues: tuple[str, ...] = ("EPL",)
+    # automatic repair/quarantine changes are opt-in: by default they are only probed (on a
+    # copy) and any change they would make blocks the run (exit 3) without being applied
+    repairs: bool = False
 
 
 @dataclass
@@ -75,7 +91,9 @@ def run_update(
     fm = fm or FotMobClient()
     report = HealthReport()
     season = opts.season
-    fixed = repair(db)
+    fixed = _repair_step(db, report, opts.repairs)
+    if fixed is None or errors(fixed):  # a needed repair is disabled, or it failed: load nothing
+        return _finish(db, report, fixed or [], BAD_DATA, opts, alert)
 
     # 1. FPL bootstrap is critical: without it there is nothing to decide on.
     def pull_bootstrap():
@@ -179,9 +197,32 @@ def run_update(
             )
 
     # 5. Quality gate. Errors mean the data must not be used or exported.
-    issues = fixed + quarantine(db) + run_checks(db)
-    code = BAD_DATA if errors(issues) else OK
+    issues, code = _quality_gate(db, report, fixed, opts.repairs)
     return _finish(db, report, issues, code, opts, alert)
+
+
+def _repair_step(db: FootballDB, report: HealthReport, apply: bool) -> list[Issue] | None:
+    """Repairs before loading: applied (journalled, see `repair-undo`) only when `apply`;
+    otherwise probed on a copy, and a change they would make is an error. An exception is a
+    failed critical step in the report (and so in `source_attempts`), never a silent stop.
+    Returns the issues, or None when the step failed."""
+    return guard(report, "step:repair",
+                 lambda: repair(db) if apply else blocked_writes(db, repair, "repair"),
+                 critical=True)  # fmt: skip
+
+
+def _quality_gate(
+    db: FootballDB, report: HealthReport, fixed: list[Issue], apply: bool
+) -> tuple[list[Issue], int]:
+    """Quarantine (applied only when `apply`, else probed like the repairs) and the checks,
+    each guarded like `_repair_step`. Any error, or a failed step, means exit 3: no export."""
+    held = guard(report, "step:quarantine",
+                 lambda: quarantine(db) if apply else blocked_writes(db, quarantine, "quarantine"),
+                 critical=True)  # fmt: skip
+    found = guard(report, "step:checks", lambda: run_checks(db), critical=True)
+    issues = fixed + (held or []) + (found or [])
+    failed = held is None or found is None
+    return issues, BAD_DATA if failed or errors(issues) else OK
 
 
 def understat_league(db: FootballDB, us: UnderstatClient, code: str, season: int):
@@ -274,6 +315,7 @@ class BackfillOptions:
     sources: tuple[str, ...] = ("football-data", "understat", "fotmob", "vaastav")
     export: Path | None = None
     max_minutes: float | None = None  # stop starting new steps after this, and save the progress
+    repairs: bool = False  # see UpdateOptions.repairs
 
 
 _clock = time.monotonic  # the backfill's time budget (replaced in tests)
@@ -312,7 +354,10 @@ def run_backfill(
     otherwise hit the job's time limit never loses its work."""
     fm, us, http = fm or FotMobClient(), us or UnderstatClient(), http or http_client()
     report = HealthReport()
-    fixed = repair(db)
+    fixed = _repair_step(db, report, opts.repairs)
+    if fixed is None or errors(fixed):  # a needed repair is disabled, or it failed: load nothing
+        return _finish(db, report, fixed or [], BAD_DATA, UpdateOptions(export=opts.export),
+                       alert, "backfill")  # fmt: skip
     ing = ingest_fotmob.FotMobIngestor(db)
     current = opts.end
     t0 = _clock()
@@ -365,13 +410,39 @@ def run_backfill(
         report.results.append(SourceResult(
             "time budget", True, error=f"stopped after {opts.max_minutes:.0f} min with "
             f"{len(stopped)} steps left (next: {stopped[0]}); the next run continues"))  # fmt: skip
-    issues = fixed + quarantine(db) + run_checks(db)
-    code = BAD_DATA if errors(issues) else OK
+    issues, code = _quality_gate(db, report, fixed, opts.repairs)
     return _finish(db, report, issues, code, UpdateOptions(export=opts.export), alert, "backfill")
+
+
+_QUERY = re.compile(r"\?\S*")  # a URL's query string may carry a key: never stored
+
+
+def record_attempts(db: FootballDB, report: HealthReport, job: str, code: int) -> str | None:
+    """Store every attempted source's outcome in `source_attempts`, in a transaction of its own
+    (see the table's note in schema.py). Returns the attempt id, or None when there was nothing
+    to record. A failure to record is added to the report; it never changes the exit code."""
+    if not report.results:
+        return None
+    attempt = uuid.uuid4().hex
+    rows = pd.DataFrame([{
+        "attempt_id": attempt, "seq": i, "job": job, "source": r.name, "ok": r.ok,
+        "critical": r.critical, "rows": r.rows,
+        "error": _QUERY.sub("?…", r.error)[:300] if r.error else None,
+        "started_at": r.started_at, "finished_at": r.finished_at, "exit_code": code,
+    } for i, r in enumerate(report.results)])  # fmt: skip
+    try:
+        with db.transaction():
+            db.append("source_attempts", rows)
+    except duckdb.Error as exc:
+        report.results.append(SourceResult("record:attempts", False,
+                                           error=f"{type(exc).__name__}"))  # fmt: skip
+        return None
+    return attempt
 
 
 def _finish(db, report, issues, code, opts, alert, what: str = "data update") -> UpdateResult:
     result = UpdateResult(code, report, issues)
+    record_attempts(db, report, what, code)
     if code == OK and opts.export:
         db.export_parquet(opts.export)
     if alert and (report.failed or code != OK):

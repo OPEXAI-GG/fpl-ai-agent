@@ -84,6 +84,7 @@ def db_update(args: argparse.Namespace) -> int:
         players=args.players,
         player_limit=args.limit,
         export=Path(args.export) if args.export else None,
+        repairs=args.repairs,
     )
     db = FootballDB(args.db)
     if args.import_dir:
@@ -109,6 +110,7 @@ def backfill(args: argparse.Namespace) -> int:
         sources=tuple(s for s in args.sources.split(",") if s),
         export=Path(args.export) if args.export else None,
         max_minutes=args.max_minutes,
+        repairs=args.repairs,
     )
     db = FootballDB(args.db)
     if args.import_dir:
@@ -405,6 +407,64 @@ def verify_export_cmd(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def repair_undo_cmd(args: argparse.Namespace) -> int:
+    """Without an id: the journal of automatic repairs (read only). With one: undo that repair
+    exactly, or change nothing and exit 1 when the data changed since. A database without the
+    full declared schema is refused, so an undo never adds tables to the file."""
+    import duckdb
+
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.db.quality import RepairConflict, rollback_repair
+    from fpl_agent.db.schema import TABLES
+
+    try:
+        con = duckdb.connect(args.db, read_only=True)
+    except duckdb.Error as e:
+        print(f"not undone: cannot open {args.db}: {type(e).__name__}")
+        return 1
+    try:
+        sql = "SELECT table_name FROM duckdb_tables() WHERE schema_name = 'main'"
+        have = {r[0] for r in con.execute(sql).fetchall()}
+        rows = []
+        if "repair_log" in have:
+            rows = con.execute(
+                "SELECT repair_id, table_name, action, count(*), any_value(reason), "
+                "max(rolled_back_at) FROM repair_log GROUP BY ALL ORDER BY ALL"
+            ).fetchall()
+    finally:
+        con.close()
+    if not args.repair_id:
+        for rid, table, action, n, why, back in rows:
+            state = f"rolled back {back}" if back else "active"
+            print(f"{rid}  {table} {action} {n}  ({why}; {state})")
+        if not rows:
+            print("no journalled repairs")
+        return 0
+    missing = sorted(set(TABLES) - have)
+    if missing:
+        print(f"not undone: {args.db} lacks declared tables {', '.join(missing)}")
+        return 1
+    db = FootballDB(args.db)
+    try:
+        restored = rollback_repair(db, args.repair_id)
+    except RepairConflict as e:
+        print(f"not undone: {e}")
+        return 1
+    finally:
+        db.close()
+    if not restored:
+        print(f"{args.repair_id} was already undone; nothing changed")
+        return 0
+    print(f"undone {args.repair_id}: restored {restored}")
+    return 0
+
+
+REPAIRS_HELP = (
+    "apply needed automatic repair/quarantine changes (journalled; see repair-undo). Off by "
+    "default: a needed change then blocks the run with exit 3, unapplied"
+)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fpl-agent")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -430,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--fotmob", default="", help="'all' or comma list of competition ids")
     d.add_argument("--fotmob-matches", type=int, default=60, help="match pages per competition")
     d.add_argument("--understat-leagues", default="EPL", help="comma list, e.g. EPL,La_liga")
+    d.add_argument("--repairs", action="store_true", help=REPAIRS_HELP)
     b = sub.add_parser("backfill", help="fill history from 2017/18 (resumable, bounded per run)")
     b.add_argument("--db", default="data_cache/football.duckdb")
     b.add_argument("--start", type=int, default=2017)
@@ -445,6 +506,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     b.add_argument("--export", default=None)
     b.add_argument("--import-dir", default=None)
+    b.add_argument("--repairs", action="store_true", help=REPAIRS_HELP)
     pl = sub.add_parser(
         "plan", help="weekly decision: transfers, chip, XI, captain (dry by default)"
     )
@@ -528,9 +590,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also require every declared table (used before publishing)",
     )
+    ru = sub.add_parser(
+        "repair-undo", help="list journalled repairs, or undo one exactly (back up first)"
+    )
+    ru.add_argument("--db", default="data_cache/football.duckdb")
+    ru.add_argument("repair_id", nargs="?", help="omit to list the journal")
     args = parser.parse_args(argv)
     if args.cmd == "verify-export":
         return verify_export_cmd(args)
+    if args.cmd == "repair-undo":
+        return repair_undo_cmd(args)
     settings = Settings.from_env()
     if args.cmd == "explain":
         return explain_cmd(args)
