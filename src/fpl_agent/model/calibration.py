@@ -8,7 +8,8 @@ Two things make each week's real outcomes change the next week's plan:
    players actually scored. This module turns those reviews into a gentle multiplicative
    correction per position. It is shrunk toward 1 (little data = little change), capped at
    +-10%, and only built from reviews of gameweeks that were already over, so it can never see
-   the future.
+   the future. A review counts only if it judged a forecast made before that gameweek's
+   deadline (`eligible_for_calibration`); older reviews without that mark are ignored.
 
 The correction and its inputs are reported in the weekly output so it is never a black box.
 """
@@ -37,6 +38,8 @@ def factors(db: FootballDB, season: int, before_gw: int) -> dict[str, float]:
     n: dict[str, int] = {}
     for blob in rows["payload"]:
         rep = json.loads(blob)
+        if rep.get("eligible_for_calibration") is not True:
+            continue  # a post-deadline forecast (or one of unknown provenance) teaches nothing
         for pos, m in (rep.get("by_position") or {}).items():
             if "mean_pred" not in m:
                 continue

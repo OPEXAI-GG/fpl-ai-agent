@@ -23,7 +23,7 @@ def test_backtest_scores_every_position(results):
 def test_simulator_beats_the_last_five_baseline_in_a_world_it_understands(results):
     summary = backtest.summarize(results)
     assert {"sim", "last5"} <= set(summary.predictor)
-    verdict = backtest.beats_baselines(summary)
+    verdict = backtest.beats_baselines(results)
     assert verdict["ALL:last5"] and sum(verdict.values()) >= 3
 
 
@@ -48,3 +48,26 @@ def test_summary_columns_and_small_samples_are_skipped():
     tiny = pd.DataFrame({"position": ["MID"] * 5, "actual": range(5), "sim": range(5),
                          "last5": range(5), "fpl_xp": [np.nan] * 5})  # fmt: skip
     assert backtest.summarize(tiny).empty
+
+
+def test_a_baseline_missing_on_hard_rows_is_compared_on_common_rows_only():
+    """Audit case: the simulator looks better overall (RMSE 1.414 vs 1.8) only because the
+    baseline skipped rows; on the rows both predicted it loses (2.0 vs 1.8)."""
+    import pandas as pd
+
+    n = 40
+    actual = np.arange(n) % 4.0
+    sim = actual + np.r_[np.full(20, 2.0), np.zeros(20)]  # off by 2 on the first half only
+    last5 = actual + np.r_[np.full(20, 1.8), np.full(20, np.nan)]  # first half only
+    rows = pd.DataFrame({"position": "MID", "actual": actual, "sim": sim, "last5": last5,
+                         "fpl_xp": np.nan})  # fmt: skip
+    s = backtest.summarize(rows)
+    unpaired = s[s.position == "MID"].set_index("predictor")["rmse"]
+    assert unpaired["sim"] < unpaired["last5"]  # the misleading aggregate view
+    cmp = backtest.paired_comparison(rows).set_index(["position", "baseline"])
+    assert cmp.loc[("MID", "last5"), "n_common"] == 20
+    assert cmp.loc[("MID", "last5"), "n_sim_only"] == 20
+    assert cmp.loc[("MID", "last5"), "sim"] == pytest.approx(2.0)
+    assert backtest.beats_baselines(rows) == {"MID:last5": False, "ALL:last5": False}
+    with pytest.raises(TypeError):
+        backtest.beats_baselines(backtest.summarize(rows))
