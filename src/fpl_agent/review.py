@@ -60,18 +60,55 @@ def _explain_components(blob: str | None) -> dict[str, float]:
     return out
 
 
-def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
-    proj = db.query(
-        "SELECT player_id, xpts, detail FROM projections WHERE season = ? AND gw = ? "
-        "QUALIFY created_at = max(created_at) OVER (PARTITION BY player_id)",
+def deadline(db: FootballDB, season: int, gw: int):
+    """The gameweek's decision cutoff: 90 minutes before its first Premier League kickoff (FPL's
+    deadline rule; official deadlines are not stored on this base). None without fixtures."""
+    return db.con.execute(
+        "SELECT min(kickoff) - INTERVAL 90 MINUTE FROM matches "
+        "WHERE competition_id = 'ENG1' AND season = ? AND matchday = ?",
         [season, gw],
+    ).fetchone()[0]
+
+
+def projection_run(db: FootballDB, season: int, gw: int) -> tuple[str | None, bool]:
+    """(run id, made before the deadline): the newest single projection run saved before the
+    gameweek's cutoff, so every player is judged on the forecast a decision could have used.
+    Without one, the earliest run is returned, marked as not pre-deadline: it may have seen
+    team news, so it is reported but never learned from."""
+    cut = deadline(db, season, gw)
+    if cut is not None:
+        row = db.con.execute(
+            "SELECT run_id FROM projections WHERE season = ? AND gw = ? AND created_at <= ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            [season, gw, cut],
+        ).fetchone()
+        if row:
+            return row[0], True
+    row = db.con.execute(
+        "SELECT run_id FROM projections WHERE season = ? AND gw = ? ORDER BY created_at LIMIT 1",
+        [season, gw],
+    ).fetchone()
+    return (row[0] if row else None), False
+
+
+def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
+    """Projection error for a finished gameweek. Only players with an official result are
+    scored: a projected player with no result row is counted in `n_missing_outcome`, never
+    scored as zero. `eligible_for_calibration` is true only for a forecast made before the
+    deadline; `calibration.factors` ignores every other review."""
+    run, pre_deadline = projection_run(db, season, gw)
+    proj = db.query(
+        "SELECT player_id, xpts, detail FROM projections WHERE run_id = ? AND gw = ?", [run, gw]
     )
     act = _actuals(db, season, gw)
     if proj.empty or act.empty:
         return {"gw": gw, "available": False}
     pos = db.query("SELECT player_id, position FROM players")
     df = proj.merge(act, on="player_id", how="left").merge(pos, on="player_id", how="left")
-    df["actual"] = df["actual"].fillna(0.0)
+    missing = int(df["actual"].isna().sum())
+    df = df[df["actual"].notna()].copy()
+    if df.empty:
+        return {"gw": gw, "available": False, "n_missing_outcome": missing}
     df["err"] = df["xpts"] - df["actual"]
     by_pos = {}
     for p, g in df.groupby("position"):
@@ -100,7 +137,9 @@ def prediction_review(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
     # top-end calibration: did the players we rated highest deliver?
     top = df.nlargest(20, "xpts")
     core = df[df["player_id"].isin(_field_core(db, season, gw))]
-    report = {"gw": gw, "available": True, "n": len(df),
+    report = {"gw": gw, "available": True, "n": len(df), "projection_run": run,
+              "pre_deadline": pre_deadline, "eligible_for_calibration": pre_deadline,
+              "n_missing_outcome": missing,
               "rmse": round(float(np.sqrt((df["err"] ** 2).mean())), 3),
               "bias": round(float(df["err"].mean()), 3), "by_position": by_pos,
               "components": components, "flags": flags,

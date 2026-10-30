@@ -158,3 +158,26 @@ def test_first_choice_penalty_and_corner_takers_get_a_larger_share():
     assert out.loc[2, "xa_share"] == pytest.approx(0.1 + CORNER_ASSIST_SHARE)
     assert out.loc[3].tolist() == rates.loc[3].tolist()
     assert rates.loc[1, "xg_share"] == 0.2  # the input is not changed
+
+
+def test_a_cutoff_never_uses_closing_odds_or_odds_stored_after_it():
+    """Audit case (look-ahead): replaying a past gameweek must not read closing prices, which
+    are set at kickoff, after the deadline, nor prices loaded after the cutoff."""
+    from datetime import datetime
+
+    w = build_world(n_teams=8, seasons=(2023, 2024), seed=5)
+    m = int(project.fixtures_for(w.db, 2024, [8]).match_id[0])
+    ins = (
+        "INSERT INTO match_odds (match_id, source, bookmaker, closing, home, draw, away, "
+        "over25, under25, ingested_at) VALUES (?, 'test', ?, ?, ?, 4.0, 6.0, 1.8, 2.0, ?)"
+    )
+    cut = datetime(2024, 10, 1, 12)
+    w.db.con.execute(ins, [m, "a", True, 1.3, datetime(2024, 9, 1)])  # closing, stamped early
+    w.db.con.execute(ins, [m, "b", False, 1.6, datetime(2024, 10, 2)])  # pre-match, loaded too late
+    assert project.market_lambdas(w.db, m) is not None  # a live plan may still use them
+    assert project.market_lambdas(w.db, m, cut) is None
+    w.db.con.execute(ins, [m, "c", False, 2.0, datetime(2024, 9, 30)])  # pre-match, known in time
+    both = project.market_lambdas(w.db, m, cut)
+    assert both == project.odds.implied_lambdas(2.0, 4.0, 6.0, 1.8, 2.0)
+    deadline = project.approx_deadline(datetime(2024, 10, 5, 15))
+    assert deadline == datetime(2024, 10, 5, 13, 30)
