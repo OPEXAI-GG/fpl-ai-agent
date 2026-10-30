@@ -10,8 +10,10 @@ from fpl_agent.model import calibration
 from fpl_agent.model.project import Projection
 
 
-def add_review(db, gw, pos="MID", pred=3.0, actual=4.0, n=500, season=2026):
+def add_review(db, gw, pos="MID", pred=3.0, actual=4.0, n=500, season=2026, eligible=True):
     payload = {"by_position": {pos: {"n": n, "mean_pred": pred, "mean_actual": actual}}}
+    if eligible is not None:
+        payload["eligible_for_calibration"] = eligible
     db.con.execute(
         "INSERT INTO reviews VALUES (?, ?, now(), 'prediction', ?)",
         [season, gw, json.dumps(payload)],
@@ -45,3 +47,12 @@ def test_apply_scales_only_the_affected_positions():
     proj = Projection("r", 2026, [10], meta, pts, np.zeros((2, 1, 4), dtype=np.int16))
     calibration.apply(proj, {"MID": 1.1})
     assert np.allclose(proj.points[0], 1.1) and np.allclose(proj.points[1], 1.0)
+
+
+def test_reviews_of_post_deadline_or_unmarked_forecasts_are_ignored():
+    db = FootballDB()
+    add_review(db, 1, actual=6.0, eligible=False)  # judged a forecast made after the deadline
+    add_review(db, 2, actual=6.0, eligible=None)  # stored before the mark existed
+    assert calibration.factors(db, 2026, 5) == {}
+    add_review(db, 3, actual=4.0)
+    assert calibration.factors(db, 2026, 5)["MID"] > 1.0

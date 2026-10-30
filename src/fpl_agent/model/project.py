@@ -126,12 +126,28 @@ def fixtures_for(
     )
 
 
-def market_lambdas(db: FootballDB, match_id: int) -> tuple[float, float] | None:
-    """Goal rates implied by the most recent 1X2 (and totals) price we hold for a match."""
+def approx_deadline(first_kickoff) -> datetime:
+    """A past gameweek's decision cutoff when its official deadline is not stored: 90 minutes
+    before its first kickoff (FPL's usual deadline)."""
+    return (pd.Timestamp(first_kickoff) - pd.Timedelta(minutes=90)).to_pydatetime()
+
+
+def market_lambdas(
+    db: FootballDB, match_id: int, cutoff: datetime | None = None
+) -> tuple[float, float] | None:
+    """Goal rates implied by the most recent 1X2 (and totals) price we hold for a match.
+    Without `cutoff` (a live plan, before the match), closing prices are preferred when held.
+    With a decision `cutoff` (a backtest or replay of a past gameweek), closing prices are
+    never used, since they are set at kickoff after the deadline, and only prices stored by
+    the cutoff count; odds loaded after the fact are therefore left out."""
+    ok = "match_id = ? AND home > 1 AND draw > 1 AND away > 1"
+    if cutoff is None:
+        sql, args = f"{ok} ORDER BY closing DESC, ingested_at DESC", [match_id]
+    else:
+        sql = f"{ok} AND NOT closing AND ingested_at <= ? ORDER BY ingested_at DESC"
+        args = [match_id, cutoff]
     row = db.con.execute(
-        "SELECT home, draw, away, over25, under25 FROM match_odds WHERE match_id = ? AND home > 1 "
-        "AND draw > 1 AND away > 1 ORDER BY closing DESC, ingested_at DESC LIMIT 1",
-        [match_id],
+        f"SELECT home, draw, away, over25, under25 FROM match_odds WHERE {sql} LIMIT 1", args
     ).fetchone()
     if not row:
         return None
@@ -189,6 +205,7 @@ def build_projection(
     pm: pd.DataFrame | None = None,
     odds_weight: float = 0.5,
     pool_gw: int | None = None,
+    odds_cutoff: datetime | None = None,
 ) -> Projection:
     cfg = cfg or SimConfig()
     rules = rules or Rules.nearest(season)
@@ -238,7 +255,7 @@ def build_projection(
 
     for fxr in fx.itertuples():
         lam = ratings.lambdas(fxr.home, fxr.away, COMPETITION)
-        mk = market_lambdas(db, fxr.match_id)
+        mk = market_lambdas(db, fxr.match_id, odds_cutoff)
         lh, la = odds.blend(lam, mk, odds_weight)
         specs = []
         for team in (fxr.home, fxr.away):

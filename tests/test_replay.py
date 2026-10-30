@@ -74,3 +74,15 @@ def test_settings_override_the_planner_and_chip_thresholds():
     assert cfg.chips.hold_margin == 2.0
     with pytest.raises(ValueError, match="unknown setting"):
         replay.tuned(replay.ReplayConfig(), ["nonsense=1"])
+
+
+def test_a_captain_booked_without_minutes_stays_in_but_the_vice_is_captain():
+    """2026/27 rules: a card without minutes counts as playing for automatic substitution, but
+    the armband passes to the vice-captain when the captain "plays no minutes"."""
+    rules = Rules.nearest(2025)
+    pts = {i: 2 for i in range(1, 16)} | {2: -1, 3: 10, 12: 6}  # captain booked on the bench
+    mins = {i: 90 for i in range(1, 16)} | {2: 0}
+    total, cap, bench = replay.score_week(_week(), pts, mins, POS, rules, cards={2: 1})
+    # no substitution (the booked captain took part), the vice's 10 doubled
+    assert cap == 10 and total == 9 * 2 - 1 + 10 + 10
+    assert bench == 6 + 2 * 3
