@@ -5,7 +5,12 @@ For each enabled source in the registry:
 1. Skip it when it ran successfully less than `min_interval_minutes` ago, or a rate limit told us
    to wait (`next_allowed_at`): bounded requests, and repeated runs do nothing new.
 2. Fetch with its cursor (RSS: ETag/Last-Modified; X: per-account since_id), store items with
-   provenance and revisions (`news.store`), then extract claims from every new or revised item.
+   provenance and revisions (`news.store`), then extract claims from every new or revised item
+   and from every stored revision whose extraction has not completed (`news_extractions`), so
+   a transient extraction failure is recovered on the next run even when the feed is unchanged
+   (304). Each item's claims and its extraction record are written in one transaction; claim
+   ids are content hashes, so a retry never duplicates a claim. A run with failed extractions
+   is `partial` and health shows the pending items.
 3. Record the outcome in `source_state` (cursor, last success, consecutive failures) and
    `source_runs` (one row per attempt).
 
@@ -41,7 +46,7 @@ STALE_AFTER = 3  # a source is "stale" once it has not succeeded for this many i
 @dataclass
 class SourceOutcome:
     source_id: str
-    status: str  # ok | not_modified | skipped | rate_limited | failed | disabled
+    status: str  # ok | not_modified | partial | skipped | rate_limited | failed | disabled
     requests: int = 0
     fetched: int = 0
     new: int = 0
@@ -104,13 +109,53 @@ def _due(src: SourceConfig, st: dict, at: datetime, force: bool) -> str | None:
     return None
 
 
-def extract_items(db: FootballDB, changed: list[tuple[str, int]], resolver: Resolver,
-                  scout=None) -> int:  # fmt: skip
-    """Entities and claims for the given (item, revision) pairs; returns claims stored."""
+MAX_ATTEMPTS = 5  # a revision whose extraction keeps failing is retried this many times
+RECOVER_LIMIT = 200  # pending revisions retried per source run (bounded work)
+
+
+def pending_revisions(db: FootballDB, source_id: str) -> list[tuple[str, int]]:
+    """Stored revisions of this source whose extraction never completed (no row: interrupted
+    before it ran; `failed`: it raised), oldest first and bounded."""
+    rows = db.con.execute(
+        "SELECT v.item_id, v.revision FROM news_revisions v JOIN news_items i USING (item_id) "
+        "LEFT JOIN news_extractions e ON e.item_id = v.item_id AND e.revision = v.revision "
+        "WHERE i.source_id = ? AND (e.status IS NULL OR (e.status = 'failed' AND e.attempts < ?)) "
+        "ORDER BY v.observed_at, v.item_id LIMIT ?",
+        [source_id, MAX_ATTEMPTS, RECOVER_LIMIT],
+    ).fetchall()
+    return [(r[0], int(r[1])) for r in rows]
+
+
+@dataclass
+class ExtractResult:
+    claims: int = 0
+    done: int = 0
+    failed: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
+def _mark(db: FootballDB, it: dict, status: str, claims: int, error: str | None) -> None:
+    prev = db.con.execute(
+        "SELECT attempts FROM news_extractions WHERE item_id = ? AND revision = ?",
+        [it["item_id"], int(it["revision"])],
+    ).fetchone()
+    db.upsert("news_extractions", pd.DataFrame([{
+        "item_id": it["item_id"], "revision": int(it["revision"]), "source_id": it["source_id"],
+        "status": status, "attempts": (prev[0] if prev else 0) + 1,
+        "extraction_version": extract.VERSION, "claims": claims, "error": error,
+        "updated_at": now()}]))  # fmt: skip
+
+
+def extract_items(db: FootballDB, changed: list[tuple[str, int]], resolver: Resolver | None,
+                  scout=None) -> ExtractResult:  # fmt: skip
+    """Entities and claims for the given (item, revision) pairs, each recorded in
+    `news_extractions` as done or failed. Re-running a revision replaces its claims and
+    entities in one transaction, so a retry never leaves copies or stale attributions."""
+    res = ExtractResult()
     if not changed:
-        return 0
+        return res
     items = []
-    for item_id, rev in changed:
+    for item_id, rev in dict.fromkeys(changed):
         r = db.query(
             "SELECT i.item_id, v.revision, v.title, v.content, v.observed_at, i.source_id, "
             "i.source_tier, i.story_key, i.published_at FROM news_items i JOIN news_revisions v "
@@ -128,26 +173,46 @@ def extract_items(db: FootballDB, changed: list[tuple[str, int]], resolver: Reso
         from fpl_agent.scout import claims_request
 
         llm = claims_request(scout, items)
-    n = 0
     for it in items:
-        claims = []
-        if it["item_id"] in llm:
-            claims = extract.validate_llm(llm[it["item_id"]], it, resolver)
-        if not claims:
-            claims = extract.rule_claims(it, resolver)
-        ents = resolver.resolve(f"{it['title']}. {it['content']}")
-        if ents:
-            db.upsert("news_entities", pd.DataFrame([{
-                "item_id": it["item_id"], "revision": int(it["revision"]), "mention": m.text,
-                "player_id": m.player_id, "team_id": m.team_id, "status": m.status,
-                "confidence": m.confidence, "candidates": json.dumps(m.candidates)}
-                for m in ents]).astype({"player_id": "Int64", "team_id": "Int64"}))  # fmt: skip
-        if claims:
-            df = pd.DataFrame([{**c.__dict__, "created_at": now()} for c in claims])
-            df["player_id"] = df["player_id"].astype("Int64")
-            db.upsert("evidence_claims", df)
-            n += len(claims)
-    return n
+        try:
+            if resolver is None:
+                resolver = Resolver.from_db(db)
+            claims = []
+            if it["item_id"] in llm:
+                claims = extract.validate_llm(llm[it["item_id"]], it, resolver)
+            if not claims:
+                claims = extract.rule_claims(it, resolver)
+            ents = resolver.resolve(f"{it['title']}. {it['content']}")
+            db.con.execute("BEGIN TRANSACTION")
+            try:  # a re-run replaces this revision's earlier claims and entities
+                for t in ("evidence_claims", "news_entities"):
+                    db.con.execute(f"DELETE FROM {t} WHERE item_id = ? AND revision = ?",
+                                   [it["item_id"], int(it["revision"])])  # fmt: skip
+                if ents:
+                    db.upsert("news_entities", pd.DataFrame([{
+                        "item_id": it["item_id"], "revision": int(it["revision"]),
+                        "mention": m.text, "player_id": m.player_id, "team_id": m.team_id,
+                        "status": m.status, "confidence": m.confidence,
+                        "candidates": json.dumps(m.candidates)} for m in ents]).astype(
+                            {"player_id": "Int64", "team_id": "Int64"}))  # fmt: skip
+                if claims:
+                    df = pd.DataFrame([{**c.__dict__, "created_at": now()} for c in claims])
+                    df["player_id"] = df["player_id"].astype("Int64")
+                    db.upsert("evidence_claims", df)
+                _mark(db, it, "done", len(claims), None)
+                db.con.execute("COMMIT")
+            except Exception:
+                db.con.execute("ROLLBACK")
+                raise
+            res.claims += len(claims)
+            res.done += 1
+        except Exception as exc:  # noqa: BLE001 - one item never stops the others
+            msg = f"{type(exc).__name__}: {exc}"[:300]
+            _mark(db, it, "failed", 0, msg)
+            res.failed += 1
+            res.errors.append(msg)
+            log.warning("claim extraction failed for %s: %s", it["item_id"], msg)
+    return res
 
 
 def run_sources(
@@ -180,10 +245,18 @@ def run_sources(
             res = store_items(db, src, items, at)
             out.fetched, out.new, out.revised, out.unchanged = (
                 len(items), res.new, res.revised, res.unchanged)  # fmt: skip
-            if res.changed_ids:
+            todo = [*(res.changed_ids or []), *pending_revisions(db, src.id)]
+            if todo:
                 resolver = resolver or Resolver.from_db(db)
-                out.claims = extract_items(db, res.changed_ids, resolver, scout)
+                ex = extract_items(db, todo, resolver, scout)
+                out.claims = ex.claims
+            else:
+                ex = ExtractResult()
             out.status = "ok" if items or out.requests == 0 else "not_modified"
+            if ex.failed:  # stored but not yet extracted: retried on the next run
+                out.status = "partial"
+                out.note = f"claim extraction failed for {ex.failed} item(s), will retry: " + (
+                    ex.errors[0])  # fmt: skip
             _save_state(db, src, st, cursor=cur.get("cursor"), etag=cur.get("etag"),
                         last_modified=cur.get("last_modified"), last_attempt_at=at,
                         last_success_at=at, last_status=out.status, last_error=None,
@@ -239,10 +312,15 @@ def health(db: FootballDB, sources: list[SourceConfig], at: datetime | None = No
         n_claims = db.con.execute(
             "SELECT count(*) FROM evidence_claims WHERE source_id = ?", [src.id]
         ).fetchone()[0]
+        pending = db.con.execute(
+            "SELECT count(*) FROM news_extractions WHERE source_id = ? AND status = 'failed'",
+            [src.id]).fetchone()[0]  # fmt: skip
         if not src.enabled:
             state = "disabled"
         elif st.get("last_status") == "skipped":
             state = "skipped (" + str(st.get("last_error") or "") + ")"
+        elif st.get("last_status") == "partial" or pending:
+            state = f"extraction pending ({pending} item(s))"
         elif st.get("last_status") in ("failed", "rate_limited"):
             state = f"{st.get('last_status')} x{int(st.get('consecutive_failures') or 0)}"
         elif stale:

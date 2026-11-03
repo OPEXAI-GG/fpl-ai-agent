@@ -24,13 +24,14 @@ Kinds and values:
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from fpl_agent.news.entities import Mention, Resolver
 from fpl_agent.news.store import sha
 
-VERSION = "rules-2026.11.1"
+VERSION = "rules-2026.11.2"
 LLM_VERSION = "llm-2026.11.1"
 
 KINDS = {
@@ -79,7 +80,6 @@ WEEKS = re.compile(r"\bout for (up to |around |about |at least )?(\w+)( to (\w+)
                    r"(weeks?|months?)\b")  # fmt: skip
 NUMBERS = {"a": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
            "eight": 8, "nine": 9, "ten": 10, "several": 4, "few": 3, "couple": 2}  # fmt: skip
-CLAUSES = re.compile(r"(?<=[.!?;])\s+|\n+|,\s*(?:but|while|whereas|although)\s+|\s+but\s+")
 
 
 @dataclass
@@ -117,11 +117,6 @@ def _expiry(kind: str, value: str, at: datetime, return_at: datetime | None) -> 
     return at + TTL.get((kind, value), TTL.get((kind, None), timedelta(days=4)))
 
 
-def _mentions_in(clause: str, mentions: list[Mention], resolver: Resolver) -> list[Mention]:
-    names = {m.text for m in resolver.resolve(clause)}
-    return [m for m in mentions if m.text in names]
-
-
 def make_claim(
     item: dict,
     m: Mention,
@@ -147,40 +142,135 @@ def make_claim(
     )  # fmt: skip
 
 
+def fold(text: str) -> str:
+    """Lowercase without accents, one character per input character (offsets stay valid)."""
+    out = []
+    for ch in text:
+        d = "".join(c for c in unicodedata.normalize("NFKD", ch) if not unicodedata.combining(c))
+        out.append((d[:1] or ch).lower() if len(d.lower()) >= 1 else ch)
+    s = "".join(out)
+    return s if len(s) == len(text) else text.lower()
+
+
+SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
+BOUNDARY = re.compile(r",|;|:|\s-\s|\b(?:and|but|while|whereas|although|adding that)\b")
+COORDINATED = re.compile(r"^\s*(?:,|and|&|or|as well as)\s*$")
+PRONOUN = re.compile(r"^(?:he|she|they)\b")
+MAX_GAP = 90  # characters from the subject to its status phrase
+
+
+@dataclass
+class _Occ:
+    start: int
+    end: int
+    mention: Mention
+
+
+def _occurrences(low: str, mentions: list[Mention]) -> list[_Occ]:
+    """Every place each mention's name appears in the folded text, longest names first."""
+    occ: list[_Occ] = []
+    for m in sorted(mentions, key=lambda m: len(m.text), reverse=True):
+        rx = r"(?<![a-z0-9])" + r"[^a-z0-9]+".join(map(re.escape, m.text.split())) + r"(?![a-z0-9])"
+        for hit in re.finditer(rx, low):
+            if not any(o.start <= hit.start() < o.end for o in occ):
+                occ.append(_Occ(hit.start(), hit.end(), m))
+    return sorted(occ, key=lambda o: o.start)
+
+
+def _same(a: Mention, b: Mention) -> bool:
+    return (a.player_id, a.text) == (b.player_id, b.text) or (
+        a.player_id is not None and a.player_id == b.player_id)  # fmt: skip
+
+
+def _subject(low: str, occ: list[_Occ], s0: int, at: int, prev: list[Mention]):
+    """The one mention a status phrase at `at` is about, or None (abstain)."""
+    before = [o for o in occ if s0 <= o.start and o.end <= at]
+    if before:
+        o = before[-1]
+        if at - o.end > MAX_GAP:
+            return None
+        if len(before) > 1 and COORDINATED.match(low[before[-2].end : o.start]) and not _same(
+                before[-2].mention, o.mention):  # fmt: skip
+            return None  # "Saka and Saliba are out": a shared subject is not attributed
+        return o
+    if PRONOUN.match(low[at:]):  # "He's out": only with exactly one candidate in reach
+        here = _distinct([o.mention for o in occ if o.start >= s0])
+        cands = here or _distinct(prev)
+        if len(cands) == 1:
+            return next((o for o in occ if _same(o.mention, cands[0])), _Occ(at, at, cands[0]))
+    return None
+
+
+def _distinct(ms: list[Mention]) -> list[Mention]:
+    out: list[Mention] = []
+    for m in ms:
+        if not any(_same(m, x) for x in out):
+            out.append(m)
+    return out
+
+
+def _scope(low: str, occ: list[_Occ], subj: _Occ, s0: int, s1: int, at_end: int):
+    """The clause that belongs to one subject: from the last clause boundary after the previous
+    name (or the sentence start) to the next name (or the sentence end)."""
+    prev_end = max([o.end for o in occ if s0 <= o.start and o.end <= subj.start], default=s0)
+    start = prev_end
+    for b in BOUNDARY.finditer(low, prev_end, max(subj.start, prev_end)):
+        start = b.end()
+    nxt = min([o.start for o in occ if o.start >= max(at_end, subj.end) and o.start < s1],
+              default=s1)  # fmt: skip
+    return start, max(nxt, at_end)
+
+
 def rule_claims(item: dict, resolver: Resolver) -> list[Claim]:
     """`item` holds item_id, revision, title, content, observed_at, source_id, source_tier,
-    story_key, published_at."""
+    story_key, published_at.
+
+    Each status phrase is bound to one subject: the nearest name before it in the same
+    sentence (a pronoun takes the only name in reach). A shared subject ("A and B are out"),
+    a phrase with no name before it and a pronoun with several candidates abstain. Speculation
+    and negation count only inside that subject's own clause."""
     text = f"{item['title']}. {item['content']}"
     mentions = resolver.resolve(text)
     if not mentions:
         return []
+    low = fold(text)
+    occ = _occurrences(low, mentions)
     out: dict[str, Claim] = {}
-    for clause in (c.strip() for c in CLAUSES.split(text)):
-        if not clause or len(clause) < 8:
+    prev: list[Mention] = []
+    pos = 0
+    for part in SENTENCES.split(low):
+        s0 = low.find(part, pos)
+        s1 = s0 + len(part)
+        pos = s1
+        if len(part.strip()) < 8:
             continue
-        low = clause.lower()
-        who = _mentions_in(clause, mentions, resolver)
-        if not who:
-            continue
-        speculative = bool(SPECULATION.search(low))
+        found: list[tuple[int, int, str, str, bool, int | None]] = []
         for pattern, kind, value, confirmed_wording in PATTERNS:
-            hit = re.search(pattern, low)
-            if not hit or NEGATION.search(low[: hit.start()]):
-                continue
-            confirmed = confirmed_wording and not speculative
-            for m in who:
-                c = make_claim(item, m, kind, value, confirmed, clause, "rules", VERSION)
-                out[c.claim_id] = c
-        wk = WEEKS.search(low)
-        if wk:
+            for hit in re.finditer(pattern, low[s0:s1]):
+                found.append((s0 + hit.start(), s0 + hit.end(), kind, value, confirmed_wording,
+                              None))  # fmt: skip
+        for wk in WEEKS.finditer(low[s0:s1]):
             n = _number(wk.group(4)) or _number(wk.group(2))
             if n:
                 weeks = n * (4 if wk.group(5).startswith("month") else 1)
-                ret = item["observed_at"] + timedelta(weeks=weeks)
-                for m in who:
-                    c = make_claim(item, m, "return", f"weeks:{weeks}", not speculative, clause,
-                                   "rules", VERSION, return_at=ret)  # fmt: skip
-                    out[c.claim_id] = c
+                found.append((s0 + wk.start(), s0 + wk.end(), "return", f"weeks:{weeks}", True,
+                              weeks))  # fmt: skip
+        for a, b, kind, value, confirmed_wording, weeks in found:
+            subj = _subject(low, occ, s0, a, prev)
+            if subj is None:
+                continue
+            c0, c1 = _scope(low, occ, subj, s0, s1, b)
+            if NEGATION.search(low[c0:a]):
+                continue
+            speculative = bool(SPECULATION.search(low[c0:c1]))
+            quote = text[c0:c1].strip(" ,;:-")
+            quote = re.sub(r"\s+(?:and|but|while|whereas|although)$", "", quote)
+            ret = item["observed_at"] + timedelta(weeks=weeks) if weeks else None
+            c = make_claim(item, subj.mention, kind, value, confirmed_wording and not speculative,
+                           quote, "rules", VERSION, return_at=ret)  # fmt: skip
+            out[c.claim_id] = c
+        here = _distinct([o.mention for o in occ if s0 <= o.start < s1])
+        prev = here or prev
     # one claim per player, kind and value within an item (a headline and its body say the
     # same thing): keep the best-matched name, then the longest supporting clause
     best: dict[tuple, Claim] = {}

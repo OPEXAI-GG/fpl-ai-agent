@@ -129,6 +129,11 @@ TABLES["source_state"] = """
     last_status VARCHAR, last_error VARCHAR, consecutive_failures INTEGER,
     next_allowed_at TIMESTAMP, items_total INTEGER"""
 
+TABLES["news_extractions"] = """
+    item_id VARCHAR, revision INTEGER, source_id VARCHAR, status VARCHAR, attempts INTEGER,
+    extraction_version VARCHAR, claims INTEGER, error VARCHAR, updated_at TIMESTAMP,
+    PRIMARY KEY (item_id, revision)"""
+
 TABLES["source_runs"] = """
     source_id VARCHAR, run_at TIMESTAMP, status VARCHAR, requests INTEGER, fetched INTEGER,
     new_items INTEGER, revised INTEGER, unchanged INTEGER, note VARCHAR"""
@@ -142,6 +147,11 @@ TABLES["learning_state"] = """
     version INTEGER PRIMARY KEY, created_at TIMESTAMP, status VARCHAR, parent_version INTEGER,
     season INTEGER, through_gw INTEGER, training_cutoff TIMESTAMP, config JSON, samples JSON,
     evaluation JSON, reason VARCHAR"""
+
+TABLES["learning_updates"] = """
+    season INTEGER, gw INTEGER, evidence_key VARCHAR, status VARCHAR, base_version INTEGER,
+    result_version INTEGER, created_at TIMESTAMP, reason VARCHAR,
+    PRIMARY KEY (season, gw, evidence_key)"""
 
 TABLES["schema_migrations"] = """
     name VARCHAR PRIMARY KEY, applied_at TIMESTAMP"""

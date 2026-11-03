@@ -241,7 +241,7 @@ def build_projection(
     first = gws[0]
     as_of = as_of or (cutoff.date() if cutoff is not None else date.today())
     limitations: list[str] = []
-    frame = frame if frame is not None else features.player_gw_frame(db)
+    frame = frame if frame is not None else features.player_gw_frame(db, as_of=cutoff)
     history = frame[
         (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
     ]

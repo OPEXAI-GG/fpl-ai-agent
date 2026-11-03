@@ -10,9 +10,11 @@
 Each flag is `off`, `shadow` or `on`:
 
 * `off`: not computed.
-* `shadow` (the default for both): the plan uses the baseline; a second forecast with the
-  feature is stored beside it (`forecast_runs.variant = 'shadow'`) for forward evaluation.
-* `on`: the plan uses the feature; the baseline is stored as the shadow.
+* `shadow` (the default for both): the plan does not use it; an experiment arm with the
+  feature added to the issued configuration is stored beside the plan's run
+  (`forecast_runs.variant = 'experiment'`, see `agent.experiment_arms`) for forward evaluation.
+* `on`: the plan uses it; an experiment arm with the feature removed is stored, so evidence
+  keeps accumulating after promotion and a regression can demote it.
 
 An env value wins; otherwise the current learning state may promote a feature to `on` after
 it passed its evaluation (`learning.py`); otherwise `shadow`. Hard eligibility is never touched:
@@ -34,6 +36,7 @@ from fpl_agent.db.database import FootballDB
 from fpl_agent.model import evidence, workload
 from fpl_agent.model.features import minutes_features
 from fpl_agent.model.minutes import EPS, availability_factor
+from fpl_agent.pit import DEADLINE_LEAD
 
 FEATURES = ("news_availability", "workload")
 MODES = ("off", "shadow", "on")
@@ -149,7 +152,9 @@ class WorkloadModel:
 
         feat = training_rows(history)
         feat = feat[feat["kickoff"].notna()]
-        wl = workload.workload_features(feat, apps, teams)
+        est = feat.groupby(["season", "gw"])["kickoff"].transform("min")
+        row_deadline = (pd.to_datetime(est) - DEADLINE_LEAD).to_numpy("datetime64[ns]")
+        wl = workload.workload_features(feat, apps, teams, cutoff=row_deadline)
         X = pd.concat([feat[base_cols], wl], axis=1)
         cols = [*base_cols, *[c for c in workload.FEATURES if wl[c].notna().any()]]
         clf = _clf().fit(X[cols], feat["started"].to_numpy())
@@ -172,6 +177,7 @@ class Workload:
     model: WorkloadModel | None = None
     changed: int = 0
     counts: dict = field(default_factory=dict)
+    cache: dict = field(default_factory=dict, repr=False)
 
     def apply(self, mins: pd.DataFrame, upcoming: pd.DataFrame, cutoff: datetime | None,
               ctx: dict | None = None) -> pd.DataFrame:  # fmt: skip
@@ -187,7 +193,10 @@ class Workload:
             self.counts = {"note": "no cross-competition appearances: workload not applied"}
             return out
         if self.model is None:
+            self.model = self.cache.get("workload_model")
+        if self.model is None:
             self.model = WorkloadModel.fit(history, base.cols, apps, teams)
+            self.cache["workload_model"] = self.model
         nxt = upcoming[upcoming["horizon"] == 1].drop_duplicates("player_id")
         if nxt.empty:
             return out
@@ -223,9 +232,17 @@ class Workload:
         return self.counts
 
 
-def build(names: list[str], db: FootballDB) -> list:
-    made = {"news_availability": NewsAvailability, "workload": Workload}
-    return [made[n](db) for n in names if n in made]
+def build(names: list[str], db: FootballDB, cache: dict | None = None) -> list:
+    """Fresh overlay instances for `names`. A shared `cache` lets several builds of the same run
+    (the primary and its experiment arms) reuse one fitted workload model, so every arm applies
+    the identical feature."""
+    out = []
+    for n in names:
+        if n == "news_availability":
+            out.append(NewsAvailability(db))
+        elif n == "workload":
+            out.append(Workload(db, cache=cache if cache is not None else {}))
+    return out
 
 
 __all__ = ["modes", "build", "NewsAvailability", "Workload", "availability_factor"]

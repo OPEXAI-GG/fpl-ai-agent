@@ -457,7 +457,9 @@ def evaluate_cmd(args: argparse.Namespace) -> int:
     db = _open_db(args)
     gw = args.gw or _latest_points_gw(db, int(args.season))
     out = learning.evaluate_gw(db, int(args.season), gw)
-    out.pop("paired", None)
+    for c in (out.get("comparisons") or {}).values():  # per-player rows stay in the database
+        if isinstance(c.get("affected"), list):
+            c["affected"] = len(c["affected"])
     _export(db, args)
     print(json.dumps(out, indent=2, default=str))
     return 0

@@ -11,7 +11,7 @@ week by week, whether a change has earned its place.
 | Pre-deadline review, cutoff recording, final-only calibration and lessons | **active** | Yes. Calibration and lessons now learn from final, eligible reviews only. |
 | News ingestion (RSS) | **active** in the daily data workflow | No, it only stores items and claims. |
 | X ingestion | **configured but idle**: no accounts are listed and `X_BEARER_TOKEN` is not set | No. |
-| News availability overlay (`FEATURE_NEWS_AVAILABILITY`) | **shadow** | No. A second forecast with it is stored and scored. |
+| News availability overlay (`FEATURE_NEWS_AVAILABILITY`) | **shadow** | No. A matched experiment arm with it is stored and scored. |
 | Rest and workload overlay (`FEATURE_WORKLOAD`) | **shadow** | No. Same as above. |
 | Learning state (`fpl-agent learn`) | **active** in the review workflow | Only through calibration factors and feature promotions that passed their thresholds. Until a state exists, the plan behaves as before. |
 
@@ -27,9 +27,10 @@ simulator uses, and FPL's own status flags still decide hard eligibility.
 * Every stored projection run is registered in `forecast_runs`: `created_at`, the information
   `cutoff` it used, the first gameweek's `deadline` (and whether that came from FPL or was
   estimated as 90 minutes before the first kickoff), `eligible` (made before the deadline),
-  `variant` (`primary` = what the plan used, `shadow` = the other arm), the parent run, the model
-  and feature versions, the feature flags and calibration it used, and any point-in-time
-  limitations of its inputs.
+  `variant` (`primary` = the raw forecast the plan started from, `issued` = the forecast
+  exactly as the planner received it, `experiment` = a matched experiment arm), the parent run,
+  the model and feature versions, the full configuration (feature modes, features applied,
+  calibration, learning version, samples, seed), and any point-in-time limitations.
 * A review scores **one** run: the newest eligible primary run. It never mixes runs per player,
   and a run made after kickoff can never be scored. Projections saved before this change have
   no registry row; they are grouped by run id and judged against the deadline the same way
@@ -93,10 +94,19 @@ To read X accounts, list them under `x-clubs` (tier 1) or `x-journalists` (tier 
 
 * **Idempotent.** Item id = hash(source id, provider id). A refetch of unchanged content only
   touches `retrieved_at`. Repeated runs within `min_interval_minutes` make no request.
-* **Incremental and bounded.** Conditional GET for RSS. `since_id` plus at most `max_pages`
-  pages of `max_items` per X account. A 2 MB response cap and a 20 s timeout. A 429 stores the
-  server's reset time, and the source is skipped until then. Posts older than the newest page
-  read are not backfilled.
+* **Incremental, bounded and resumable.** Conditional GET for RSS. `since_id` plus at most
+  `max_pages` pages of `max_items` per X account. When a poll stops at `max_pages` with a
+  continuation token left, the account's cursor keeps that window as `pending` (its `since_id`
+  floor, newest id seen, token) and `since_id` does not move; the next poll finishes the window
+  first and only then advances `since_id`, so an older post in a capped window is never
+  skipped. A failed request saves nothing and the window is retried. A 2 MB response cap and a
+  20 s timeout. A 429 stores the server's reset time, and the source is skipped until then.
+* **Extraction recovery.** Every stored revision has a row in `news_extractions` (`done` or
+  `failed`, attempts, error). Each run of a source extracts its new and revised items plus any
+  revision whose extraction never completed (up to 200, at most 5 attempts), even when the feed
+  is unchanged or answers 304. A revision's claims, entities and extraction record are written
+  in one transaction, and a re-run replaces that revision's claims, so retries never duplicate.
+  A run with a failed extraction is `partial`, and `sources` shows `extraction pending (N)`.
 * **Copies.** A repost or quote shares the original's `story_key`. So do the same canonical URL
   and near-identical text (4-word shingle Jaccard >= 0.6 within three days). Independent
   confirmation counts stories, not items.
@@ -124,9 +134,16 @@ observed by us), `expires_at`, an optional `return_at`, the `extractor` and its 
   0.95. A surname or FPL short name gives 0.8 when exactly one squad player carries it, or 0.7
   when the text also names his club and that leaves one. Anything else stays *ambiguous*, is
   stored with its candidates, and never changes a forecast.
+* **Attribution.** Each status phrase is bound to one subject: the nearest name before it in
+  the same sentence ("Saka is fit and Saliba is ruled out" gives two claims, not four). A
+  shared subject ("Saka and Saliba are ruled out"), a phrase with no name before it, and a
+  pronoun with more than one candidate abstain. A pronoun takes the only name in its sentence
+  or the previous one.
 * **Confirmed or speculative.** Wording such as "ruled out" or "will miss" with no hedge is
-  confirmed. Any speculation marker ("could", "reportedly", "expected to", "fears") makes the
-  clause speculative. Negations ("not ruled out") make no claim.
+  confirmed. A speculation marker ("could", "reportedly", "expected to", "fears") inside the
+  subject's own clause makes that claim speculative. A negation before the phrase in that
+  clause ("not ruled out") makes no claim. One report that contradicts itself about a player
+  ("fit" and "ruled out") is a conflict and changes nothing.
 * **Extractors.** The rule extractor is the default and the fallback. The LLM extractor (the
   scout's API call) is optional. It treats fetched text as data and its output is validated:
   known kinds and values only, the quote must be a verbatim substring of the item, and the
@@ -180,7 +197,7 @@ observed by us), `expires_at`, an optional `return_at`, the `extractor` and its 
 | RSS feeds | daily and weekly data runs (`data.yml`) | 2 requests a run, about 100 KB, free |
 | X timelines | the same runs, once you list accounts and set the token | 1 lookup per account (once), then 1 request per account per run (up to `max_pages`). X bills pay-per-use per post read. Third-party sources put this at about $0.005 a post (not verified against X's own pricing page), so 10 accounts x 20 posts a day is about $1 a day. Lower `max_items` to cap it. |
 | LLM extraction | only with `NEWS_LLM=1` | at most one call per source per run (first 15 new/revised items; the rest use the rules), about 6k input and 1k output tokens, a few cents a run |
-| Shadow forecast | every plan run that has a shadow feature | next gameweek only, 500 samples, reuses the fitted models (about 10-20% extra run time) |
+| Experiment arms | every plan run | next gameweek only: one control arm plus one arm per feature that is not `off` (three arms with both features enabled), each with the plan's sample count and seeds and its fitted models; the issued forecast is stored once more. About 20-40% extra run time. |
 | Evaluation and learning | Tuesday review (`review.yml`) | local computation only |
 
 ## The weekly learning loop
@@ -188,38 +205,68 @@ observed by us), `expires_at`, an optional `return_at`, the `extractor` and its 
 Run by `review.yml` after the data update: `fpl-agent evaluate --gw 0` then
 `fpl-agent learn --gw 0`.
 
-1. **Score what was issued.** For the final gameweek, take the primary run and its shadow and
-   score both on the identical cohort (players in both runs with a result). The metrics are
-   points MAE, RMSE and bias; P(start) Brier, log loss and a 5-bin calibration table (players
-   with one fixture, `starts` from FPL); P(play) Brier; evidence and workload coverage. The
-   primary arm is also scored as issued (with the calibration factors the plan applied).
-   Results go to `evaluations` and to `reviews` (kind `evaluation`).
-2. **Candidate.** Calibration factors are re-estimated from final, eligible reviews. Each
-   moves at most 0.03 from the current one, and nothing changes before two final reviews. For
-   each feature, the paired forward evidence is the change in absolute error on player-weeks
-   that feature changed (and no other feature did), across every evaluated final week.
-3. **Thresholds, fixed in `learning.THRESHOLDS` before any evaluation:** a shadow feature is
+1. **Score what was issued.** For the final gameweek, take the newest eligible primary run.
+   Score its `raw` forecast (what calibration learns from) and its `issued` variant (what the
+   planner received after calibration and the template correction, with both transformations
+   recorded). Metrics: points MAE, RMSE and bias; P(start) Brier, log loss and a 5-bin
+   calibration table (players with one fixture, `starts` from FPL); P(play) Brier.
+2. **Matched experiments.** Each plan run also stores, for its first gameweek, experiment arms
+   simulated with the same fitted models, sample count and seeds: `control` (the issued
+   configuration again: the null intervention, which must reproduce the primary's expected
+   points exactly or every arm of the run is invalid), `with:<feature>` for each shadow feature
+   and `without:<feature>` for each feature that is `on`. A feature's comparison is the pair
+   that differs in that feature only, so evidence keeps coming after promotion (control vs
+   `without`) as well as before it (`with` vs control), in every off/shadow/on combination.
+   Each arm is validated against the primary: made before the deadline, cutoff no later than
+   it, same season and gameweek, kind, model, model and feature versions, samples and seed,
+   null check passed. Anything else is listed as `excluded` and supplies no evidence.
+3. **Evidence.** For each comparison, `affected` = players the feature changed in its arm. The
+   change in absolute points error and the change in P(start) Brier are both computed on those
+   same players. A feature's evidence pools the comparisons of its current mode since that mode
+   last changed.
+4. **Thresholds, fixed in `learning.THRESHOLDS` before any evaluation:** a shadow feature is
    promoted to `on` only with >= 4 final gameweeks, >= 60 affected player-weeks, a mean
-   improvement larger than 2 standard errors, and no worse P(start) Brier. A promoted feature
-   whose error gets significantly worse goes back to `shadow`.
-4. **Candidate vs current.** The candidate's calibration is validated on the newest final week,
-   estimated *without* that week. It becomes current only if its holdout MAE is no more than
-   0.01 worse. Otherwise it is stored as `rejected` with its reason, and the current state
-   stays. With no proposed change, nothing is written, so a rerun is a no-op.
-5. **Versioned state.** Each row of `learning_state` has its version, parent, status (`current`,
+   improvement larger than 2 standard errors, and a Brier change on the affected players that is
+   present and not worse. An `on` feature whose removal would improve the error by more than 2
+   standard errors goes back to `shadow`. Missing metrics never change a mode.
+5. **Candidate vs current.** Calibration factors are re-estimated from final, eligible reviews,
+   each at most 0.03 from the state the update starts from, and nothing changes before two final
+   reviews. The candidate's calibration is validated on the newest final week, estimated
+   *without* that week. With no holdout measurement the calibration is kept. It becomes current
+   only if its holdout MAE is no more than 0.01 worse; otherwise it is stored as `rejected`.
+6. **Exactly once per evidence.** Each update records an evidence key in `learning_updates`:
+   a digest of the evaluations and final reviews up to that week, its official results, the
+   versions and the thresholds. Running it again with the same key changes nothing, so
+   calibration cannot compound and a rollback is never undone by a repeated update. A different
+   key for the newest processed week (FPL corrected the results) is a correction: if the state
+   that week produced is still current, the candidate is recomputed from the state before it
+   (one weekly step, not two); otherwise (rolled back, or a later week processed since) the
+   correction is recorded and the state is left alone. An older week processed out of order
+   changes nothing.
+7. **Versioned state.** Each row of `learning_state` has its version, parent, status (`current`,
    `retired`, `rejected`, `rolled_back`), the gameweek it covers, the training cutoff, the config
-   (calibration and feature modes), sample counts and the full evaluation, thresholds included.
-6. **Rollback.** `fpl-agent learn --rollback` makes the parent version current again, or the
-   built-in defaults if there is none. `--rollback --to N` restores version N.
+   (calibration, feature modes, and the week each mode last changed), sample counts and the
+   full evaluation, thresholds included.
+8. **Rollback.** `fpl-agent learn --rollback` makes the parent version current again, or the
+   built-in defaults if there is none (default modes, calibration from final reviews as before
+   this change). `--rollback --to N` restores version N. The next plan run uses it: its
+   `forecast_runs` row shows the calibration, modes and learning version it ran with.
    `fpl-agent learn --history` lists every version.
 
 Hindsight lessons about transfers (`lessons.py`) are kept apart. They tune the planner's
 memory switches as before, but they never count as evidence that a prediction feature works.
 
 **Historical walk-forward** (`fpl-agent walk-forward --season 2025 --from-gw 6 --to-gw 38`) is
-the chronological check for the workload feature, which does have history. Models are refitted
-on rows before each gameweek. The first half of the gameweeks chooses the bound (0.05, 0.10 or
-0.15). The second half is the final test, scored once with that bound. It also runs feature
+the chronological check for the workload feature, which does have history. Every test forecast
+is made the way the agent forecasts at a deadline (`learning.walk_forward_rows`): models fitted
+on outcome rows of earlier gameweeks and squad snapshots observed by the refit gameweek's
+deadline; each player scored once from his history before the deadline, so both fixtures of a
+double gameweek get the same forecast and the second never sees the first's result; squad rows
+as observed by the deadline (an archive row is stamped at kickoff, so the previous gameweek's
+row is used); workload facts public by the deadline, and for training rows by their own
+gameweek's deadline. Changing any result or snapshot after a deadline cannot change that
+gameweek's forecasts (tested). The first half of the gameweeks chooses the bound (0.05, 0.10 or
+0.15); the second half is the final test, scored once with that bound. It also runs feature
 ablations (all workload features, rest only, no club congestion). It is minutes-level (P(start)
 Brier and log loss). Points-level comparisons need `backtest`.
 
@@ -237,8 +284,8 @@ Brier and log loss). Points-level comparisons need `backtest`.
 ## Schema changes (additive)
 
 New tables: `fpl_events`, `forecast_runs`, `news_items`, `news_revisions`, `news_entities`,
-`evidence_claims`, `source_state`, `source_runs`, `evaluations`, `learning_state` and
-`schema_migrations`. One column was added: `projections.variant` (migration
+`evidence_claims`, `news_extractions`, `source_state`, `source_runs`, `evaluations`,
+`learning_state`, `learning_updates` and `schema_migrations`. One column was added: `projections.variant` (migration
 `2026-11-projection-variant`, `ADD COLUMN IF NOT EXISTS`). An older DuckDB file upgrades when
 it is opened. Parquet import now matches columns by name, so an older export still restores
 (new columns stay NULL, missing tables stay empty). Every new table is exported with the rest.

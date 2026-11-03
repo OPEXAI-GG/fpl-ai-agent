@@ -6,6 +6,12 @@ Access: app-only bearer token in X_BEARER_TOKEN (developer.x.com). Endpoints use
 * `GET /2/users/{id}/tweets` with `since_id` (incremental), `pagination_token` (bounded by
   `max_pages`), `max_results` (5..100), replies excluded.
 
+Resuming: when a poll stops at `max_pages` with a continuation token left, the cursor keeps
+that window as `pending` (its since_id floor, the newest id seen, the token) and `since_id`
+does not move. The next poll finishes the pending window first; only when it is complete does
+`since_id` advance to its newest id, so an older post inside a capped window is never skipped.
+A failed request saves nothing, so the same window is retried.
+
 Edits: X gives an edited post a new id and lists the chain in `edit_history_tweet_ids` (newer
 specs call it `edit_history_post_ids`); the first id of the chain is the stable provider id, so an
 edit is stored as a new revision of the same item. Reposts and quotes carry the original's id in
@@ -85,9 +91,16 @@ def fetch(
             acc["id"] = str(data["id"])
         params: dict = {"max_results": max(5, min(src.max_items, 100)), "tweet.fields": FIELDS,
                         "exclude": "replies"}  # fmt: skip
-        if acc.get("since_id"):
-            params["since_id"] = acc["since_id"]
-        newest = acc.get("since_id")
+        pending = acc.get("pending")
+        # a window capped by max_pages last time is finished first: same since_id floor, the
+        # stored continuation token; the high-water mark moves only once it is complete
+        floor = pending["floor"] if pending else acc.get("since_id")
+        newest = pending["newest"] if pending else None
+        if floor:
+            params["since_id"] = floor
+        if pending:
+            params["pagination_token"] = pending["next_token"]
+        nxt = None
         for _ in range(src.max_pages):
             r = get(http, f"{API}/users/{acc['id']}/tweets", now, params=params, headers=headers,
                     timeout=src.timeout_seconds, max_bytes=src.max_bytes)  # fmt: skip
@@ -98,12 +111,22 @@ def fetch(
                 raise SourceFormatError(f"x timeline {username}: data is not a list")
             items += [post_item(p, username) for p in posts]
             meta = page.get("meta") or {}
-            if meta.get("newest_id") and (newest is None or int(meta["newest_id"]) > int(newest)):
-                newest = str(meta["newest_id"])
+            ids = [int(p["id"]) for p in posts if str(p.get("id", "")).isdigit()]
+            if meta.get("newest_id"):
+                ids.append(int(meta["newest_id"]))
+            if ids and (newest is None or max(ids) > int(newest)):
+                newest = str(max(ids))
             nxt = meta.get("next_token")
             if not nxt:
                 break
             params = {**params, "pagination_token": nxt}
-        acc["since_id"] = newest
+        acc.pop("pending", None)
+        if nxt:  # capped: keep the window open, the mark stays where it was
+            acc["pending"] = {"floor": floor, "newest": newest, "next_token": nxt}
+            acc["since_id"] = floor
+        else:
+            acc["since_id"] = newest or floor
+        if acc.get("since_id") is None:
+            acc.pop("since_id", None)
         cursor[username] = acc
     return items, {**state, "cursor": json.dumps(cursor)}, requests

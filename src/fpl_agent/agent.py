@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import uuid
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -194,43 +195,29 @@ def run_weekly(
 
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
     run_at = now or datetime.now(UTC)
-    cutoff = pit.utc(run_at)  # the information cutoff of this run (naive UTC)
-    lstate = learning.current_state(db)
-    cfg_state = lstate["config"] if lstate else {}
-    feat_modes = overlays.modes(cfg_state.get("features"))
-    on = [f for f in overlays.FEATURES if feat_modes[f] == "on"]
-    enriched = [f for f in overlays.FEATURES if feat_modes[f] != "off"]
-    res.notes.append("features: " + ", ".join(f"{k}={v}" for k, v in feat_modes.items()))
+    cutoff = pit.utc(run_at)  # the information cutoff of this run (naive UTC), also its stamp
     try:
-        primary_ovs = overlays.build(on, db)
-        proj = project.build_projection(db, opts.season, gws, rules=rules, pool=pool,
-                                        cfg=SimConfig(n=opts.samples), pool_gw=ev.id,
-                                        cutoff=cutoff, overlays=primary_ovs)  # fmt: skip
-        fac = (cfg_state.get("calibration") or {}) if lstate else calibration.factors(
-            db, opts.season, ev.id)  # fmt: skip
-        arm = "enriched" if on and set(on) == set(enriched) else "baseline"
-        # saved before calibration, so reviews keep learning from the raw model (the factors the
-        # plan used are recorded with the run and applied when the issued forecast is scored)
-        project.save_projection(db, proj, extra_flags={
-            "arm": arm, "features_on": on, "modes": feat_modes, "calibration": fac,
-            "learning_version": lstate["version"] if lstate else None})  # fmt: skip
-        if fac:
-            calibration.apply(proj, fac)
+        fc = forecast(db, opts.season, gws, rules, pool, ev.id, cutoff, opts.samples)
+        proj = fc.proj
+        res.notes += fc.notes
+        names = _names(db)
+        res.notes += explain_overlays(fc.overlays, proj, names, shadow=False)
+        res.notes += run_experiments(db, fc, rules, pool, names)
+        # what the planner receives: the raw forecast, then the position calibration, then the
+        # memory's template correction; recorded as the issued forecast (raw stays for learning)
+        if fc.calibration:
+            calibration.apply(proj, fc.calibration)
             res.notes.append(
                 "learning: position calibration "
-                + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
-                + (f" (learning state v{lstate['version']})" if lstate else "")
+                + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fc.calibration.items()))
+                + (f" (learning state v{fc.learning_version})" if fc.learning_version else "")
             )
-        names = _names(db)
-        res.notes += explain_overlays(primary_ovs, proj, names, shadow=False)
-        if set(enriched) != set(on):  # the other arm, stored for forward evaluation only
-            res.notes += _shadow(db, opts, proj, rules, pool, ev.id, cutoff, enriched, arm, names)
-        # the memory: lessons from the gameweeks already reviewed, read before deciding. The
-        # template correction comes after saving, so the reviews keep learning it from the
-        # uncorrected projections.
         mem = lessons.memory(db, opts.season, ev.id)
-        mem.apply_template(proj, own if eo else {})  # only with the top-10k sample's ownership
+        core = mem.apply_template(proj, own if eo else {})  # only with the top-10k ownership
         res.notes += mem.notes()
+        record_issued(db, fc, {"calibration": fc.calibration,
+                               "template": {"factor": mem.template if core else 1.0,
+                                            "players": core}})  # fmt: skip
         target = _chase(fpl, history, ev.id)
         if target:
             res.notes.append(target.note())
@@ -329,32 +316,134 @@ def explain_overlays(ovs, proj, names: dict[int, str], shadow: bool) -> list[str
     return out
 
 
-SHADOW_SAMPLES = 500
+@dataclass
+class Forecast:
+    """The raw primary forecast of a run, as saved, with the configuration that made it."""
+
+    proj: project.Projection
+    run_id: str
+    created_at: datetime
+    kind: str
+    modes: dict[str, str]
+    features_on: list[str]
+    calibration: dict[str, float]
+    learning_version: int | None
+    samples: int
+    seed: int
+    overlays: list = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    cache: dict = field(default_factory=dict, repr=False)
 
 
-def _shadow(db, opts, proj, rules, pool, gw, cutoff, enriched, primary_arm, names) -> list[str]:
-    """The next gameweek projected with the other feature set (same fitted models, same random
-    seeds) and stored as a shadow run. Any failure is reported and ignored."""
-    feats = enriched if primary_arm == "baseline" else []
+def active_config(db: FootballDB, season: int, gw: int) -> tuple[dict, dict, int | None]:
+    """(feature modes, calibration factors, learning-state version) the plan runs with: the
+    current learning state when there is one (environment flags still win for the modes),
+    otherwise the built-in defaults (shadow features, calibration from final reviews)."""
+    lstate = learning.current_state(db)
+    cfg = lstate["config"] if lstate else {}
+    modes = overlays.modes(cfg.get("features"))
+    fac = dict(cfg.get("calibration") or {}) if lstate else calibration.factors(db, season, gw)
+    return modes, fac, (int(lstate["version"]) if lstate else None)
+
+
+def forecast(db: FootballDB, season: int, gws: list[int], rules: Rules, pool, pool_gw: int,
+             cutoff: datetime, samples: int, kind: str = "live") -> Forecast:  # fmt: skip
+    """Project with the features that are `on` and save the raw run, stamped at the cutoff,
+    with its full configuration (modes, features applied, calibration, samples, seed)."""
+    modes, fac, version = active_config(db, season, gws[0])
+    on = sorted(f for f in overlays.FEATURES if modes[f] == "on")
+    cache: dict = {}
+    ovs = overlays.build(on, db, cache)
+    cfg = SimConfig(n=samples)
+    proj = project.build_projection(db, season, gws, rules=rules, pool=pool, cfg=cfg,
+                                    pool_gw=pool_gw, cutoff=cutoff, overlays=ovs)  # fmt: skip
+    config = {"features": modes, "calibration": fac, "learning_version": version}
+    project.save_projection(db, proj, created_at=cutoff, kind=kind, extra_flags={
+        "role": "primary", "features_on": on, "modes": modes, "config": config,
+        "samples": cfg.n, "seed": cfg.seed})  # fmt: skip
+    notes = ["features: " + ", ".join(f"{k}={v}" for k, v in modes.items())]
+    return Forecast(proj, proj.run_id, cutoff, kind, modes, on, fac, version, cfg.n, cfg.seed,
+                    ovs, notes, cache)  # fmt: skip
+
+
+def experiment_arms(modes: dict[str, str]) -> list[tuple[str, list[str]]]:
+    """(role, features applied) of each experiment arm: the issued configuration again (the
+    null intervention), plus that configuration with each shadow feature added and with each
+    `on` feature removed, so every feature that is not `off` has a matched comparison that
+    differs from its partner in that feature only."""
+    on = sorted(f for f in overlays.FEATURES if modes[f] == "on")
+    arms = [("control", on)]
+    for f in overlays.FEATURES:
+        if modes[f] == "shadow":
+            arms.append((f"with:{f}", sorted({*on, f})))
+        elif modes[f] == "on":
+            arms.append((f"without:{f}", sorted(set(on) - {f})))
+    return arms
+
+
+NULL_TOLERANCE = 1e-9
+
+
+def run_experiments(db: FootballDB, fc: Forecast, rules: Rules, pool,
+                    names: dict[int, str]) -> list[str]:  # fmt: skip
+    """The next gameweek re-simulated once per experiment arm with the primary's fitted models,
+    sample count and seeds, stored as `experiment` runs beside the primary. The control arm must
+    reproduce the primary exactly (null-intervention check); if it does not, every arm of the
+    run is marked invalid. Any failure is reported and ignored: experiments never block a plan."""
+    gw = fc.proj.gws[0]
+    inp = fc.proj.inputs
+    out: list[str] = []
     try:
-        ovs = overlays.build(feats, db)
-        inp = proj.inputs
-        shadow = project.build_projection(
-            db, opts.season, [gw], rules=rules, pool=pool, pool_gw=gw, cutoff=cutoff,
-            cfg=SimConfig(n=min(opts.samples, SHADOW_SAMPLES)), overlays=ovs,
-            minutes_model=inp.get("minutes_model"), ratings=inp.get("ratings"),
-            frame=inp.get("frame"), pm=inp.get("pm"),
-        )  # fmt: skip
-        shadow.variant = "shadow"
-        project.save_projection(db, shadow, parent_run_id=proj.run_id, extra_flags={
-            "arm": "enriched" if feats else "baseline", "features_on": feats})  # fmt: skip
-    except Exception as exc:  # noqa: BLE001  (shadow evaluation is optional)
-        log.warning("shadow projection failed: %s", exc)
-        return [f"shadow forecast skipped ({type(exc).__name__})"]
-    return [
-        f"shadow forecast stored ({'with ' + ', '.join(feats) if feats else 'baseline'})",
-        *explain_overlays(ovs, shadow, names, shadow=True),
-    ]
+        primary = dict(zip(fc.proj.player_ids, fc.proj.mean()[:, 0].astype(float), strict=True))
+        built = []
+        for role, feats in experiment_arms(fc.modes):
+            ovs = overlays.build(feats, db, fc.cache)
+            arm = project.build_projection(
+                db, fc.proj.season, [gw], rules=rules, pool=pool, pool_gw=gw, cutoff=fc.proj.cutoff,
+                cfg=SimConfig(n=fc.samples, seed=fc.seed), overlays=ovs,
+                minutes_model=inp.get("minutes_model"), ratings=inp.get("ratings"),
+                frame=inp.get("frame"), pm=inp.get("pm"),
+            )  # fmt: skip
+            arm.variant = "experiment"
+            built.append((role, feats, arm, ovs))
+        control = next(a for r, _, a, _ in built if r == "control")
+        diff = max((abs(float(v) - primary[p]) for p, v in
+                    zip(control.player_ids, control.mean()[:, 0], strict=True) if p in primary),
+                   default=float("inf"))  # fmt: skip
+        null = {"max_abs_diff": diff, "passed": bool(diff <= NULL_TOLERANCE)}
+        for role, feats, arm, ovs in built:
+            project.save_projection(db, arm, created_at=fc.created_at, kind=fc.kind,
+                                    parent_run_id=fc.run_id, extra_flags={
+                                        "role": role, "features_on": feats,
+                                        "samples": fc.samples, "seed": fc.seed,
+                                        "null_check": null})  # fmt: skip
+            if role != "control":
+                out += explain_overlays([o for o in ovs if o.name not in fc.features_on], arm,
+                                        names, shadow=True)  # fmt: skip
+        out.insert(
+            0,
+            f"experiments stored: {', '.join(r for r, *_ in built)}"
+            + (
+                ""
+                if null["passed"]
+                else f" (INVALID: control differs from the plan by {diff:.3g} points)"
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001  (experiments are optional)
+        log.warning("experiment arms failed: %s", exc)
+        return [f"experiments skipped ({type(exc).__name__})"]
+    return out
+
+
+def record_issued(db: FootballDB, fc: Forecast, transformations: dict) -> str:
+    """Save the forecast exactly as the planner receives it (after calibration and the template
+    correction) as the run's `issued` variant, with every transformation that produced it."""
+    issued = replace(fc.proj, run_id=uuid.uuid4().hex[:12], variant="issued")
+    project.save_projection(db, issued, created_at=fc.created_at, kind=fc.kind,
+                            parent_run_id=fc.run_id, extra_flags={
+                                "role": "issued", "features_on": fc.features_on,
+                                "transformations": transformations})  # fmt: skip
+    return issued.run_id
 
 
 def manual_changes(db, season: int, gw: int, state) -> list[int]:

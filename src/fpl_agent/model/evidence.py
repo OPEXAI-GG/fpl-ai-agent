@@ -103,6 +103,17 @@ def player_evidence(db: FootballDB, cutoff: datetime | None) -> dict[int, Player
             continue
         sig["signal"] = [SIGNAL.get((k, v)) for k, v in zip(sig["kind"], sig["value"], strict=True)]
         sig = sig.dropna(subset=["signal"])
+        # one story contradicting itself at its newest observation ("fit ... ruled out"): no
+        # change, whatever the other stories say
+        last = sig[sig["effective_at"] == sig.groupby("story_key")["effective_at"].transform("max")]
+        spread = last[last["certainty"] == "confirmed"].groupby("story_key")["signal"].agg(
+            lambda v: v.max() - v.min())  # fmt: skip
+        if (spread >= 0.5).any():
+            ev.state, ev.note = "conflict", "a report contradicts itself"
+            ev.claims = [_cite(r) for r in last[last["story_key"].isin(
+                spread[spread >= 0.5].index)].itertuples()]  # fmt: skip
+            out[pid] = ev
+            continue
         newest = sig.sort_values("effective_at").groupby("story_key").tail(1)  # one per story
         newest = newest.sort_values("effective_at", ascending=False)
         ev.stories = len(newest)

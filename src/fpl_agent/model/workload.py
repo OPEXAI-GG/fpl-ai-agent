@@ -67,16 +67,19 @@ def workload_features(
     targets: pd.DataFrame,
     apps: pd.DataFrame,
     teams: pd.DataFrame,
-    cutoff: datetime | None = None,
+    cutoff: datetime | np.ndarray | None = None,
 ) -> pd.DataFrame:
     """`targets` has player_id, team_id, kickoff (one row per fixture to describe). Returns
-    FEATURES aligned with `targets`' index. Facts known by min(kickoff, cutoff) - 3h are used."""
+    FEATURES aligned with `targets`' index. Facts known by min(kickoff, cutoff) - 3h are used;
+    `cutoff` is one time for all rows or one per row (a training row's own deadline)."""
     out = pd.DataFrame(np.nan, index=targets.index, columns=FEATURES)
     if targets.empty:
         return out
     ko = pd.to_datetime(targets["kickoff"]).to_numpy("datetime64[ns]")
     known = ko.copy()
-    if cutoff is not None:
+    if isinstance(cutoff, np.ndarray):
+        known = np.minimum(known, cutoff.astype("datetime64[ns]"))
+    elif cutoff is not None:
         known = np.minimum(known, np.datetime64(pd.Timestamp(cutoff), "ns"))
     known = known - np.timedelta64(int(MATCH_FACT_DELAY.total_seconds()), "s")
     day = np.timedelta64(1, "D")

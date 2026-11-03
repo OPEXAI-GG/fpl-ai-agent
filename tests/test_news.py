@@ -464,3 +464,198 @@ def test_news_tables_survive_parquet_round_trip(tmp_path):
     fresh.import_parquet(tmp_path)  # restoring twice changes nothing
     for t in ("news_items", "news_revisions", "evidence_claims", "source_state"):
         assert fresh.counts()[t] == db.counts()[t] == 1
+
+
+# ---- claim attribution: each statement is bound to its own subject ---------------------------
+def _got(text, resolver):
+    return sorted((c.player_id, c.kind, c.value, c.certainty)
+                  for c in extract.rule_claims(item(text), resolver))  # fmt: skip
+
+
+def test_each_status_is_bound_to_its_own_subject_in_a_conjunction(resolver):
+    assert _got("Bukayo Saka is fit and William Saliba is ruled out.", resolver) == [
+        (10, "availability", "out", "confirmed"), (11, "availability", "fit", "confirmed")]  # fmt: skip
+    assert _got("William Saliba has been ruled out while Cole Palmer will start.", resolver) == [
+        (10, "availability", "out", "confirmed"), (21, "selection", "expected_start", "confirmed")]  # fmt: skip
+
+
+def test_several_players_and_return_dates_are_not_crossed(resolver):
+    cs = extract.rule_claims(item("Erling Haaland is out for three weeks and Cole Palmer is fit "
+                                  "again. Jack Grealish returned to full training."), resolver)  # fmt: skip
+    got = {(c.player_id, c.kind, c.value) for c in cs}
+    assert got == {(60, "availability", "out"), (60, "return", "weeks:3"),
+                   (21, "availability", "fit"), (40, "training", "full")}  # fmt: skip
+
+
+def test_speculation_and_negation_stay_with_their_subject(resolver):
+    assert _got("Saliba could miss the game but Bukayo Saka is fit.", resolver) == [
+        (10, "availability", "out", "speculative"), (11, "availability", "fit", "confirmed")]  # fmt: skip
+    assert _got("Saka has not been ruled out, and William Saliba has been ruled out.",
+                resolver) == [(10, "availability", "out", "confirmed")]  # fmt: skip
+
+
+def test_quotations_bind_to_the_named_player(resolver):
+    assert _got('"William Saliba is ruled out," Arteta said of the defender, adding that Saka '
+                "is fit.", resolver) == [(10, "availability", "out", "confirmed"),
+                                          (11, "availability", "fit", "confirmed")]  # fmt: skip
+
+
+def test_unattributable_statements_abstain(resolver):
+    # a shared plural subject, a status with no subject before it, an object-position name
+    assert _got("Saka and Saliba are ruled out.", resolver) == []
+    assert _got("Ruled out: the club gave no update on Saliba or Saka.", resolver) == []
+    # a pronoun with two candidates in the sentence before it
+    assert _got("Saka and Palmer were assessed. He is out.", resolver) == []
+
+
+def test_conflicting_statements_about_one_player_change_nothing():
+    from fpl_agent.model import evidence
+
+    db = squad_db()
+    src = SourceConfig("bbc", "rss", tier=2, url="https://feeds.example/f.xml",
+                       min_interval_minutes=0)  # fmt: skip
+    doc = rss_doc([("c1", "Team news", "William Saliba is fit. Later: William Saliba has "
+                    "been ruled out.")])  # fmt: skip
+    run_sources(db, [src], client(lambda r: httpx.Response(200, text=doc)), at=T0)
+    vals = {v for (v,) in db.con.execute(
+        "SELECT value FROM evidence_claims WHERE player_id = 10").fetchall()}  # fmt: skip
+    assert vals == {"fit", "out"}
+    ev = evidence.player_evidence(db, T0 + timedelta(hours=1))
+    assert ev[10].state == "conflict"
+
+
+def test_ambiguous_text_cannot_move_either_player():
+    from fpl_agent.model import evidence
+
+    db = squad_db()
+    src = SourceConfig("bbc", "rss", tier=2, url="https://feeds.example/f.xml",
+                       min_interval_minutes=0)  # fmt: skip
+    doc = rss_doc([("a1", "Injury news", "James has been ruled out for three weeks."),
+                   ("a2", "More news", "Saka and Saliba are ruled out.")])  # fmt: skip
+    run_sources(db, [src], client(lambda r: httpx.Response(200, text=doc)), at=T0)
+    ev = evidence.player_evidence(db, T0 + timedelta(hours=1))
+    assert not {10, 11, 20, 30} & {p for p, e in ev.items() if e.state == "applied"}
+
+
+# ---- X pagination resumes a capped window before moving the high-water mark ------------------
+def _post(i, text="Team news update for Arsenal."):
+    return {"id": str(i), "text": text, "created_at": "2026-11-02T10:00:00.000Z",
+            "edit_history_tweet_ids": [str(i)]}  # fmt: skip
+
+
+def timeline(pages_by_account: dict, seen: list, fail: set | None = None):
+    """pages_by_account[user_id][(since_id, token)] -> page json."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req)
+        if "/users/by/username/" in req.url.path:
+            name = req.url.path.rsplit("/", 1)[-1]
+            return httpx.Response(200, json={"data": {"id": {"Arsenal": "42", "Chelsea": "43"}[
+                name]}})  # fmt: skip
+        uid = req.url.path.split("/")[-2]
+        key = (req.url.params.get("since_id"), req.url.params.get("pagination_token"))
+        if fail and (uid, key) in fail:
+            return httpx.Response(503)
+        return httpx.Response(200, json=pages_by_account[uid].get(key, {"meta": {
+            "result_count": 0}}))  # fmt: skip
+
+    return handler
+
+
+def _ids(db):
+    return sorted(
+        int(r[0]) for r in db.con.execute("SELECT provider_id FROM news_items").fetchall()
+    )
+
+
+def _cursor(db):
+    return json.loads(db.con.execute("SELECT cursor FROM source_state").fetchone()[0])
+
+
+def test_x_capped_poll_resumes_the_window_and_never_skips_older_posts(monkeypatch):
+    monkeypatch.setenv("X_BEARER_TOKEN", "tkn")
+    db = squad_db()
+    src = SourceConfig("x-clubs", "x", tier=1, accounts=("Arsenal",), max_items=10, max_pages=1,
+                       min_interval_minutes=0)  # fmt: skip
+    db.upsert("source_state", __import__("pandas").DataFrame([{
+        "source_id": src.id, "kind": "x", "cursor": json.dumps({"Arsenal": {
+            "id": "42", "since_id": "80"}})}]))  # fmt: skip
+    pages = {
+        "42": {
+            ("80", None): {"data": [_post(100)], "meta": {"newest_id": "100", "next_token": "p2"}},
+            ("80", "p2"): {"data": [_post(90)], "meta": {"oldest_id": "90"}},
+            ("100", None): {"data": [_post(110)], "meta": {"newest_id": "110"}},
+        }
+    }
+    seen: list = []
+    run_sources(db, [src], client(timeline(pages, seen)), at=T0)
+    assert _ids(db) == [100]
+    assert _cursor(db)["Arsenal"]["since_id"] == "80"  # not advanced past the unread window
+    run_sources(db, [src], client(timeline(pages, seen)), at=T0 + timedelta(minutes=5))
+    assert seen[-1].url.params["pagination_token"] == "p2"
+    assert seen[-1].url.params["since_id"] == "80"
+    assert _ids(db) == [90, 100] and _cursor(db)["Arsenal"] == {"id": "42", "since_id": "100"}
+    run_sources(db, [src], client(timeline(pages, seen)), at=T0 + timedelta(minutes=10))
+    assert _ids(db) == [90, 100, 110]  # new arrivals after the window completed
+    assert _cursor(db)["Arsenal"]["since_id"] == "110"
+
+
+def test_x_failed_continuation_keeps_the_pending_window(monkeypatch):
+    monkeypatch.setenv("X_BEARER_TOKEN", "tkn")
+    db = squad_db()
+    src = SourceConfig("x-clubs", "x", tier=1, accounts=("Arsenal", "Chelsea"), max_items=10,
+                       max_pages=1, min_interval_minutes=0)  # fmt: skip
+    pages = {
+        "42": {(None, None): {"data": [_post(100)], "meta": {"newest_id": "100",
+                                                              "next_token": "a2"}},
+               (None, "a2"): {"data": [_post(95)], "meta": {"next_token": "a3"}},
+               (None, "a3"): {"data": [_post(91)], "meta": {}}},
+        "43": {(None, None): {"data": [_post(300)], "meta": {"newest_id": "300"}},
+               ("300", None): {"data": [_post(301)], "meta": {"newest_id": "301"}}},
+    }  # fmt: skip
+    seen: list = []
+    run_sources(db, [src], client(timeline(pages, seen)), at=T0)
+    assert _ids(db) == [100, 300]
+    cur = _cursor(db)
+    assert "since_id" not in cur["Arsenal"] or cur["Arsenal"]["since_id"] is None
+    assert cur["Chelsea"]["since_id"] == "300"
+    # the continuation fails: nothing is lost and the window is still pending
+    rep = run_sources(db, [src], client(timeline(pages, seen, fail={("42", (None, "a2"))})),
+                      at=T0 + timedelta(minutes=5))  # fmt: skip
+    assert rep.outcomes[0].status == "failed"
+    assert _cursor(db)["Arsenal"]["pending"]["next_token"] == "a2"
+    for k in (10, 15):
+        run_sources(db, [src], client(timeline(pages, seen)), at=T0 + timedelta(minutes=k))
+    assert _ids(db) == [91, 95, 100, 300, 301]
+    assert _cursor(db)["Arsenal"] == {"id": "42", "since_id": "100"}
+    assert _cursor(db)["Chelsea"] == {"id": "43", "since_id": "301"}
+
+
+# ---- extraction is recovered after a transient failure ----------------------------------------
+def test_a_failed_extraction_is_retried_on_an_unchanged_fetch(monkeypatch):
+    db = squad_db()
+    src = SourceConfig("bbc", "rss", tier=2, url="https://feeds.example/f.xml",
+                       min_interval_minutes=0)  # fmt: skip
+    doc = rss_doc([("r1", "Injury news", "William Saliba has been ruled out of the derby.")])
+    real = extract.rule_claims
+    calls = {"n": 0}
+
+    def flaky(item, resolver):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient")
+        return real(item, resolver)
+
+    monkeypatch.setattr(extract, "rule_claims", flaky)
+    rep = run_sources(db, [src], client(lambda r: httpx.Response(200, text=doc)), at=T0)
+    o = rep.outcomes[0]
+    assert o.new == 1 and o.claims == 0 and o.status != "ok"
+    assert "extraction" in health(db, [src], T0)["state"].iloc[0]
+    # the feed did not change (and later answers 304): the item is still extracted
+    rep = run_sources(db, [src], client(lambda r: httpx.Response(304)), at=T0 + timedelta(hours=1))
+    assert rep.outcomes[0].claims == 1 and rep.outcomes[0].status == "not_modified"
+    assert health(db, [src], T0 + timedelta(hours=1))["state"].iloc[0] == "healthy"
+    run_sources(db, [src], client(lambda r: httpx.Response(200, text=doc)),
+                at=T0 + timedelta(hours=2))  # fmt: skip
+    rows = db.query("SELECT item_id, revision, value FROM evidence_claims")
+    assert len(rows) == 1 and rows["revision"].tolist() == [1]  # no duplicates, provenance kept
