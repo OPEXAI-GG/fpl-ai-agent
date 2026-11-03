@@ -13,6 +13,8 @@ import json
 import re
 from dataclasses import dataclass, field
 
+import pandas as pd
+
 from fpl_agent.data.id_map import normalise
 from fpl_agent.db.database import FootballDB, team_key
 
@@ -109,7 +111,7 @@ class Resolver:
             r.club_words[int(t.team_id)] = {f for f in forms if f}
         for x in rows.itertuples():
             pid = int(x.player_id)
-            if x.team_id is not None and x.team_id == x.team_id:
+            if x.team_id is not None and not pd.isna(x.team_id):
                 r.team_of[pid] = int(x.team_id)
             names = {normalise(str(x.name))} if isinstance(x.name, str) else set()
             short = set()

@@ -86,7 +86,7 @@ def _save_state(db: FootballDB, src: SourceConfig, prev: dict, **kw) -> None:
            "items_total": int(prev.get("items_total") or 0)}  # fmt: skip
     row.update(kw)
     for k, v in list(row.items()):
-        if isinstance(v, float) and v != v:  # NaN from an empty pandas cell
+        if isinstance(v, float) and pd.isna(v):  # NaN from an empty pandas cell
             row[k] = None
     db.upsert("source_state", pd.DataFrame([row]))
 

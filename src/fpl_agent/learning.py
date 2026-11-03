@@ -436,8 +436,8 @@ def walk_forward(
         "limitations": [
             "minutes-level only (P(start) Brier and log loss); points need `backtest`",
             "domestic cup matches are not in the database, so their workload is invisible",
-            "FPL archive seasons carry no availability flags: rows of injured players are "
-            "included, which inflates every arm's error equally",
+            "FPL archive seasons carry no availability flags: rows of injured players are"
+            + " included, which inflates every arm's error equally",
         ],
     }  # fmt: skip
     return result
