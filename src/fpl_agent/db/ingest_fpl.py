@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 
+from fpl_agent import pit
 from fpl_agent.data.players import POSITIONS
 from fpl_agent.db.database import FootballDB, now
 
@@ -66,6 +67,7 @@ def load_bootstrap(
         )
     n = db.upsert("fpl_players_gw", pd.DataFrame(rows))
     db.log("fpl", "fpl_players_gw", n, f"gw{gw}")
+    pit.record_events(db, raw, season)  # deadlines + finished/data_checked, for reviews
     return n
 
 

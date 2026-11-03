@@ -11,7 +11,7 @@ import duckdb
 import pandas as pd
 
 from fpl_agent.data.id_map import normalise
-from fpl_agent.db.schema import TABLES
+from fpl_agent.db.schema import MIGRATIONS, TABLES
 
 # Clubs are named differently by every source; canonical team key after normalise().
 TEAM_ALIASES = {
@@ -97,6 +97,22 @@ class FootballDB:
         self.con = duckdb.connect(str(path))
         for name, ddl in TABLES.items():
             self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
+        self.migrate()
+
+    def migrate(self) -> list[str]:
+        """Apply the additive migrations this file has not seen yet; returns their names."""
+        done = {r[0] for r in self.con.execute("SELECT name FROM schema_migrations").fetchall()}
+        applied = []
+        for name, sql in MIGRATIONS:
+            if name in done:
+                continue
+            self.con.execute(sql)
+            self.con.execute("INSERT INTO schema_migrations VALUES (?, ?)", [name, now()])
+            applied.append(name)
+        return applied
+
+    def columns(self, table: str) -> list[str]:
+        return [r[1] for r in self.con.execute(f"PRAGMA table_info('{table}')").fetchall()]
 
     @contextmanager
     def transaction(self):
@@ -285,11 +301,19 @@ class FootballDB:
         return counts
 
     def import_parquet(self, directory: str | Path) -> None:
+        """Load an export. Columns are matched by name, so an export written before a column was
+        added still loads (the new column stays NULL) and a table missing from it stays empty."""
         for name in TABLES:
             f = Path(directory) / f"{name}.parquet"
             if not f.exists():
                 continue
-            src = f"SELECT * FROM read_parquet('{f}')"
+            have = [r[0] for r in self.con.execute(
+                f"DESCRIBE SELECT * FROM read_parquet('{f}')").fetchall()]  # fmt: skip
+            cols = [c for c in self.columns(name) if c in have]
+            if not cols:
+                continue
+            names = ", ".join(cols)
+            src = f"({names}) SELECT {names} FROM read_parquet('{f}')"
             try:
                 self.con.execute(f"INSERT OR REPLACE INTO {name} {src}")
             except duckdb.BinderException:  # log-style tables have no primary key

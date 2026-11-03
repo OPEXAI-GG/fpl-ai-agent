@@ -140,7 +140,8 @@ class FakeProj:
 
 def test_template_correction_is_learned_from_the_reviews(db):
     for gw, pred, act in ((5, 4.0, 5.0), (6, 4.0, 5.0)):
-        payload = {"template": {"n": 75, "mean_pred": pred, "mean_actual": act}}
+        payload = {"template": {"n": 75, "mean_pred": pred, "mean_actual": act},
+                   "final": True, "eligible": True}
         db.append("reviews", pd.DataFrame([{"season": 2026, "gw": gw, "kind": "prediction",
                                             "created_at": datetime(2026, 10, 1),
                                             "payload": json.dumps(payload)}]))  # fmt: skip
@@ -155,8 +156,11 @@ def test_template_correction_is_learned_from_the_reviews(db):
 
 
 class FakeFPL:
+    def __init__(self, finished: bool = False, checked: bool = False):
+        self.finished, self.checked = finished, checked
+
     def bootstrap_raw(self):
-        return {"events": [{"id": 7, "finished": False}],
+        return {"events": [{"id": 7, "finished": self.finished, "data_checked": self.checked}],
                 "elements": [{"id": i, "web_name": n, "element_type": POS[i]}
                              for i, n in NAMES.items()]}  # fmt: skip
 
@@ -181,7 +185,7 @@ class FakeFPL:
         ]
 
 
-def test_run_reads_fpl_and_the_bots_decisions(db):
+def _gw7(db):
     # canonical ids are FPL id + 1000; the bot's plan run came before the hand moves
     db.append("fpl_players_gw", pd.DataFrame([{"season": 2026, "gw": 7, "fpl_id": i,
                                                "player_id": i + 1000,
@@ -207,8 +211,12 @@ def test_run_reads_fpl_and_the_bots_decisions(db):
                                             "xpts": 3.1, "created_at": datetime(2026, 10, 17)},
                                            {"season": 2026, "gw": 7, "player_id": 1014,
                                             "xpts": 2.4, "created_at": datetime(2026, 10, 17)}]))  # fmt: skip
-    text = lessons.run(db, FakeFPL(), 2026, 7, 1)
-    assert text.startswith("GW7 lessons (PROVISIONAL")
+
+
+def test_run_reads_fpl_and_the_bots_decisions(db):
+    _gw7(db)
+    text = lessons.run(db, FakeFPL(finished=True, checked=True), 2026, 7, 1)
+    assert text.startswith("GW7 lessons\n")
     assert "82 points, the plan expected 60.0 before hits" in text
     assert "Tarkowski 0 -> Konsa 9" in text  # the plan from before the hand moves
     assert "Tarkowski 0 (exp 3.1) started while Thomas-Asante 5 (exp 2.4)" in text
@@ -216,3 +224,14 @@ def test_run_reads_fpl_and_the_bots_decisions(db):
     stored = db.query("SELECT kind, rule FROM lessons WHERE gw = 7 ORDER BY kind")
     assert list(stored["kind"]) == ["bench", "deferred_moves", "hand_transfers"]
     assert lessons.memory(db, 2026, 8).w("act_now") == 1.0
+
+
+@pytest.mark.parametrize("finished,checked", [(False, False), (True, False)])
+def test_provisional_gameweek_is_reported_but_never_stored(db, finished, checked):
+    # regression: a provisional week used to be saved and fed the next plan's memory
+    _gw7(db)
+    text = lessons.run(db, FakeFPL(finished, checked), 2026, 7, 1)
+    assert text.startswith("GW7 lessons (PROVISIONAL")
+    assert "Tarkowski 0 -> Konsa 9" in text
+    assert db.con.execute("SELECT count(*) FROM lessons").fetchone()[0] == 0
+    assert lessons.memory(db, 2026, 8).w("act_now") == 0.0

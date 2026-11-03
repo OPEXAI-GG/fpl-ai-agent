@@ -85,3 +85,71 @@ TABLES["league_translation"] = """
 TABLES["lessons"] = """
     season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
     rule VARCHAR, created_at TIMESTAMP"""
+
+# ---- point-in-time evaluation (additive: new tables only, so old DuckDB files and old parquet
+# exports keep loading; a missing table is simply created empty) --------------------------------
+TABLES["fpl_events"] = """
+    season INTEGER, gw INTEGER, deadline_time TIMESTAMP, finished BOOLEAN, data_checked BOOLEAN,
+    observed_at TIMESTAMP, PRIMARY KEY (season, gw)"""
+
+# One row per stored projection run: when it was made, the data cutoff it used, the deadline of
+# its first gameweek and every version that produced it. `eligible` = made before that deadline.
+TABLES["forecast_runs"] = """
+    run_id VARCHAR PRIMARY KEY, season INTEGER, first_gw INTEGER, gws VARCHAR,
+    created_at TIMESTAMP, cutoff TIMESTAMP, deadline TIMESTAMP, deadline_source VARCHAR,
+    eligible BOOLEAN, kind VARCHAR, variant VARCHAR, parent_run_id VARCHAR, model VARCHAR,
+    model_version VARCHAR, feature_version VARCHAR, flags JSON, limitations JSON"""
+
+# ---- news and social sources -------------------------------------------------------------------
+TABLES["news_items"] = """
+    item_id VARCHAR PRIMARY KEY, source_id VARCHAR, provider VARCHAR, provider_id VARCHAR,
+    canonical_url VARCHAR, author VARCHAR, published_at TIMESTAMP, first_seen_at TIMESTAMP,
+    retrieved_at TIMESTAMP, content_hash VARCHAR, title VARCHAR, content VARCHAR,
+    revision INTEGER, story_key VARCHAR, repost_of VARCHAR, source_tier INTEGER, raw JSON"""
+
+TABLES["news_revisions"] = """
+    item_id VARCHAR, revision INTEGER, content_hash VARCHAR, title VARCHAR, content VARCHAR,
+    observed_at TIMESTAMP, retrieved_at TIMESTAMP, PRIMARY KEY (item_id, revision)"""
+
+TABLES["news_entities"] = """
+    item_id VARCHAR, revision INTEGER, mention VARCHAR, player_id INTEGER, team_id INTEGER,
+    status VARCHAR, confidence DOUBLE, candidates JSON,
+    PRIMARY KEY (item_id, revision, mention)"""
+
+TABLES["evidence_claims"] = """
+    claim_id VARCHAR PRIMARY KEY, item_id VARCHAR, revision INTEGER, player_id INTEGER,
+    mention VARCHAR, kind VARCHAR, value VARCHAR, return_at TIMESTAMP, certainty VARCHAR,
+    quote VARCHAR, source_id VARCHAR, source_tier INTEGER, entity_confidence DOUBLE,
+    story_key VARCHAR, published_at TIMESTAMP, effective_at TIMESTAMP, expires_at TIMESTAMP,
+    extractor VARCHAR, extraction_version VARCHAR, created_at TIMESTAMP"""
+
+TABLES["source_state"] = """
+    source_id VARCHAR PRIMARY KEY, kind VARCHAR, cursor VARCHAR, etag VARCHAR,
+    last_modified VARCHAR, last_attempt_at TIMESTAMP, last_success_at TIMESTAMP,
+    last_status VARCHAR, last_error VARCHAR, consecutive_failures INTEGER,
+    next_allowed_at TIMESTAMP, items_total INTEGER"""
+
+TABLES["source_runs"] = """
+    source_id VARCHAR, run_at TIMESTAMP, status VARCHAR, requests INTEGER, fetched INTEGER,
+    new_items INTEGER, revised INTEGER, unchanged INTEGER, note VARCHAR"""
+
+# ---- learning loop -----------------------------------------------------------------------------
+TABLES["evaluations"] = """
+    season INTEGER, gw INTEGER, variant VARCHAR, run_id VARCHAR, cohort VARCHAR, n INTEGER,
+    metrics JSON, created_at TIMESTAMP, PRIMARY KEY (season, gw, variant, cohort)"""
+
+TABLES["learning_state"] = """
+    version INTEGER PRIMARY KEY, created_at TIMESTAMP, status VARCHAR, parent_version INTEGER,
+    season INTEGER, through_gw INTEGER, training_cutoff TIMESTAMP, config JSON, samples JSON,
+    evaluation JSON, reason VARCHAR"""
+
+TABLES["schema_migrations"] = """
+    name VARCHAR PRIMARY KEY, applied_at TIMESTAMP"""
+
+# Additive column changes for tables that already exist in older files. Each runs once, in order,
+# and only ever adds (ADD COLUMN IF NOT EXISTS), so a file written by an older version upgrades
+# in place and parquet written by an older version still imports (columns are matched by name).
+MIGRATIONS: list[tuple[str, str]] = [
+    ("2026-11-projection-variant",
+     "ALTER TABLE projections ADD COLUMN IF NOT EXISTS variant VARCHAR"),
+]  # fmt: skip

@@ -139,11 +139,14 @@ class MinutesModel:
         fac = [availability_factor(s, c, h) for s, c, h in
                zip(merged["status"], merged["chance"], merged["horizon"], strict=True)]  # fmt: skip
         merged["availability"] = fac
+        merged["p_start_model"] = merged["p_start"]  # before the availability overlay
+        merged["p_cameo_model"] = merged["p_cameo"]
         merged["p_start"] = (merged["p_start"] * merged["availability"]).clip(EPS, 1 - EPS)
         merged["p_cameo"] = (merged["p_cameo"] * merged["availability"]).clip(EPS, 1 - EPS)
         merged["cameo_minutes"] = self.cameo_minutes
         return merged[["player_id", "season", "gw", "horizon", "p_start", "p_long", "p_cameo",
-                       "availability", "cameo_minutes"]]  # fmt: skip
+                       "availability", "cameo_minutes", "p_start_model",
+                       "p_cameo_model"]]  # fmt: skip
 
 
 # ---- evaluation ------------------------------------------------------------------------

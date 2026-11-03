@@ -5,6 +5,13 @@ previous gameweek, matches before that date), project the gameweek, and are scor
 official points. The same rows are scored for two baselines: the player's average over his last
 five fixtures, and FPL's own expected points (`xP`) where the archive has them. Results are
 reported separately for GK, DEF, MID and FWD, as the plan requires.
+
+The information cutoff of each gameweek is its deadline (FPL's, or 90 minutes before the first
+kickoff when it was never recorded). Squad snapshots and bookmaker prices observed after it are
+not used. Two things in a historical backtest are *not* point-in-time and are reported as
+limitations (`limitations(results)`): archive (vaastav) squad rows are stamped at kickoff and
+carry no availability, so every player is assumed available; and pre-match odds loaded by a
+later backfill have an unknown publication time. Closing prices are never used.
 """
 
 from __future__ import annotations
@@ -12,6 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from fpl_agent import pit
 from fpl_agent.db.database import FootballDB
 from fpl_agent.model import features, minutes, project, strength
 from fpl_agent.model.simulate import SimConfig
@@ -32,6 +40,7 @@ def projection_backtest(
     cfg: SimConfig | None = None,
     refit_every: int = 6,
     rules: Rules | None = None,
+    overlays_for=None,
 ) -> pd.DataFrame:
     cfg = cfg or SimConfig(n=800)
     frame = features.player_gw_frame(db)
@@ -53,9 +62,11 @@ def projection_backtest(
         if model is None or fitted_at is None or gw - fitted_at >= refit_every:
             model, fitted_at = minutes.MinutesModel.fit(history), gw
         ratings = strength.fit_ratings(matches, as_of)
+        cutoff = pit.deadline(db, season, gw).at
         proj = project.build_projection(
             db, season, [gw], as_of=as_of, cfg=cfg, rules=rules, minutes_model=model,
-            ratings=ratings, frame=frame, pm=pm_all, pool_gw=gw,
+            ratings=ratings, frame=frame, pm=pm_all, pool_gw=gw, cutoff=cutoff,
+            overlays=overlays_for(gw) if overlays_for else None,
         )  # fmt: skip
         f = proj.frame().set_index("player_id")
         hist5 = history.sort_values(["player_id", "season", "gw"]).groupby("player_id").tail(5)
@@ -74,8 +85,18 @@ def projection_backtest(
                 "actual": a["actual"], "sim": r["xpts"],
                 "last5": last5.get(pid, np.nan) * a["fixtures"],
                 "fpl_xp": xp.get(pid, np.nan),
+                "limitations": "; ".join(proj.limitations),
             })  # fmt: skip
     return pd.DataFrame(rows)
+
+
+def limitations(results: pd.DataFrame) -> list[str]:
+    """The point-in-time caveats behind a backtest's numbers, for the report."""
+    if results.empty or "limitations" not in results:
+        return []
+    seen = sorted({x for v in results["limitations"].dropna() for x in str(v).split("; ") if x})
+    return [*seen, "historical seasons have no news or social evidence: those features are "
+            "evaluated forward only (shadow mode)"]  # fmt: skip
 
 
 def summarize(results: pd.DataFrame) -> pd.DataFrame:

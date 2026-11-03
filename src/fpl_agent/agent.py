@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fpl_agent import lessons, notify, review
+from fpl_agent import learning, lessons, notify, pit, review
 from fpl_agent.config import Settings
 from fpl_agent.data import oddsapi, ownership
 from fpl_agent.data.calendar import hours_to_deadline, in_action_window, next_event
@@ -24,7 +24,7 @@ from fpl_agent.db.database import FootballDB
 from fpl_agent.execution import safety
 from fpl_agent.execution.execute import Outcome, execute
 from fpl_agent.execution.live_state import Signed, read_live
-from fpl_agent.model import calibration, project
+from fpl_agent.model import calibration, overlays, project
 from fpl_agent.model.simulate import SimConfig
 from fpl_agent.rules import Rules
 from fpl_agent.scout import Scout
@@ -193,17 +193,38 @@ def run_weekly(
     res.notes.append(own_note)
 
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
+    run_at = now or datetime.now(UTC)
+    cutoff = pit.utc(run_at)  # the information cutoff of this run (naive UTC)
+    lstate = learning.current_state(db)
+    cfg_state = lstate["config"] if lstate else {}
+    feat_modes = overlays.modes(cfg_state.get("features"))
+    on = [f for f in overlays.FEATURES if feat_modes[f] == "on"]
+    enriched = [f for f in overlays.FEATURES if feat_modes[f] != "off"]
+    res.notes.append("features: " + ", ".join(f"{k}={v}" for k, v in feat_modes.items()))
     try:
+        primary_ovs = overlays.build(on, db)
         proj = project.build_projection(db, opts.season, gws, rules=rules, pool=pool,
-                                        cfg=SimConfig(n=opts.samples), pool_gw=ev.id)  # fmt: skip
-        fac = calibration.factors(db, opts.season, ev.id)
+                                        cfg=SimConfig(n=opts.samples), pool_gw=ev.id,
+                                        cutoff=cutoff, overlays=primary_ovs)  # fmt: skip
+        fac = (cfg_state.get("calibration") or {}) if lstate else calibration.factors(
+            db, opts.season, ev.id)  # fmt: skip
+        arm = "enriched" if on and set(on) == set(enriched) else "baseline"
+        # saved before calibration, so reviews keep learning from the raw model (the factors the
+        # plan used are recorded with the run and applied when the issued forecast is scored)
+        project.save_projection(db, proj, extra_flags={
+            "arm": arm, "features_on": on, "modes": feat_modes, "calibration": fac,
+            "learning_version": lstate["version"] if lstate else None})  # fmt: skip
         if fac:
             calibration.apply(proj, fac)
             res.notes.append(
                 "learning: position calibration "
                 + ", ".join(f"{k} x{v:.3f}" for k, v in sorted(fac.items()))
+                + (f" (learning state v{lstate['version']})" if lstate else "")
             )
-        project.save_projection(db, proj)
+        names = _names(db)
+        res.notes += explain_overlays(primary_ovs, proj, names, shadow=False)
+        if set(enriched) != set(on):  # the other arm, stored for forward evaluation only
+            res.notes += _shadow(db, opts, proj, rules, pool, ev.id, cutoff, enriched, arm, names)
         # the memory: lessons from the gameweeks already reviewed, read before deciding. The
         # template correction comes after saving, so the reviews keep learning it from the
         # uncorrected projections.
@@ -283,6 +304,55 @@ def run_weekly(
 
 
 DONE = "live-done"  # decisions row mode once FPL accepted every move of a live run
+
+
+def explain_overlays(ovs, proj, names: dict[int, str], shadow: bool) -> list[str]:
+    """Report lines for every next-gameweek change an overlay made, citing its evidence."""
+    tag = "shadow, not used by the plan" if shadow else "used by the plan"
+    out = []
+    for ov in ovs:
+        if ov.name == "news_availability":
+            for c in ov.changed[:8]:
+                top = (c.get("claims") or [{}])[0]
+                out.append(
+                    f"evidence ({tag}): {names.get(c['player_id'], c['player_id'])} availability "
+                    f"{c['from']:.0%} -> {c['to']:.0%}: \"{top.get('quote', '')}\" "
+                    f"({top.get('source')}, tier {top.get('tier')}, {top.get('certainty')}, "
+                    f"seen {top.get('effective_at')}, claim {top.get('claim_id')})"
+                )
+            if ov.counts.get("conflict"):
+                out.append(f"evidence ({tag}): {ov.counts['conflict']} player-weeks left unchanged "
+                           "because confirmed reports disagree")  # fmt: skip
+        elif ov.name == "workload" and ov.changed:
+            out.append(f"workload ({tag}): P(start) nudged for {ov.changed} players "
+                       f"(bounded +-{ov.bound:.2f}); {ov.counts}")  # fmt: skip
+    return out
+
+
+SHADOW_SAMPLES = 500
+
+
+def _shadow(db, opts, proj, rules, pool, gw, cutoff, enriched, primary_arm, names) -> list[str]:
+    """The next gameweek projected with the other feature set (same fitted models, same random
+    seeds) and stored as a shadow run. Any failure is reported and ignored."""
+    feats = enriched if primary_arm == "baseline" else []
+    try:
+        ovs = overlays.build(feats, db)
+        inp = proj.inputs
+        shadow = project.build_projection(
+            db, opts.season, [gw], rules=rules, pool=pool, pool_gw=gw, cutoff=cutoff,
+            cfg=SimConfig(n=min(opts.samples, SHADOW_SAMPLES)), overlays=ovs,
+            minutes_model=inp.get("minutes_model"), ratings=inp.get("ratings"),
+            frame=inp.get("frame"), pm=inp.get("pm"),
+        )  # fmt: skip
+        shadow.variant = "shadow"
+        project.save_projection(db, shadow, parent_run_id=proj.run_id, extra_flags={
+            "arm": "enriched" if feats else "baseline", "features_on": feats})  # fmt: skip
+    except Exception as exc:  # noqa: BLE001  (shadow evaluation is optional)
+        log.warning("shadow projection failed: %s", exc)
+        return [f"shadow forecast skipped ({type(exc).__name__})"]
+    return [f"shadow forecast stored ({'with ' + ', '.join(feats) if feats else 'baseline'})",
+            *explain_overlays(ovs, shadow, names, shadow=True)]
 
 
 def manual_changes(db, season: int, gw: int, state) -> list[int]:
