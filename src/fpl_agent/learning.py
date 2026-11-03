@@ -748,6 +748,9 @@ def walk_forward(
                   **{name: {"arm": a, **_pool(test_weeks, a)} for name, a in best.items()}}
                  if test_weeks else None),
         "coverage": round(sum(r["known"] for r in per_gw) / sum(r["n"] for r in per_gw), 4),
+        "test_by_gw": [{"gw": r["gw"], "n": r["n"],
+                        **{name: round((r[a]["brier_sum"] - r["baseline"]["brier_sum"]) / r["n"],
+                                       6) for name, a in best.items()}} for r in test_weeks],
         "method": "deadline forecasts (walk_forward_rows); refit every "
                   f"{refit_every} gameweeks on data known at the refit deadline",
         "limitations": [
