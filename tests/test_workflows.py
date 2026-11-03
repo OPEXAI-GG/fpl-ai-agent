@@ -128,3 +128,16 @@ def test_discord_bot_workflows_reply_with_a_masked_token_and_never_write():
     assert names[0] == "Hide the Discord reply token"
     assert names.index("Plan") < names.index("Publish the plan for the Discord bot")
     assert names[-1] == "Reply in Discord"
+
+
+def test_news_and_learning_steps_are_optional_and_run_before_publishing():
+    for name, step, needle in (("data.yml", "News and social sources (optional; never blocks "
+                                "publishing)", "news-ingest"),
+                               ("review.yml", "Weekly evaluation and learning state", "learn --db")):  # fmt: skip
+        wf = load(WF / name)
+        steps = next(iter(wf["jobs"].values()))["steps"]
+        names = [s.get("name") for s in steps]
+        s = steps[names.index(step)]
+        assert s["continue-on-error"] is True and needle in s["run"]
+        assert names.index(step) < names.index("Publish database")
+    assert "news-ingest" not in (WF / "plan.yml").read_text()  # the plan workflow is unchanged

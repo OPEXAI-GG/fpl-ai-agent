@@ -30,6 +30,13 @@ jobs:
             --football-data E0 --points
           uv run fpl-agent review --db data_cache/football.duckdb --gw 0 \
             --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Weekly evaluation and learning state
+        continue-on-error: true  # learning never blocks publishing the reviews
+        run: |
+          uv run fpl-agent evaluate --db data_cache/football.duckdb --gw 0 \
+            --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fpl-agent learn --db data_cache/football.duckdb --gw 0 \
+            --export data_cache/out | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Lessons for the next plan
         continue-on-error: true  # the lessons never block publishing the reviews
         run: |

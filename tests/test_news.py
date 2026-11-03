@@ -347,6 +347,13 @@ def test_confirmed_and_speculative_claims_are_separated(resolver):
     ]
 
 
+def test_recorded_bbc_quote_about_grealish_is_an_unavailability(resolver):
+    items = rss.parse_feed((NEWS / "bbc_football.xml").read_bytes())
+    it = next(i for i in items if "Grealish" in i.title)
+    cs = extract.rule_claims(item(it.content, title=it.title), resolver)
+    assert ("availability", "out", 40) in {(c.kind, c.value, c.player_id) for c in cs}
+
+
 def test_negated_phrases_make_no_claim(resolver):
     assert extract.rule_claims(item("Saka has not been ruled out."), resolver) == []
 

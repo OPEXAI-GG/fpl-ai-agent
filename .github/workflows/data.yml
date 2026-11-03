@@ -47,5 +47,14 @@ jobs:
               --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1 \
               --fotmob all --fotmob-matches 120
           fi
+      - name: News and social sources (optional; never blocks publishing)
+        continue-on-error: true
+        env:
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}       # optional: X timelines
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # optional: with NEWS_LLM=1 only
+          NEWS_LLM: ${{ vars.NEWS_LLM }}
+        run: |
+          uv run fpl-agent news-ingest --db data_cache/football.duckdb --export data_cache/out
+          uv run fpl-agent sources --db data_cache/football.duckdb | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish database
         run: scripts/data_publish.sh data_cache/out

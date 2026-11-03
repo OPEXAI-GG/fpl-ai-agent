@@ -49,6 +49,7 @@ PATTERNS: list[tuple[str, str, str, bool]] = [  # (regex, kind, value, confirmed
     (r"\b(has been |have been |was |is |are )?ruled out\b", "availability", "out", True),
     (r"\bwill (definitely )?miss\b", "availability", "out", True),
     (r"\b(is|are) (out|unavailable|sidelined|suspended)\b", "availability", "out", True),
+    (r"\b(he|she|they|who)(?:'s|\u2019s| is) (out|unavailable)\b", "availability", "out", True),
     (r"\b(sidelined|suspended|out injured|serving a ban)\b", "availability", "out", True),
     (r"\b(could|may|might|set to|expected to|likely to|in danger of) (miss|missing)\b",
      "availability", "out", False),
