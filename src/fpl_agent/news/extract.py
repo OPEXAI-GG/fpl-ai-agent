@@ -121,8 +121,17 @@ def _mentions_in(clause: str, mentions: list[Mention], resolver: Resolver) -> li
     return [m for m in mentions if m.text in names]
 
 
-def make_claim(item: dict, m: Mention, kind: str, value: str, confirmed: bool, quote: str,
-               extractor: str, version: str, return_at: datetime | None = None) -> Claim:  # fmt: skip
+def make_claim(
+    item: dict,
+    m: Mention,
+    kind: str,
+    value: str,
+    confirmed: bool,
+    quote: str,
+    extractor: str,
+    version: str,
+    return_at: datetime | None = None,
+) -> Claim:
     at = item["observed_at"]
     if kind == "return" and return_at is None:
         raise ValueError("a return claim needs a return date")

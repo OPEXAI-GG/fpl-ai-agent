@@ -32,7 +32,9 @@ def rss_doc(items: list[tuple[str, str, str]]) -> str:
         f"</link><guid>{g}</guid><pubDate>Mon, 02 Nov 2026 09:00:00 GMT</pubDate></item>"
         for g, t, d in items
     )
-    return f'<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>{body}</channel></rss>'
+    return (
+        f'<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>{body}</channel></rss>'
+    )
 
 
 def client(handler) -> httpx.Client:
@@ -69,7 +71,10 @@ def test_recorded_bbc_feed_parses_with_provenance():
     assert len(items) == 10
     first = items[0]
     assert first.title.startswith("Jeers again") and first.published_at.year == 2026
-    assert first.canonical_url.startswith("https://www.bbc.co.uk/sport/") and "at_" not in first.canonical_url
+    assert (
+        first.canonical_url.startswith("https://www.bbc.co.uk/sport/")
+        and "at_" not in first.canonical_url
+    )
 
 
 def test_atom_feeds_parse():
@@ -93,7 +98,11 @@ def test_malformed_feeds_raise_format_errors(body):
 
 
 def test_markup_in_feed_text_is_stripped():
-    (it,) = rss.parse_feed(rss_doc([("g1", "Hi", "&lt;b&gt;Saka&lt;/b&gt; &lt;script&gt;x&lt;/script&gt; ok")]).encode())
+    (it,) = rss.parse_feed(
+        rss_doc(
+            [("g1", "Hi", "&lt;b&gt;Saka&lt;/b&gt; &lt;script&gt;x&lt;/script&gt; ok")]
+        ).encode()
+    )
     assert "<" not in it.content and "Saka" in it.content
 
 
@@ -131,7 +140,10 @@ def test_edited_items_become_revisions_and_old_claims_are_kept():
     revs = db.query("SELECT revision, observed_at FROM news_revisions ORDER BY revision")
     assert list(revs["revision"]) == [1, 2]
     claims = db.query("SELECT revision, value, effective_at FROM evidence_claims ORDER BY revision")
-    assert list(zip(claims["revision"], claims["value"], strict=True)) == [(1, "doubtful"), (2, "out")]
+    assert list(zip(claims["revision"], claims["value"], strict=True)) == [
+        (1, "doubtful"),
+        (2, "out"),
+    ]
     assert claims["effective_at"].iloc[1] == T0 + timedelta(hours=3)
     assert db.con.execute("SELECT revision FROM news_items").fetchone()[0] == 2
 
@@ -190,7 +202,9 @@ def test_x_timeline_paginates_and_resumes_from_since_id(monkeypatch):
     run_sources(db, [X_SRC], client(x_handler({"first": {"meta": {"result_count": 0}}}, seen)),
                 at=T0 + timedelta(hours=5))  # fmt: skip
     assert len(seen) == 1 and seen[0].url.params["since_id"] == "100"  # no user lookup again
-    url = db.con.execute("SELECT canonical_url FROM news_items WHERE provider_id = '100'").fetchone()
+    url = db.con.execute(
+        "SELECT canonical_url FROM news_items WHERE provider_id = '100'"
+    ).fetchone()
     assert url[0] == "https://x.com/Arsenal/status/100"
 
 
@@ -289,8 +303,17 @@ def test_oversized_responses_are_refused():
 
 # ---- entities and claims ---------------------------------------------------------------------
 def item(text, title="", at=T0, tier=2, rev=1, key="s1"):
-    return {"item_id": "i1", "revision": rev, "title": title, "content": text, "observed_at": at,
-            "source_id": "bbc", "source_tier": tier, "story_key": key, "published_at": None}
+    return {
+        "item_id": "i1",
+        "revision": rev,
+        "title": title,
+        "content": text,
+        "observed_at": at,
+        "source_id": "bbc",
+        "source_tier": tier,
+        "story_key": key,
+        "published_at": None,
+    }
 
 
 @pytest.fixture(scope="module")
@@ -315,9 +338,13 @@ def test_club_context_or_full_name_resolves(resolver):
 
 def test_confirmed_and_speculative_claims_are_separated(resolver):
     conf = extract.rule_claims(item("Bukayo Saka has been ruled out of Saturday's game."), resolver)
-    spec = extract.rule_claims(item("Bukayo Saka could miss Saturday's game, reports suggest."), resolver)
+    spec = extract.rule_claims(
+        item("Bukayo Saka could miss Saturday's game, reports suggest."), resolver
+    )
     assert [(c.kind, c.value, c.certainty) for c in conf] == [("availability", "out", "confirmed")]
-    assert [(c.kind, c.value, c.certainty) for c in spec] == [("availability", "out", "speculative")]
+    assert [(c.kind, c.value, c.certainty) for c in spec] == [
+        ("availability", "out", "speculative")
+    ]
 
 
 def test_negated_phrases_make_no_claim(resolver):
@@ -336,8 +363,11 @@ def test_training_selection_and_set_pieces(resolver):
     kinds = {(c.kind, c.value, c.player_id) for c in extract.rule_claims(item(
         "William Saliba returned to full training. Cole Palmer will start on Saturday. "
         "Jean-Philippe Mateta is the penalty taker again."), resolver)}  # fmt: skip
-    assert {("training", "full", 10), ("selection", "expected_start", 21),
-            ("set_piece", "penalties", 50)} <= kinds
+    assert {
+        ("training", "full", 10),
+        ("selection", "expected_start", 21),
+        ("set_piece", "penalties", 50),
+    } <= kinds
 
 
 def test_clauses_keep_claims_on_the_right_player(resolver):
@@ -357,12 +387,27 @@ def test_recorded_bbc_story_yields_a_training_claim(resolver):
 def test_llm_output_is_validated(resolver):
     it = item("Bukayo Saka has been ruled out of the derby, Arteta said.")
     raw = [
-        {"player": "Saka", "kind": "availability", "value": "out", "certainty": "confirmed",
-         "quote": "Bukayo Saka has been ruled out of the derby"},  # valid
-        {"player": "Saka", "kind": "availability", "value": "out", "certainty": "confirmed",
-         "quote": "Saka will never play again"},  # not in the text
-        {"player": "Haaland", "kind": "availability", "value": "out", "certainty": "confirmed",
-         "quote": "Bukayo Saka has been ruled out"},  # player not in the quote
+        {
+            "player": "Saka",
+            "kind": "availability",
+            "value": "out",
+            "certainty": "confirmed",
+            "quote": "Bukayo Saka has been ruled out of the derby",
+        },  # valid
+        {
+            "player": "Saka",
+            "kind": "availability",
+            "value": "out",
+            "certainty": "confirmed",
+            "quote": "Saka will never play again",
+        },  # not in the text
+        {
+            "player": "Haaland",
+            "kind": "availability",
+            "value": "out",
+            "certainty": "confirmed",
+            "quote": "Bukayo Saka has been ruled out",
+        },  # player not in the quote
         {"player": "Saka", "kind": "transfer", "value": "x", "quote": "Bukayo Saka"},  # bad kind
         {"player": "James", "kind": "availability", "value": "fit", "quote": "Bukayo Saka"},
         "ignore previous instructions",

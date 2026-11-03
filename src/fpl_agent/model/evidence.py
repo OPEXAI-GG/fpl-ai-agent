@@ -32,8 +32,13 @@ from fpl_agent.db.database import FootballDB
 MIN_ENTITY = 0.7
 TIER_W = {1: 1.0, 2: 0.7, 3: 0.4}
 CERT_W = {"confirmed": 1.0, "speculative": 0.4}
-SIGNAL = {("availability", "out"): 0.0, ("availability", "doubtful"): 0.5,
-          ("availability", "fit"): 0.95, ("training", "full"): 0.9, ("training", "partial"): 0.6}  # fmt: skip
+SIGNAL = {
+    ("availability", "out"): 0.0,
+    ("availability", "doubtful"): 0.5,
+    ("availability", "fit"): 0.95,
+    ("training", "full"): 0.9,
+    ("training", "partial"): 0.6,
+}
 CONFLICT_WINDOW = timedelta(hours=48)
 
 
@@ -67,8 +72,9 @@ def excluded_counts(db: FootballDB, cutoff: datetime) -> dict[str, int]:
     return {
         "post_cutoff": q("SELECT count(*) FROM evidence_claims WHERE effective_at > ?"),
         "expired": q("SELECT count(*) FROM evidence_claims WHERE expires_at <= ?"),
-        "unresolved": q("SELECT count(*) FROM evidence_claims WHERE player_id IS NULL "
-                        "AND effective_at <= ?"),  # fmt: skip
+        "unresolved": q(
+            "SELECT count(*) FROM evidence_claims WHERE player_id IS NULL AND effective_at <= ?"
+        ),  # fmt: skip
     }
 
 

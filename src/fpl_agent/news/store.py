@@ -20,8 +20,8 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from fpl_agent.db.database import FootballDB
 from fpl_agent.data.id_map import normalise
+from fpl_agent.db.database import FootballDB
 from fpl_agent.news import Item
 from fpl_agent.news.registry import SourceConfig
 
@@ -39,7 +39,9 @@ def content_hash(title: str, content: str) -> str:
 
 def shingles(text: str, k: int = 4) -> set[str]:
     words = normalise(text).split()
-    return {" ".join(words[i : i + k]) for i in range(max(len(words) - k + 1, 1))} if words else set()
+    return (
+        {" ".join(words[i : i + k]) for i in range(max(len(words) - k + 1, 1))} if words else set()
+    )
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -93,7 +95,9 @@ def store_items(db: FootballDB, src: SourceConfig, items: list[Item], at: dateti
             "SELECT content_hash, revision FROM news_items WHERE item_id = ?", [item_id]
         ).fetchone()
         if row and row[0] == h:
-            db.con.execute("UPDATE news_items SET retrieved_at = ? WHERE item_id = ?", [at, item_id])
+            db.con.execute(
+                "UPDATE news_items SET retrieved_at = ? WHERE item_id = ?", [at, item_id]
+            )
             res.unchanged += 1
             continue
         rev = 1 if row is None else int(row[1]) + 1

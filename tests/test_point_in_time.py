@@ -154,7 +154,9 @@ def test_current_pool_and_market_odds_respect_the_cutoff():
                                                    "fpl_id": 1, "player_id": 1, "team_id": 1,
                                                    "status": status, "raw": "{}"}]))  # fmt: skip
     assert project.current_pool(db, 2026, 8, as_of=DEADLINE)["status"].tolist() == ["a"]
-    db.con.execute("INSERT INTO matches (match_id, kickoff) VALUES (7, TIMESTAMP '2026-10-24 15:00')")
+    db.con.execute(
+        "INSERT INTO matches (match_id, kickoff) VALUES (7, TIMESTAMP '2026-10-24 15:00')"
+    )
     for at, closing, home in ((early, False, 2.0), (late, False, 1.2), (late, True, 1.1)):
         db.append("match_odds", pd.DataFrame([{"match_id": 7, "source": "x", "bookmaker": str(at),
                                                "closing": closing, "home": home, "draw": 3.5,
@@ -162,13 +164,16 @@ def test_current_pool_and_market_odds_respect_the_cutoff():
     pre = project.market_lambdas(db, 7, as_of=DEADLINE)
     assert pre == project.market_lambdas(db, 7, as_of=DEADLINE, allow_backfill=False)
     assert pre[0] < project.market_lambdas(db, 7)[0]  # the later, shorter price is unseen
-    assert project.market_lambdas(db, 7, as_of=early - timedelta(days=1),
-                                  allow_backfill=False) is None
+    assert (
+        project.market_lambdas(db, 7, as_of=early - timedelta(days=1), allow_backfill=False) is None
+    )
 
 
 def test_closing_prices_are_after_the_deadline_even_in_a_backfill():
     db = FootballDB()
-    db.con.execute("INSERT INTO matches (match_id, kickoff) VALUES (7, TIMESTAMP '2025-10-24 15:00')")
+    db.con.execute(
+        "INSERT INTO matches (match_id, kickoff) VALUES (7, TIMESTAMP '2025-10-24 15:00')"
+    )
     loaded = datetime(2026, 10, 9)  # backfilled a year later
     db.append("match_odds", pd.DataFrame([{"match_id": 7, "source": "football-data",
                                            "bookmaker": "avg", "closing": True, "home": 1.5,

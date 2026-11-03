@@ -80,8 +80,12 @@ def metrics(df: pd.DataFrame, col: str = "xpts") -> dict[str, Any]:
     if df.empty:
         return {"n": 0}
     err = df[col] - df["actual"]
-    out = {"n": int(len(df)), "mae": round(float(err.abs().mean()), 4),
-           "rmse": round(float(np.sqrt((err**2).mean())), 4), "bias": round(float(err.mean()), 4)}  # fmt: skip
+    out = {
+        "n": int(len(df)),
+        "mae": round(float(err.abs().mean()), 4),
+        "rmse": round(float(np.sqrt((err**2).mean())), 4),
+        "bias": round(float(err.mean()), 4),
+    }
     single = df[(df["fixtures"] == 1) & df["p_start"].notna()]
     if len(single):
         p = single["p_start"].astype(float).clip(1e-4, 1 - 1e-4)
@@ -151,10 +155,12 @@ def evaluate_gw(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
                 suffixes=("_b", "_e"))  # fmt: skip
             pair["d_abs"] = (pair["xpts_e"] - pair["actual"]).abs() - (
                 pair["xpts_b"] - pair["actual"]).abs()  # fmt: skip
-            out["paired"] = pair[["player_id", "d_abs", "news_e", "workload_e"]].to_dict("records")
+            keep = ["player_id", "d_abs", "news_b", "news_e", "workload_b", "workload_e"]
+            out["paired"] = pair[keep].to_dict("records")
     db.upsert("evaluations", pd.DataFrame(rows))
     db.con.execute(
-        "DELETE FROM reviews WHERE season = ? AND gw = ? AND kind = 'evaluation'", [season, gw])
+        "DELETE FROM reviews WHERE season = ? AND gw = ? AND kind = 'evaluation'", [season, gw]
+    )
     db.append("reviews", pd.DataFrame([{"season": season, "gw": gw, "created_at": now(),
                                         "kind": "evaluation",
                                         "payload": json.dumps(out, default=str)}]))  # fmt: skip
@@ -196,12 +202,17 @@ def _feature_evidence(db: FootballDB, season: int, through_gw: int) -> dict[str,
     rows = db.query("SELECT gw, payload FROM reviews WHERE season = ? AND kind = 'evaluation' "
                     "AND gw <= ? ORDER BY gw", [season, through_gw])  # fmt: skip
     out = {}
-    for feat, own, other in (("news_availability", "news_e", "workload_e"),
-                             ("workload", "workload_e", "news_e")):
+    for feat, own, other in (
+        ("news_availability", "news", "workload"),
+        ("workload", "workload", "news"),
+    ):
         diffs, weeks, brier = [], set(), []
         for gw, blob in zip(rows["gw"], rows["payload"], strict=True):
             p = json.loads(blob)
-            pairs = [x for x in p.get("paired") or [] if x.get(own) and not x.get(other)]
+            # players this feature changed in the enriched arm only, and no other feature did
+            pairs = [x for x in p.get("paired") or []
+                     if x.get(f"{own}_e") and not x.get(f"{own}_b")
+                     and x.get(f"{other}_e") == x.get(f"{other}_b")]  # fmt: skip
             if pairs:
                 weeks.add(int(gw))
                 diffs += [float(x["d_abs"]) for x in pairs]
@@ -213,8 +224,13 @@ def _feature_evidence(db: FootballDB, season: int, through_gw: int) -> dict[str,
         n = len(diffs)
         mean = float(np.mean(diffs)) if n else None
         se = float(np.std(diffs, ddof=1) / np.sqrt(n)) if n > 1 else None
-        out[feat] = {"gameweeks": len(weeks), "affected": n, "mean_abs_error_change": mean,
-                     "se": se, "start_brier_change": float(np.mean(brier)) if brier else None}  # fmt: skip
+        out[feat] = {
+            "gameweeks": len(weeks),
+            "affected": n,
+            "mean_abs_error_change": mean,
+            "se": se,
+            "start_brier_change": float(np.mean(brier)) if brier else None,
+        }
     return out
 
 
@@ -225,8 +241,10 @@ def decide_feature(ev: dict, mode: str) -> tuple[str, str]:
         return "off", "off by configuration"
     enough = ev["gameweeks"] >= t["min_gameweeks"] and ev["affected"] >= t["min_affected"]
     if not enough or ev["mean_abs_error_change"] is None or ev["se"] is None:
-        return mode, (f"insufficient evidence ({ev['gameweeks']} of {t['min_gameweeks']} "
-                      f"gameweeks, {ev['affected']} of {t['min_affected']} player-weeks)")  # fmt: skip
+        return mode, (
+            f"insufficient evidence ({ev['gameweeks']} of {t['min_gameweeks']} "
+            f"gameweeks, {ev['affected']} of {t['min_affected']} player-weeks)"
+        )
     m, se = ev["mean_abs_error_change"], ev["se"]
     brier_ok = ev["start_brier_change"] is None or ev["start_brier_change"] <= t[
         "max_brier_regression"]  # fmt: skip
@@ -361,11 +379,15 @@ def walk_forward(
                               "no_team_congestion": ["xc_rest_days", "xc_mins_7d",
                                                      "xc_mins_14d"]}  # fmt: skip
     frame = features.player_gw_frame(db)
+    if frame.empty:
+        return {"available": False, "reason": "not enough history or no gameweeks to test"}
     apps, teams = workload.appearance_log(db), workload.team_log(db)
     all_rows = minutes.training_rows(frame)
     per_gw, models, fitted_at = [], {}, None
     for gw in gws:
-        hist = frame[(frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))]
+        hist = frame[
+            (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < gw))
+        ]
         test = all_rows[(all_rows["season"] == season) & (all_rows["gw"] == gw)
                         & all_rows["kickoff"].notna()]  # fmt: skip
         if len(hist) < 500 or test.empty:

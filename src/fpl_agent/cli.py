@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from fpl_agent.config import Settings
@@ -142,8 +143,15 @@ def status(settings: Settings) -> int:
             return 2
     else:
         print("Mode: DRY - the agent only reports; it never logs in to FPL or changes your team.")
-    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "NOTIFY_WEBHOOK"):
+    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "NOTIFY_WEBHOOK", "X_BEARER_TOKEN"):
         print(f"{k}: {'set' if os.environ.get(k) else 'not set'}")
+    from fpl_agent.model import overlays
+
+    print(
+        "features: "
+        + ", ".join(f"{k}={v}" for k, v in overlays.modes().items())
+        + " (env only; `features --db` adds the learning state)"
+    )
     return 0
 
 
@@ -303,6 +311,16 @@ def explain_cmd(args: argparse.Namespace) -> int:
                 f"range {d.get('q10', 0):.0f}-{d.get('q90', 0):.0f}"
             )
             print(f"  by source: {comps}")
+            if "p_start" in d:
+                print(f"  P(start) {d['p_start']:.0%}  availability {d.get('availability', 1):.0%}")
+            for e in d.get("evidence") or []:
+                for c in e.get("claims") or []:
+                    print(
+                        f'  evidence [{e.get("state")}]: "{c.get("quote")}" ({c.get("source")}, '
+                        f"tier {c.get('tier')}, {c.get('certainty')}, seen {c.get('effective_at')})"
+                    )
+            if d.get("workload"):
+                print(f"  workload: {d['workload']}")
     return 0
 
 
@@ -387,6 +405,98 @@ def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
 
         Path(args.out).write_text(report + "\n")
     return 0
+
+
+def news_ingest_cmd(args: argparse.Namespace) -> int:
+    """Fetch the configured news/social sources, store items and claims. Never fails the
+    workflow for an optional source: exit 0 unless the registry itself is invalid."""
+    from fpl_agent.news import ingest, registry
+    from fpl_agent.scout import Scout
+
+    try:
+        sources = registry.load(args.sources)
+    except registry.RegistryError as exc:
+        print(f"news registry invalid: {exc}")
+        return 2
+    db = _open_db(args)
+    only = {x for x in (args.only or "").split(",") if x} or None
+    rep = ingest.run_sources(db, sources, force=args.force, scout=Scout(), only=only)
+    _export(db, args)
+    print(rep.summary())
+    return 0
+
+
+def sources_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent.news import ingest, registry
+
+    db = _open_db(args)
+    h = ingest.health(db, registry.load(args.sources))
+    print("no sources configured" if h.empty else h.to_string(index=False))
+    return 0
+
+
+def features_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import learning
+    from fpl_agent.model import overlays
+
+    db = _open_db(args)
+    st = learning.current_state(db)
+    promoted = (st or {}).get("config", {}).get("features") if st else None
+    for name, mode in overlays.modes(promoted).items():
+        env = os.environ.get(f"FEATURE_{name.upper()}")
+        src = "env" if env else (f"learning state v{st['version']}" if st else "default")
+        print(f"{name}: {mode} ({src})")
+    if st:
+        print(f"calibration: {st['config'].get('calibration') or 'none'}")
+    return 0
+
+
+def evaluate_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import learning
+
+    db = _open_db(args)
+    gw = args.gw or _latest_points_gw(db, int(args.season))
+    out = learning.evaluate_gw(db, int(args.season), gw)
+    out.pop("paired", None)
+    _export(db, args)
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
+def learn_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import learning
+
+    db = _open_db(args)
+    if args.history:
+        print(learning.history(db).to_string(index=False))
+        return 0
+    if args.rollback:
+        res = learning.rollback(db, args.to)
+    else:
+        gw = args.gw or _latest_points_gw(db, int(args.season))
+        res = learning.weekly_update(db, int(args.season), gw)
+    _export(db, args)
+    print(res.text())
+    return 0
+
+
+def walk_forward_cmd(args: argparse.Namespace) -> int:
+    from fpl_agent import learning
+
+    db = _open_db(args)
+    res = learning.walk_forward(db, int(args.season), list(range(args.from_gw, args.to_gw + 1)),
+                                refit_every=args.refit_every)  # fmt: skip
+    print(json.dumps(res, indent=2, default=str))
+    if args.out:
+        from pathlib import Path
+
+        Path(args.out).write_text(json.dumps(res, indent=2, default=str))
+    return 0 if res.get("available") else 2
+
+
+def _latest_points_gw(db, season: int) -> int:
+    row = db.con.execute("SELECT max(gw) FROM fpl_points_gw WHERE season = ?", [season]).fetchone()
+    return int(row[0] or 0)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -505,8 +615,57 @@ def main(argv: list[str] | None = None) -> int:
     rt.add_argument("--no-chips", action="store_true")
     rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rt.add_argument("--out", default=None)
+    ni = sub.add_parser("news-ingest", help="fetch configured news/X sources; store items, claims")
+    ni.add_argument("--db", default="data_cache/football.duckdb")
+    ni.add_argument("--import-dir", default=None)
+    ni.add_argument("--export", default=None, help="write the database as parquet here")
+    ni.add_argument(
+        "--sources", default=None, help="registry file (default config/news_sources.yaml)"
+    )
+    ni.add_argument("--only", default="", help="comma list of source ids")
+    ni.add_argument("--force", action="store_true", help="ignore min_interval_minutes")
+    so = sub.add_parser("sources", help="health of every configured news/social source")
+    so.add_argument("--db", default="data_cache/football.duckdb")
+    so.add_argument("--import-dir", default=None)
+    so.add_argument("--sources", default=None)
+    fe = sub.add_parser("features", help="feature flags in force (env, learning state, default)")
+    fe.add_argument("--db", default="data_cache/football.duckdb")
+    fe.add_argument("--import-dir", default=None)
+    ev = sub.add_parser("evaluate", help="score the forecasts issued before a final gameweek")
+    ev.add_argument("--db", default="data_cache/football.duckdb")
+    ev.add_argument("--import-dir", default=None)
+    ev.add_argument("--season", default="2026")
+    ev.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    ev.add_argument("--export", default=None)
+    le = sub.add_parser("learn", help="weekly learning update: candidate vs current, or rollback")
+    le.add_argument("--db", default="data_cache/football.duckdb")
+    le.add_argument("--import-dir", default=None)
+    le.add_argument("--season", default="2026")
+    le.add_argument("--gw", type=int, default=0, help="0 = latest gameweek with points")
+    le.add_argument("--rollback", action="store_true", help="make the previous version current")
+    le.add_argument("--to", type=int, default=None, help="with --rollback: this version")
+    le.add_argument("--history", action="store_true", help="list every learning-state version")
+    le.add_argument("--export", default=None)
+    wf = sub.add_parser("walk-forward", help="chronological evaluation of the workload feature")
+    wf.add_argument("--db", default="data_cache/football.duckdb")
+    wf.add_argument("--import-dir", default=None)
+    wf.add_argument("--season", default="2025")
+    wf.add_argument("--from-gw", type=int, default=6)
+    wf.add_argument("--to-gw", type=int, default=38)
+    wf.add_argument("--refit-every", type=int, default=4)
+    wf.add_argument("--out", default=None)
     args = parser.parse_args(argv)
     settings = Settings.from_env()
+    extra = {
+        "news-ingest": news_ingest_cmd,
+        "sources": sources_cmd,
+        "features": features_cmd,
+        "evaluate": evaluate_cmd,
+        "learn": learn_cmd,
+        "walk-forward": walk_forward_cmd,
+    }
+    if args.cmd in extra:
+        return extra[args.cmd](args)
     if args.cmd == "explain":
         return explain_cmd(args)
     if args.cmd == "status":

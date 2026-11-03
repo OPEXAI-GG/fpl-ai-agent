@@ -1,9 +1,11 @@
 """Bounded feature overlays on the minutes forecast, each behind its own flag.
 
-| flag (env) | feature | effect | bound |
-|---|---|---|---|
-| `FEATURE_NEWS_AVAILABILITY` | news evidence (`model.evidence`) | moves the availability factor toward the evidence | +-0.30 from FPL's own flag, never for status n/u, decays 50% per gameweek beyond the next (a return date applies exactly) |
-| `FEATURE_WORKLOAD` | rest and workload (`model.workload`) | moves P(start) toward a model trained with workload features | +-0.10, next gameweek only, unknown workload = baseline |
+* `FEATURE_NEWS_AVAILABILITY` (news evidence, `model.evidence`): moves the availability
+  factor toward the evidence; at most 0.30 from FPL's own flag, never for status n/u, and the
+  shift halves for each gameweek beyond the next (a reported return date applies exactly).
+* `FEATURE_WORKLOAD` (rest and workload, `model.workload`): moves P(start) toward a model
+  trained with workload features; at most 0.10, next gameweek only, and a player whose
+  workload is unknown keeps the baseline.
 
 Each flag is `off`, `shadow` or `on`:
 
@@ -78,7 +80,6 @@ class NewsAvailability:
                 continue
             key = (r.player_id, r.gw)
             status = info.loc[key, "status"] if key in info.index else None
-            chance = info.loc[key, "chance"] if key in info.index else None
             kickoff = info.loc[key, "kickoff"] if key in info.index else None
             if status in ("n", "u"):
                 states["blocked_by_fpl_status"] = states.get("blocked_by_fpl_status", 0) + 1
@@ -89,18 +90,22 @@ class NewsAvailability:
                 continue
             base = float(r.availability)
             h = int(r.horizon)
-            target, w = None, e.weight
-            if e.return_at is not None and kickoff is not None and not pd.isna(kickoff) \
-                    and pd.Timestamp(kickoff) < pd.Timestamp(e.return_at):
+            target, decay = None, 1.0
+            if (
+                e.return_at is not None
+                and kickoff is not None
+                and not pd.isna(kickoff)
+                and pd.Timestamp(kickoff) < pd.Timestamp(e.return_at)
+            ):
                 target = 0.0  # still before the reported return date: no decay
             elif e.p_play is not None:
                 target = e.p_play
-                w *= NEWS_DECAY ** max(h - 1, 0)
+                decay = NEWS_DECAY ** max(h - 1, 0)
             if target is None:
                 continue
-            new = base + w * (target - base)
-            new = float(np.clip(new, base - self.max_shift, base + self.max_shift))
-            new = float(np.clip(new, 0.0, 1.0))
+            w = e.weight
+            shift = float(np.clip(w * (target - base), -self.max_shift, self.max_shift)) * decay
+            new = float(np.clip(base + shift, 0.0, 1.0))
             if abs(new - base) < 1e-6:
                 continue
             out.at[i, "availability"] = new

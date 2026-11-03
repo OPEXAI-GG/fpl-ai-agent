@@ -4,11 +4,13 @@ Features for a player before a fixture kicking off at `t`, from appearances whos
 were public by the information cutoff (kickoff + 3 hours <= cutoff; for a training row the
 cutoff is its own kickoff, so only earlier matches count):
 
-| feature | unit | missing (NaN) when |
-|---|---|---|
-| `xc_rest_days` | days since the player's last appearance with minutes, any competition | no appearance with minutes in the 60 days before |
-| `xc_mins_7d` / `xc_mins_14d` | minutes played in the 7 / 14 days before | the player has no appearance rows at all in the 365 days before (no coverage), never 0 by default |
-| `xc_team_matches_7d` | finished matches the player's club played in the 7 days before | the club has no match rows at all in the 60 days before |
+* `xc_rest_days`: days since the player's last appearance with minutes in any competition;
+  NaN when there is none in the 60 days before.
+* `xc_mins_7d`, `xc_mins_14d`: minutes played in the 7 / 14 days before; NaN when the player
+  has no appearance rows at all in the 365 days before (no coverage), so it is never 0 by
+  default.
+* `xc_team_matches_7d`: finished matches the player's club played in the 7 days before; NaN
+  when the club has no match rows in the 60 days before.
 
 Unknown stays NaN (the gradient-boosted model handles it natively; at inference a player with
 no workload coverage keeps the baseline forecast). Sources: `appearances` (FotMob lineups and

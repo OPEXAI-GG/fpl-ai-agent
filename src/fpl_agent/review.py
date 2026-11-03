@@ -8,8 +8,10 @@ Only one forecast is reviewed per gameweek: the newest whole run made before FPL
 (`pit.eligible_run`), so a run made after kickoff can never produce a falsely perfect review and
 runs are never mixed per player. Each report says which run it scored, whether the gameweek's
 results are final, and how many forecast players have no official result yet (they are left out,
-never scored as zero). Calibration and lessons use final reports only. A flag ("MID bias +0.4") is what a human or a scheduled
-refit acts on, which keeps the live agent from chasing noise.
+never scored as zero). Calibration and lessons use final reports only.
+
+A flag ("MID bias +0.4") is what a human or a scheduled refit acts on, which keeps the live agent
+from chasing noise.
 """
 
 from __future__ import annotations

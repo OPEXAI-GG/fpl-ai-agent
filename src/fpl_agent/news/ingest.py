@@ -195,14 +195,28 @@ def run_sources(
                         last_error=str(exc))  # fmt: skip
         except RateLimited as exc:
             out.status, out.note = "rate_limited", str(exc)
-            _save_state(db, src, st, last_attempt_at=at, last_status="rate_limited",
-                        last_error=str(exc), next_allowed_at=exc.retry_at,
-                        consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)  # fmt: skip
+            _save_state(
+                db,
+                src,
+                st,
+                last_attempt_at=at,
+                last_status="rate_limited",
+                last_error=str(exc),
+                next_allowed_at=exc.retry_at,
+                consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,
+            )
         except (SourceError, Exception) as exc:  # noqa: BLE001 - one source never stops the rest
             msg = f"{type(exc).__name__}: {exc}"[:300]
             out.status, out.note = "failed", msg
-            _save_state(db, src, st, last_attempt_at=at, last_status="failed", last_error=msg,
-                        consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)  # fmt: skip
+            _save_state(
+                db,
+                src,
+                st,
+                last_attempt_at=at,
+                last_status="failed",
+                last_error=msg,
+                consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,
+            )
             log.warning("news source %s failed: %s", src.id, msg)
         db.append("source_runs", pd.DataFrame([{
             "source_id": src.id, "run_at": at, "status": out.status, "requests": out.requests,
@@ -223,7 +237,8 @@ def health(db: FootballDB, sources: list[SourceConfig], at: datetime | None = No
         age_h = (pd.Timestamp(at) - pd.Timestamp(last)).total_seconds() / 3600 if has_last else None
         stale = (not has_last) or age_h > STALE_AFTER * src.min_interval_minutes / 60
         n_claims = db.con.execute(
-            "SELECT count(*) FROM evidence_claims WHERE source_id = ?", [src.id]).fetchone()[0]  # fmt: skip
+            "SELECT count(*) FROM evidence_claims WHERE source_id = ?", [src.id]
+        ).fetchone()[0]
         if not src.enabled:
             state = "disabled"
         elif st.get("last_status") == "skipped":

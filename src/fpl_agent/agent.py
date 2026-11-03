@@ -316,7 +316,7 @@ def explain_overlays(ovs, proj, names: dict[int, str], shadow: bool) -> list[str
                 top = (c.get("claims") or [{}])[0]
                 out.append(
                     f"evidence ({tag}): {names.get(c['player_id'], c['player_id'])} availability "
-                    f"{c['from']:.0%} -> {c['to']:.0%}: \"{top.get('quote', '')}\" "
+                    f'{c["from"]:.0%} -> {c["to"]:.0%}: "{top.get("quote", "")}" '
                     f"({top.get('source')}, tier {top.get('tier')}, {top.get('certainty')}, "
                     f"seen {top.get('effective_at')}, claim {top.get('claim_id')})"
                 )
@@ -351,8 +351,10 @@ def _shadow(db, opts, proj, rules, pool, gw, cutoff, enriched, primary_arm, name
     except Exception as exc:  # noqa: BLE001  (shadow evaluation is optional)
         log.warning("shadow projection failed: %s", exc)
         return [f"shadow forecast skipped ({type(exc).__name__})"]
-    return [f"shadow forecast stored ({'with ' + ', '.join(feats) if feats else 'baseline'})",
-            *explain_overlays(ovs, shadow, names, shadow=True)]
+    return [
+        f"shadow forecast stored ({'with ' + ', '.join(feats) if feats else 'baseline'})",
+        *explain_overlays(ovs, shadow, names, shadow=True),
+    ]
 
 
 def manual_changes(db, season: int, gw: int, state) -> list[int]:

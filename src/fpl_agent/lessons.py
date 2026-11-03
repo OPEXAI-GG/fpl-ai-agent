@@ -343,8 +343,11 @@ def _expected(db: FootballDB, season: int, gw: int, to_fpl: dict[int, int]) -> d
     choice = pit.eligible_run(db, season, gw)
     if choice.found:
         proj = pit.run_projection(db, choice.run_id, season, gw)
-        return {to_fpl[int(p)]: float(x) for p, x in zip(proj["player_id"], proj["xpts"],
-                                                          strict=True) if int(p) in to_fpl}  # fmt: skip
+        return {
+            to_fpl[int(p)]: float(x)
+            for p, x in zip(proj["player_id"], proj["xpts"], strict=True)
+            if int(p) in to_fpl
+        }
     if choice.deadline is not None:
         return {}
     proj = db.query(
@@ -370,8 +373,12 @@ def save(db: FootballDB, season: int, gw: int, mistakes: list[Mistake]) -> None:
 
 def report(w: Week, mistakes: list[Mistake], done: bool = True) -> str:
     head = f"GW{w.gw} lessons"
-    lines = [head if done else f"{head} (PROVISIONAL: the gameweek is not finished and checked; "
-             "nothing is stored for the next plan)"]
+    lines = [
+        head
+        if done
+        else f"{head} (PROVISIONAL: the gameweek is not finished and checked; "
+        "nothing is stored for the next plan)"
+    ]
     if w.official is not None:
         exp = f", the plan expected {w.expected:.1f} before hits" if w.expected else ""
         lines.append(f"{w.official} points{exp}")
@@ -394,7 +401,7 @@ def run(db: FootballDB, fpl, season: int, gw: int, entry: int) -> str:
     pit.record_events(db, raw, season)
     w = load_week(db, fpl, season, gw, entry)
     ev = next((e for e in raw.get("events", []) if e["id"] == gw), {})
-    done = bool(ev.get("finished")) and bool(ev.get("data_checked"))
+    done = pit.event_final(ev)
     mistakes = find_mistakes(w)
     if done:
         save(db, season, gw, mistakes)

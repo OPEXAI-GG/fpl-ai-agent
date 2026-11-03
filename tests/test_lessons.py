@@ -140,8 +140,11 @@ class FakeProj:
 
 def test_template_correction_is_learned_from_the_reviews(db):
     for gw, pred, act in ((5, 4.0, 5.0), (6, 4.0, 5.0)):
-        payload = {"template": {"n": 75, "mean_pred": pred, "mean_actual": act},
-                   "final": True, "eligible": True}
+        payload = {
+            "template": {"n": 75, "mean_pred": pred, "mean_actual": act},
+            "final": True,
+            "eligible": True,
+        }
         db.append("reviews", pd.DataFrame([{"season": 2026, "gw": gw, "kind": "prediction",
                                             "created_at": datetime(2026, 10, 1),
                                             "payload": json.dumps(payload)}]))  # fmt: skip

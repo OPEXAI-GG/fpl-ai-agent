@@ -162,7 +162,9 @@ def market_lambdas(
     else:
         pre = " AND NOT (o.closing AND (m.kickoff IS NULL OR m.kickoff > ?))"
         row = db.con.execute(
-            sql + pre + " AND o.ingested_at <= ? ORDER BY o.closing DESC, o.ingested_at DESC LIMIT 1",
+            sql
+            + pre
+            + " AND o.ingested_at <= ? ORDER BY o.closing DESC, o.ingested_at DESC LIMIT 1",
             [*params, as_of, as_of],
         ).fetchone()
         if row is None and allow_backfill:
@@ -280,8 +282,9 @@ def build_projection(
     mins = minutes_model.forecast(history, upcoming)
     flags: dict = {}
     for ov in overlays or []:
-        mins = ov.apply(mins, upcoming, cutoff, {"history": history,
-                                                 "minutes_model": minutes_model})
+        mins = ov.apply(
+            mins, upcoming, cutoff, {"history": history, "minutes_model": minutes_model}
+        )
         flags[ov.name] = ov.summary()
     minutes_table = mins.copy()
     mins = mins.set_index(["player_id", "gw"])

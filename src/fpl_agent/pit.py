@@ -47,11 +47,19 @@ def utc(ts: Any) -> datetime | None:
 
 
 # ---- FPL events --------------------------------------------------------------------------------
+def event_final(ev: dict[str, Any]) -> bool:
+    """FPL says the gameweek is finished and its data checked. Live FPL always sends both
+    flags; a payload without `data_checked` (older recordings) is taken at its `finished`."""
+    finished = bool(ev.get("finished"))
+    return finished and bool(ev.get("data_checked", finished))
+
+
 def record_events(db: FootballDB, raw: dict[str, Any], season: int) -> int:
     """Store each gameweek's deadline and its finished/data_checked flags from the bootstrap."""
     rows = [
         {"season": season, "gw": int(e["id"]), "deadline_time": utc(e.get("deadline_time")),
-         "finished": bool(e.get("finished")), "data_checked": bool(e.get("data_checked")),
+         "finished": bool(e.get("finished")),
+         "data_checked": bool(e.get("data_checked", e.get("finished"))),
          "observed_at": now()}
         for e in raw.get("events", []) if e.get("id") is not None
     ]  # fmt: skip
@@ -96,7 +104,9 @@ def finality(db: FootballDB, season: int, gw: int) -> Finality:
     if not row[0]:
         return Finality(False, "gameweek not finished")
     if not row[1]:
-        return Finality(False, "gameweek finished but FPL has not checked the data (bonus may move)")
+        return Finality(
+            False, "gameweek finished but FPL has not checked the data (bonus may move)"
+        )
     n = db.con.execute(
         "SELECT count(*) FROM fpl_points_gw WHERE season = ? AND gw = ?", [season, gw]
     ).fetchone()[0]
@@ -193,6 +203,7 @@ def run_projection(db: FootballDB, run_id: str | None, season: int, gw: int) -> 
     if run_id is None:
         return pd.DataFrame(columns=["player_id", "xpts", "detail"])
     return db.query(
-        "SELECT player_id, xpts, detail FROM projections WHERE run_id = ? AND season = ? AND gw = ?",
+        "SELECT player_id, xpts, detail FROM projections WHERE run_id = ? AND season = ? "
+        "AND gw = ?",
         [run_id, season, gw],
     ).drop_duplicates("player_id")
