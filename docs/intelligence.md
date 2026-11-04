@@ -169,27 +169,27 @@ gameweek's forecasts (tested). The first half of the gameweeks chooses the bound
 ablations (all workload features, rest only, no club congestion). It is minutes-level (P(start)
 Brier and log loss). Points-level comparisons need `backtest`.
 
-### Measured: 2025/26 workload walk-forward (supersedes the figures first reported on PR #60)
+### Measured: 2025/26 workload walk-forward (rerun after the final corrections, supersedes all earlier figures)
 
 * Command: `learning.walk_forward(db, 2025, list(range(6, 39)), refit_every=4)` (the same as
-  `fpl-agent walk-forward --season 2025 --from-gw 6 --to-gw 38`), run twice with identical
-  output.
-* Dataset: the `data` release asset `football-db.tar.zst` downloaded on 3 Nov 2026, sha256
+  `fpl-agent walk-forward --season 2025 --from-gw 6 --to-gw 38`), on 4 Nov 2026.
+* Dataset: the `data` release asset `football-db.tar.zst`, sha256
   `d3cc931b3e133b9f89eb2ad6332af26b64b8ca7ea1b5e7970a371eaec46f9814` (236,101 FPL points rows,
   315,463 squad snapshots, 1,751,724 appearances, 51,234 matches).
 * Tuning GW6-21, final test GW22-38: 13,935 player-fixtures, workload known for 100%.
-* P(start) Brier on the test weeks (lower is better): baseline 0.09853; all workload features
-  (bound 0.10) 0.09719; rest only (0.05) 0.09786; without club congestion (0.10) 0.09717.
-  Log loss 0.30383, 0.30038, 0.30197, 0.30045. With all features the Brier improved in 13 of 17
-  test weeks (mean -0.00127 per player-fixture, weekly standard error 0.00037).
-* The figures first reported (baseline 0.07508, all 0.07520: workload slightly worse) came from
-  the leaking version, whose test rows used the first fixture's result for a double
-  gameweek's second fixture and squad rows observed after the deadline. They are withdrawn.
-  The higher baseline Brier now is the honest cost of forecasting from the deadline.
+* P(start) Brier on the test weeks (lower is better): baseline 0.07527; all workload features
+  (bound 0.05) 0.07522; rest only (0.05) 0.07529; without club congestion (0.10) 0.07532.
+  Log loss 0.24251, 0.24260, 0.24261, 0.24282. With all features the Brier was lower in 11 of
+  17 test weeks, mean change -0.00005 per player-fixture with a weekly standard error of
+  0.00017: **no measurable effect**.
+* Why the numbers moved: the previous run (baseline 0.09853, all 0.09719) reused the refit
+  gameweek's history for up to three later gameweeks, so the baseline's rolling inputs were up
+  to three weeks stale. Rebuilding inputs at every deadline improves the baseline a lot, and the
+  apparent workload gain mostly disappears: it was largely compensating for stale history. The
+  first figures reported (0.07508 / 0.07520) came from a version that leaked post-deadline data.
+  Both earlier sets are withdrawn.
 * Limits: one season, one tuning/test split, minutes only (no points-level result), domestic
-  cups missing, archive squad rows from the previous gameweek. The feature stays in shadow:
-  promotion needs forward evidence from the weekly loop, and this historical result is not
-  that evidence.
+  cups missing, archive squad rows from the previous gameweek. The feature stays in shadow.
 
 ## Commands
 
