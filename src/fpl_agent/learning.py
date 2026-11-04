@@ -71,9 +71,10 @@ THRESHOLDS = {
     "min_calibration_weeks": 2,  # final reviews before calibration may change at all
 }
 MAX_CAL_STEP = 0.03
-DEFAULT_CONFIG = {"calibration": {}, "features": {f: "shadow" for f in overlays.FEATURES},
-                  "since": {}}  # fmt: skip
-FLAG = {"news_availability": "news", "workload": "workload"}  # run_frame column per feature
+
+
+def default_config() -> dict[str, Any]:
+    return {"calibration": {}, "features": {f: "shadow" for f in overlays.FEATURES}, "since": {}}
 
 
 # ---- scoring one run -------------------------------------------------------------------------
@@ -94,8 +95,8 @@ def run_frame(db: FootballDB, run_id: str, season: int, gw: int) -> pd.DataFrame
     det = [json.loads(d) if isinstance(d, str) else {} for d in p["detail"]]
     p = p.assign(
         p_start=[d.get("p_start") for d in det], p_cameo=[d.get("p_cameo") for d in det],
-        news=[any(e.get("state") == "applied" for e in d.get("evidence") or []) for d in det],
-        workload=[bool((d.get("workload") or {}).get("delta_p_start")) for d in det],
+        # one column per feature: True where that overlay changed the player's forecast
+        **{f: [bool(d.get(f)) for d in det] for f in overlays.FEATURES},
     )  # fmt: skip
     return p.drop(columns=["detail"])
 
@@ -261,14 +262,14 @@ def evaluate_gw(db: FootballDB, season: int, gw: int) -> dict[str, Any]:
             }
             continue
         out["comparisons"][feat] = {"valid": True, "role": role, "with": a[0], "without": b[0],
-                                    **_compare(a[1], b[1], FLAG[feat])}  # fmt: skip
+                                    **_compare(a[1], b[1], feat)}  # fmt: skip
     if arms:
         common = set.intersection(*(set(f["player_id"]) for _, f, _ in arms.values()))
         for role, (run_id, f, _) in sorted(arms.items()):
             g = f[f["player_id"].isin(common)]
             m = metrics(g)
-            m["evidence_coverage"] = round(float(g["news"].mean()), 4) if len(g) else 0.0
-            m["workload_coverage"] = round(float(g["workload"].mean()), 4) if len(g) else 0.0
+            for feat in overlays.FEATURES:
+                m[f"{feat}_coverage"] = round(float(g[feat].mean()), 4) if len(g) else 0.0
             out["arms"][role] = {"run_id": run_id, **m}
             rows.append({"variant": role, "run_id": run_id, "m": m})
     return _store_evaluation(db, season, gw, out, rows)
@@ -310,7 +311,7 @@ def current_state(db: FootballDB) -> dict[str, Any] | None:
     if r.empty:
         return None
     d = r.iloc[0].to_dict()
-    d["config"] = json.loads(d["config"]) if d.get("config") else dict(DEFAULT_CONFIG)
+    d["config"] = json.loads(d["config"]) if d.get("config") else default_config()
     return d
 
 
@@ -438,9 +439,9 @@ def evidence_key(db: FootballDB, season: int, gw: int) -> str:
 
 def _config_of(db: FootballDB, version: int | None) -> dict:
     if version is None:
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        return default_config()
     r = db.query("SELECT config FROM learning_state WHERE version = ?", [version])
-    cfg = json.loads(r["config"].iloc[0]) if len(r) else json.loads(json.dumps(DEFAULT_CONFIG))
+    cfg = json.loads(r["config"].iloc[0]) if len(r) else default_config()
     cfg.setdefault("since", {})
     return cfg
 

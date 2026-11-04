@@ -95,8 +95,7 @@ def limitations(results: pd.DataFrame) -> list[str]:
     if results.empty or "limitations" not in results:
         return []
     seen = sorted({x for v in results["limitations"].dropna() for x in str(v).split("; ") if x})
-    return [*seen, "historical seasons have no news or social evidence: those features are "
-            "evaluated forward only (shadow mode)"]  # fmt: skip
+    return seen
 
 
 def summarize(results: pd.DataFrame) -> pd.DataFrame:

@@ -1,18 +1,19 @@
-# Football intelligence and the weekly learning loop
+# Point-in-time evaluation, feature overlays and the weekly learning loop
 
-This page covers four things: what the agent reads besides FPL's own data, how that text becomes
-evidence a forecast can use, which of it changes the plan today, and how the agent decides,
+This page covers three things: how forecasts are recorded and scored point in time, which
+feature overlays exist and which of them change the plan today, and how the agent decides,
 week by week, whether a change has earned its place.
+
+News and social ingestion (RSS, X and claim extraction) is **not part of the agent**: it was
+built and then left out on 4 Nov 2026 by the owner's decision. The overlay registry and the
+learning loop are generic, so a future feature plugs in the same way the workload overlay does.
 
 ## What is active and what is shadow-only
 
 | Piece | Status by default | Changes the plan? |
 |---|---|---|
 | Pre-deadline review, cutoff recording, final-only calibration and lessons | **active** | Yes. Calibration and lessons now learn from final, eligible reviews only. |
-| News ingestion (RSS) | **active** in the daily data workflow | No, it only stores items and claims. |
-| X ingestion | **configured but idle**: no accounts are listed and `X_BEARER_TOKEN` is not set | No. |
-| News availability overlay (`FEATURE_NEWS_AVAILABILITY`) | **shadow** | No. A matched experiment arm with it is stored and scored. |
-| Rest and workload overlay (`FEATURE_WORKLOAD`) | **shadow** | No. Same as above. |
+| Rest and workload overlay (`FEATURE_WORKLOAD`) | **shadow** | No. A matched experiment arm with it is stored and scored. |
 | Learning state (`fpl-agent learn`) | **active** in the review workflow | Only through calibration factors and feature promotions that passed their thresholds. Until a state exists, the plan behaves as before. |
 
 Set `FEATURE_<NAME>=off|shadow|on` (as an environment variable or repository variable) to
@@ -53,7 +54,6 @@ What each input of a projection may see at cutoff `c`:
 | Matches and team strength | matches before the cutoff's date |
 | Player history and minutes model | gameweeks before the one being forecast |
 | Workload | appearances whose kickoff + 3 h <= c |
-| News evidence | claims first observed (not published) at or before `c`, newest revision, not expired |
 
 **Historical backfills are not point-in-time**, and backtests report this under `limitations`:
 
@@ -61,117 +61,8 @@ What each input of a projection may see at cutoff `c`:
   them (prices at kickoff, everyone assumed available) and says so.
 * Pre-match odds loaded by a later backfill have an unknown publication time. They are used only
   when no point-in-time price exists. Closing prices are never used before kickoff.
-* There is no historical news. News features are evaluated forward only.
-
-## Sources
-
-The registry is `config/news_sources.yaml` (override with `NEWS_SOURCES_FILE`). Each source has
-an `id`, a `kind` (`rss` or `x`), a `tier` (1 official club/manager channel, 2 established outlet
-or named journalist, 3 other), `min_interval_minutes` and `max_items`.
-
-| Source | Domain(s) | Credential | Verified |
-|---|---|---|---|
-| BBC Sport football RSS | `feeds.bbci.co.uk` | none | Live on 3 Nov 2026: 60 + 45 items, parsed, deduplicated, one claim resolved (William Saliba back in training) |
-| X user timelines (API v2) | `api.x.com` | `X_BEARER_TOKEN` (app-only bearer token, developer.x.com) | **Live ingestion not verified**: no token was available. The endpoint answered 401 without one. The contract (user lookup, `since_id`, `pagination_token`, edits, reposts, 429 and `x-rate-limit-reset`) is covered by mocked tests. |
-| LLM claim extraction (optional) | `api.anthropic.com` | `ANTHROPIC_API_KEY` and `NEWS_LLM=1` | Mocked tests only. |
-
-The Guardian's football RSS answered with a bot-check HTML page from the test environment. That
-page is kept as a recorded fixture of a malformed feed and is not in the registry.
-
-To read X accounts, list them under `x-clubs` (tier 1) or `x-journalists` (tier 2) and add the
-`X_BEARER_TOKEN` secret. Nothing is read from X until you do both.
-
-### Storage and provenance
-
-| Table | What |
-|---|---|
-| `news_items` | One row per source item: source id, provider and provider id (RSS guid, the original X post id), canonical URL (tracking parameters removed), author, the source's `published_at`, our `first_seen_at` (never changes) and `retrieved_at`, newest `content_hash`/title/content and `revision`, `story_key`, `repost_of`, source tier, raw metadata |
-| `news_revisions` | Every version of an item's text with its `observed_at`: an edit adds a revision and never overwrites one |
-| `news_entities` | Player mentions per revision: resolved (player id, confidence) or ambiguous (candidate ids) |
-| `evidence_claims` | Structured claims (below) |
-| `source_state` | Per source: cursor (ETag, Last-Modified, X `since_id` per account), last attempt and success, last error, consecutive failures, `next_allowed_at` after a rate limit, item count |
-| `source_runs` | One row per attempt: status, requests, fetched, new, revised, unchanged |
-
-* **Idempotent.** Item id = hash(source id, provider id). A refetch of unchanged content only
-  touches `retrieved_at`. Repeated runs within `min_interval_minutes` make no request.
-* **Incremental, bounded and resumable.** Conditional GET for RSS. `since_id` plus at most
-  `max_pages` pages of `max_items` per X account. When a poll stops at `max_pages` with a
-  continuation token left, the account's cursor keeps that window as `pending` (its `since_id`
-  floor, newest id seen, token) and `since_id` does not move; the next poll finishes the window
-  first and only then advances `since_id`, so an older post in a capped window is never
-  skipped. A failed request saves nothing and the window is retried. A 2 MB response cap and a
-  20 s timeout. A 429 stores the server's reset time, and the source is skipped until then.
-* **Extraction recovery.** Every stored revision has a row in `news_extractions` (`done` or
-  `failed`, attempts, error). Each run of a source extracts its new and revised items plus any
-  revision whose extraction never completed (up to 200, at most 5 attempts), even when the feed
-  is unchanged or answers 304. A revision's claims, entities and extraction record are written
-  in one transaction, and a re-run replaces that revision's claims, so retries never duplicate.
-  A run with a failed extraction is `partial`, and `sources` shows `extraction pending (N)`.
-* **Copies.** A repost or quote shares the original's `story_key`. So do the same canonical URL
-  and near-identical text (4-word shingle Jaccard >= 0.6 within three days). Independent
-  confirmation counts stories, not items.
-* **Failure.** Every source is optional. A missing credential is `skipped`, an error is
-  `failed`, and the next source runs. `fpl-agent sources` shows `healthy`, `stale` (no success
-  for three intervals), `failed xN`, `rate_limited xN`, `skipped (...)`, `never fetched` or
-  `disabled`.
-
-## From text to evidence
-
-`news/extract.py` turns each new or revised item into claims. Every claim keeps the supporting
-clause (`quote`), item and revision ids, source id and tier, name-match confidence,
-`certainty` (`confirmed` or `speculative`), `effective_at` (when this revision was first
-observed by us), `expires_at`, an optional `return_at`, the `extractor` and its version.
-
-| kind | values | expires after |
-|---|---|---|
-| `availability` | `out`, `doubtful`, `fit` | 7 / 4 / 5 days |
-| `training` | `full`, `partial` | 4 / 3 days |
-| `return` | `weeks:<n>`, with `return_at` | return date + 3 days |
-| `selection` | `rotation_risk`, `expected_start`, `benched` | 4 days (stored, not used by a feature yet) |
-| `set_piece` | `penalties`, `set_pieces` | 60 days (stored, not used by a feature yet) |
-
-* **Names.** Only players in the newest FPL squad snapshot can be resolved. A full name gives
-  0.95. A surname or FPL short name gives 0.8 when exactly one squad player carries it, or 0.7
-  when the text also names his club and that leaves one. Anything else stays *ambiguous*, is
-  stored with its candidates, and never changes a forecast.
-* **Attribution.** Each status phrase is bound to one subject: the nearest name before it in
-  the same sentence ("Saka is fit and Saliba is ruled out" gives two claims, not four). A
-  shared subject ("Saka and Saliba are ruled out"), a phrase with no name before it, and a
-  pronoun with more than one candidate abstain. A pronoun takes the only name in its sentence
-  or the previous one.
-* **Confirmed or speculative.** Wording such as "ruled out" or "will miss" with no hedge is
-  confirmed. A speculation marker ("could", "reportedly", "expected to", "fears") inside the
-  subject's own clause makes that claim speculative. A negation before the phrase in that
-  clause ("not ruled out") makes no claim. One report that contradicts itself about a player
-  ("fit" and "ruled out") is a conflict and changes nothing.
-* **Extractors.** The rule extractor is the default and the fallback. The LLM extractor (the
-  scout's API call) is optional. It treats fetched text as data and its output is validated:
-  known kinds and values only, the quote must be a verbatim substring of the item, and the
-  player must be named in the quote and resolve through our resolver. Any failure falls back to
-  the rules for that batch.
 
 ## Feature definitions
-
-### News availability (`model/evidence.py`, overlay in `model/overlays.py`)
-
-* **Unit:** the availability factor (probability of being available, 0 to 1) that multiplies
-  P(start) and P(cameo).
-* **Eligible claims at cutoff `c`:** resolved player with confidence >= 0.7; kind availability,
-  training or return; `effective_at <= c`; from the newest revision observed by `c`;
-  `expires_at > c`.
-* **Signal:** out 0.0, doubtful 0.5, fit 0.95, training full 0.9, training partial 0.6, and 0
-  before a reported return date.
-* **Weight:** tier (1.0, 0.7, 0.4) x certainty (1.0 confirmed, 0.4 speculative) x name
-  confidence. The newest story decides. An agreeing independent story adds half its weight.
-  Confirmed stories within 48 h that disagree by >= 0.5 are a conflict and change nothing.
-* **Effect:** shift = weight x (signal - FPL availability), capped at +-0.30, halved for each
-  gameweek beyond the next. Never applied to FPL status `n`/`u`.
-* **Missing:** no eligible claim means the forecast is unchanged.
-* **Training:** none. No historical news exists, so this is a fixed, explainable overlay that
-  is evaluated forward in shadow mode.
-* **Explanation:** each changed player-week stores the claims (id, source, tier, certainty,
-  time seen, quote) in the projection's `detail.evidence`. The plan report gets an `evidence:`
-  line, and `fpl-agent explain` prints them.
 
 ### Rest and workload (`model/workload.py`)
 
@@ -190,14 +81,11 @@ observed by us), `expires_at`, an optional `return_at`, the `extractor` and its 
   next-gameweek P(start) toward it by at most +-0.10, and a player with no workload coverage
   keeps the baseline.
 
-## Collection schedule and expected cost
+## Expected run cost
 
 | What | When | Requests or cost |
 |---|---|---|
-| RSS feeds | daily and weekly data runs (`data.yml`) | 2 requests a run, about 100 KB, free |
-| X timelines | the same runs, once you list accounts and set the token | 1 lookup per account (once), then 1 request per account per run (up to `max_pages`). X bills pay-per-use per post read. Third-party sources put this at about $0.005 a post (not verified against X's own pricing page), so 10 accounts x 20 posts a day is about $1 a day. Lower `max_items` to cap it. |
-| LLM extraction | only with `NEWS_LLM=1` | at most one call per source per run (first 15 new/revised items; the rest use the rules), about 6k input and 1k output tokens, a few cents a run |
-| Experiment arms | every plan run | next gameweek only: one control arm plus one arm per feature that is not `off` (three arms with both features enabled), each with the plan's sample count and seeds and its fitted models; the issued forecast is stored once more. About 20-40% extra run time. |
+| Experiment arms | every plan run | next gameweek only: one control arm plus one arm per feature that is not `off` (two arms with the workload feature enabled), each with the plan's sample count and seeds and its fitted models; the issued forecast is stored once more. About 20-40% extra run time. |
 | Evaluation and learning | Tuesday review (`review.yml`) | local computation only |
 
 ## The weekly learning loop
@@ -296,8 +184,6 @@ Brier and log loss). Points-level comparisons need `backtest`.
 
 | Command | What |
 |---|---|
-| `news-ingest [--sources FILE] [--only ids] [--force]` | fetch due sources, store items, revisions, entities and claims |
-| `sources` | health of every configured source |
 | `features` | the feature modes in force and where each comes from (env, learning state or default) |
 | `evaluate --gw N` | score the issued forecasts of a final gameweek |
 | `learn --gw N`, `learn --rollback [--to V]`, `learn --history` | weekly update, rollback, version list |
@@ -305,9 +191,8 @@ Brier and log loss). Points-level comparisons need `backtest`.
 
 ## Schema changes (additive)
 
-New tables: `fpl_events`, `forecast_runs`, `news_items`, `news_revisions`, `news_entities`,
-`evidence_claims`, `news_extractions`, `source_state`, `source_runs`, `evaluations`,
-`learning_state`, `learning_updates` and `schema_migrations`. One column was added: `projections.variant` (migration
+New tables: `fpl_events`, `forecast_runs`, `evaluations`, `learning_state`,
+`learning_updates` and `schema_migrations`. One column was added: `projections.variant` (migration
 `2026-11-projection-variant`, `ADD COLUMN IF NOT EXISTS`). An older DuckDB file upgrades when
 it is opened. Parquet import now matches columns by name, so an older export still restores
 (new columns stay NULL, missing tables stay empty). Every new table is exported with the rest.

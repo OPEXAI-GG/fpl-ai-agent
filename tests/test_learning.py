@@ -1,7 +1,12 @@
 """Weekly learning loop, exercised through the paths the agent really uses: `agent.run_weekly`
-issues the forecast (and its experiment arms) for a gameweek, news arrives through
-`news.ingest.run_sources`, reviews come from `review.prediction_review`, and only then does
-`learning.evaluate_gw` / `learning.weekly_update` score and decide.
+issues the forecast (and its experiment arms) for a gameweek, reviews come from
+`review.prediction_review`, and only then does `learning.evaluate_gw` /
+`learning.weekly_update` score and decide.
+
+The feature whose lifecycle is tested is a stand-in registered for these tests only
+(`ruled_out`: it marks chosen players as out of the next gameweek), next to the real workload
+overlay. It goes through the same registry, flags, arms, evaluation and decisions as a real
+feature, and the test chooses whether its call was right, which no real feature allows.
 
 What is pinned here:
 
@@ -19,7 +24,6 @@ import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-import httpx
 import numpy as np
 import pandas as pd
 import pytest
@@ -27,16 +31,39 @@ import pytest
 from fpl_agent import agent, learning, lessons, pit, review
 from fpl_agent.agent import RunOptions, run_weekly
 from fpl_agent.config import Settings
-from fpl_agent.model import calibration, project
-from fpl_agent.news.ingest import run_sources
-from fpl_agent.news.registry import SourceConfig
+from fpl_agent.model import calibration, overlays, project
+from fpl_agent.model.minutes import EPS
 from tests.synth import build_world
 
 SEASON = 2024
-SRC = SourceConfig("feed", "rss", tier=1, url="https://feed.example/x", min_interval_minutes=0)
+FEAT = "ruled_out"
 RESET = ("learning_state", "learning_updates", "forecast_runs", "projections", "evaluations",
-         "reviews", "decisions", "lessons", "news_items", "news_revisions", "news_entities",
-         "evidence_claims", "news_extractions", "source_state", "source_runs", "fpl_events")  # fmt: skip
+         "reviews", "decisions", "lessons", "fpl_events")  # fmt: skip
+TARGETS: dict[int, set[int]] = {}  # gw -> players the stand-in feature rules out
+
+
+class RuledOut:
+    """Stand-in feature: the chosen players are out of the next gameweek (availability 0)."""
+
+    name = FEAT
+
+    def __init__(self, db, cache=None):
+        self.changed: list[int] = []
+
+    def apply(self, mins, upcoming, cutoff, ctx=None):
+        out = mins.copy()
+        out[FEAT] = [{} for _ in range(len(out))]
+        for i, r in out.iterrows():
+            if r.horizon == 1 and int(r.player_id) in TARGETS.get(int(r.gw), set()):
+                out.at[i, FEAT] = {"from": round(float(r.availability), 3), "to": 0.0}
+                out.at[i, "availability"] = 0.0
+                out.at[i, "p_start"] = EPS
+                out.at[i, "p_cameo"] = EPS
+                self.changed.append(int(r.player_id))
+        return out
+
+    def summary(self):
+        return {"changed_next_gw": len(self.changed)}
 
 
 class FakeFPL:
@@ -81,9 +108,12 @@ def world():
 
 @pytest.fixture
 def db(world, monkeypatch):
-    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "AGENT_MODE", "AGENT_ENABLED", "NEWS_LLM",
-              "FEATURE_NEWS_AVAILABILITY", "FEATURE_WORKLOAD"):  # fmt: skip
+    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "AGENT_MODE", "AGENT_ENABLED",
+              "FEATURE_RULED_OUT", "FEATURE_WORKLOAD"):  # fmt: skip
         monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(overlays, "REGISTRY", {**overlays.REGISTRY, FEAT: RuledOut})
+    monkeypatch.setattr(overlays, "FEATURES", (FEAT, *overlays.FEATURES))
+    TARGETS.clear()
     have = {r[0] for r in world.db.con.execute("SHOW TABLES").fetchall()}
     for t in RESET:
         if t in have:
@@ -131,19 +161,14 @@ def primary_run(db, gw):
     return pit.eligible_run(db, SEASON, gw).run_id
 
 
-def news(world, gw, players, text="has been ruled out of the weekend game, his club confirmed"):
-    stories = "".join(
-        f"<item><title>Player {p} Synth team news</title><description>Player {p} Synth {text}."
-        f"</description><guid>g{gw}-{p}</guid></item>" for p in players)  # fmt: skip
-    xml = f"<rss><channel><title>f</title>{stories}</channel></rss>"
-    http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, text=xml)))
-    run_sources(world.db, [SRC], http, at=deadline(world.db, gw) - timedelta(hours=12),
-                force=True)  # fmt: skip
+def rule_out(gw, players):
+    """The stand-in feature will rule these players out of `gw`."""
+    TARGETS[gw] = set(players)
 
 
 def starters(world, gw, played: bool, n=12):
     """Regular starters (started the week before) who did not play in `gw`, or who played and
-    scored well (so a wrong "ruled out" report makes the forecast worse)."""
+    scored well (so a wrong "ruled out" call makes the forecast worse)."""
     p = world.points
     prev = set(p[(p.season == SEASON) & (p.gw == gw - 1) & (p.minutes >= 60)].player_id)
     now = p[(p.season == SEASON) & (p.gw == gw)]
@@ -204,7 +229,7 @@ def test_rollback_reaches_the_agent_and_a_repeated_update_does_not_undo_it(world
                                       [primary_run(db, 10)]).fetchone()[0])  # fmt: skip
     assert flags["config"]["learning_version"] is None
     assert flags["config"]["calibration"] == calibration.factors(db, SEASON, 10)
-    assert flags["modes"] == {"news_availability": "shadow", "workload": "shadow"}
+    assert flags["modes"] == {FEAT: "shadow", "workload": "shadow"}
 
 
 # ---- 2. matched experiments in every off/shadow/on combination --------------------------------
@@ -219,23 +244,23 @@ def _pairs(arms: pd.DataFrame, feature: str) -> list[tuple[str, str]]:
     return out
 
 
-@pytest.mark.parametrize("news_mode, workload_mode", [
+@pytest.mark.parametrize("probe_mode, workload_mode", [
     ("shadow", "shadow"), ("on", "shadow"), ("on", "on"), ("off", "on"), ("shadow", "off"),
 ])  # fmt: skip
-def test_every_enabled_feature_gets_a_matched_comparison(world, db, monkeypatch, news_mode,
+def test_every_enabled_feature_gets_a_matched_comparison(world, db, monkeypatch, probe_mode,
                                                          workload_mode):  # fmt: skip
-    monkeypatch.setenv("FEATURE_NEWS_AVAILABILITY", news_mode)
+    monkeypatch.setenv("FEATURE_RULED_OUT", probe_mode)
     monkeypatch.setenv("FEATURE_WORKLOAD", workload_mode)
     issue(world, 9)
     prim = primary_run(db, 9)
     pflags = json.loads(db.con.execute("SELECT flags FROM forecast_runs WHERE run_id = ?",
                                        [prim]).fetchone()[0])  # fmt: skip
-    on = sorted(f for f, m in (("news_availability", news_mode), ("workload", workload_mode))
+    on = sorted(f for f, m in ((FEAT, probe_mode), ("workload", workload_mode))
                 if m == "on")  # fmt: skip
     assert pflags["features_on"] == on  # the issued config, stated explicitly
     arms = runs(db, prim)
     arms = arms[arms["variant"] == "experiment"]
-    for feat, mode in (("news_availability", news_mode), ("workload", workload_mode)):
+    for feat, mode in ((FEAT, probe_mode), ("workload", workload_mode)):
         if mode == "off":
             assert not any(feat in f["features_on"] for f in arms["flags"])
         else:
@@ -260,31 +285,31 @@ def test_feature_lifecycle_promotes_then_demotes_on_its_own_evidence(world, db, 
     statuses = []
     for gw, right in ((6, True), (7, True), (8, False), (9, False), (10, False)):
         st = learning.current_state(db)
-        before = st["config"]["features"]["news_availability"] if st else "shadow"
-        news(world, gw, starters(world, gw, played=not right))  # right: they really missed it
+        before = st["config"]["features"][FEAT] if st else "shadow"
+        rule_out(gw, starters(world, gw, played=not right))  # right: they really missed it
         issue(world, gw)
         finish(db, gw)
         res = learning.weekly_update(db, SEASON, gw)
         ev = json.loads(db.query("SELECT payload FROM reviews WHERE kind = 'evaluation' AND "
                                  "gw = ?", [gw])["payload"].iloc[0])  # fmt: skip
-        cmp = ev["comparisons"]["news_availability"]
+        cmp = ev["comparisons"][FEAT]
         assert cmp["valid"] and cmp["affected"], (gw, cmp)
         assert cmp["role"] == ("with" if before == "shadow" else "without")
         assert res.status in ("promoted", "retained", "unchanged"), res.reason
         st = learning.current_state(db)
-        statuses.append((gw, st["config"]["features"]["news_availability"] if st else "shadow"))
+        statuses.append((gw, st["config"]["features"][FEAT] if st else "shadow"))
     modes = dict(statuses)
     assert modes[7] == "on"  # two right weeks: promoted
-    assert modes[10] == "shadow"  # wrong while on: the without-news arm shows it, demoted
+    assert modes[10] == "shadow"  # wrong while on: the without-feature arm shows it, demoted
 
 
 def test_brier_guard_uses_the_affected_cohort_only(world, db):
     players = starters(world, 9, played=False)
-    news(world, 9, players)
+    rule_out(9, players)
     issue(world, 9)
     finish(db, 9)
     ev = learning.evaluate_gw(db, SEASON, 9)
-    cmp = ev["comparisons"]["news_availability"]
+    cmp = ev["comparisons"][FEAT]
     assert cmp["valid"]
     affected = {r["player_id"] for r in cmp["affected"]}
     assert affected and affected <= set(players)
@@ -296,7 +321,7 @@ def test_brier_guard_uses_the_affected_cohort_only(world, db):
     want = float(((fa.loc[single, "p_start"] - y) ** 2 - (fb.loc[single, "p_start"] - y) ** 2)
                  .mean())  # fmt: skip
     assert cmp["start_brier_change"] == pytest.approx(want, abs=1e-9)
-    feats = learning._feature_evidence(db, SEASON, 9, "shadow", "news_availability")
+    feats = learning._feature_evidence(db, SEASON, 9, "shadow", FEAT)
     assert feats["start_brier_change"] == pytest.approx(want, abs=1e-9)
 
 
@@ -322,28 +347,28 @@ def _copy_run(db, run_id, **change):
 def test_an_invalid_arm_never_supplies_evidence(world, db, monkeypatch, change):
     monkeypatch.setitem(learning.THRESHOLDS, "min_gameweeks", 1)
     monkeypatch.setitem(learning.THRESHOLDS, "min_affected", 1)
-    news(world, 9, starters(world, 9, played=False))
+    rule_out(9, starters(world, 9, played=False))
     issue(world, 9)
     finish(db, 9)
     prim = primary_run(db, 9)
     arms = runs(db, prim)
-    with_news = arms[[f.get("role") == "with:news_availability" for f in arms["flags"]]]
+    with_feat = arms[[f.get("role") == f"with:{FEAT}" for f in arms["flags"]]]
     late = deadline(db, 9) + timedelta(days=1)
     change = {k: (late if v == "late" else v) for k, v in change.items()}
-    bad = _copy_run(db, with_news["run_id"].iloc[0], **change)
-    db.con.execute("DELETE FROM forecast_runs WHERE run_id = ?", [with_news["run_id"].iloc[0]])
+    bad = _copy_run(db, with_feat["run_id"].iloc[0], **change)
+    db.con.execute("DELETE FROM forecast_runs WHERE run_id = ?", [with_feat["run_id"].iloc[0]])
     ev = learning.evaluate_gw(db, SEASON, 9)
-    cmp = ev["comparisons"]["news_availability"]
+    cmp = ev["comparisons"][FEAT]
     assert not cmp["valid"] and bad in json.dumps(ev["excluded"])
     res = learning.weekly_update(db, SEASON, 9)
     st = learning.current_state(db)
-    assert not st or st["config"]["features"]["news_availability"] == "shadow", res.reason
+    assert not st or st["config"]["features"][FEAT] == "shadow", res.reason
 
 
 def test_the_issued_forecast_scored_is_the_one_the_planner_received(world, db, monkeypatch):
     learning._store_state(db, "current", None, SEASON, 8, None,
                           {"calibration": {"MID": 1.06, "FWD": 0.95},
-                           "features": {"news_availability": "shadow", "workload": "shadow"}},
+                           "features": {FEAT: "shadow", "workload": "shadow"}},
                           {}, {}, "test state")  # fmt: skip
     seen = {}
     real_decide = agent.decide
@@ -392,7 +417,7 @@ def test_post_deadline_runs_are_never_the_issued_forecast(world, db):
 
 def test_insufficient_evidence_retains_the_current_state(world, db):
     for gw in (8, 9):
-        news(world, gw, starters(world, gw, played=False))
+        rule_out(gw, starters(world, gw, played=False))
         issue(world, gw)
         finish(db, gw)
         res = learning.weekly_update(db, SEASON, gw)

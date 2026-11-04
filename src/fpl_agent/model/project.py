@@ -17,7 +17,7 @@ import pandas as pd
 
 from fpl_agent import pit
 from fpl_agent.db.database import FootballDB, now
-from fpl_agent.model import features, minutes, odds, players, strength, translation
+from fpl_agent.model import features, minutes, odds, overlays, players, strength, translation
 from fpl_agent.model.simulate import BpsNoise, PlayerSpec, SimConfig, simulate_fixture
 from fpl_agent.rules import Rules
 
@@ -370,10 +370,10 @@ def save_projection(
             for k in MINUTES_DETAIL:
                 if k in r and pd.notna(r[k]):
                     d[k] = round(float(r[k]), 4)
-            if "evidence" in r and isinstance(r["evidence"], list | dict) and r["evidence"]:
-                d["evidence"] = r["evidence"]
-            if "workload" in r and isinstance(r["workload"], dict) and r["workload"]:
-                d["workload"] = r["workload"]
+            for name in overlays.FEATURES:  # what each overlay changed for this player
+                v = r.get(name)
+                if isinstance(v, list | dict) and v:
+                    d[name] = v
     out = pd.DataFrame({
         "run_id": proj.run_id, "model": model, "created_at": stamp, "season": proj.season,
         "gw": f["gw"], "player_id": f["player_id"], "xpts": f["xpts"],

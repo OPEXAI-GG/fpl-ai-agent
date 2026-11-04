@@ -43,9 +43,8 @@ All commands are `uv run fpl-agent <command>`. The database is a DuckDB file (de
 | **Weekly plan (dry)** | `plan --entry <your team id>` | Reads your public squad, projects, plans, applies rails, prints the report. `--force` ignores the deadline-window gate; `--no-chips` disables chip search; `--out dir` writes `gw<N>.md/.json`; `--notify` posts to `NOTIFY_WEBHOOK`. |
 | Review a finished gameweek | `review --gw 0` | `0` = latest gameweek with points. Scores predictions (by position and scoring component) and the recorded decision (captain regret, transfer gain after hits). |
 | Lessons from a finished gameweek | `lessons --gw 0 --entry <id>` | Finds the week's mistakes on your real team (hand transfers, held moves that paid, captain, bench, goalkeeper, hits) and stores the lessons the next plan reads. |
-| News and social sources | `news-ingest` / `sources` | Fetches the feeds in `config/news_sources.yaml` (RSS/Atom, and X accounts when `X_BEARER_TOKEN` is set), stores items with provenance and revisions, extracts claims; `sources` shows source health. Optional sources never fail the run. |
 | Feature modes | `features` | Shows each overlay's mode (`off`/`shadow`/`on`) and where it came from (environment, promoted learning state, default). |
-| Score a gameweek's forecasts | `evaluate --gw 0` | Scores the issued pre-deadline forecasts (MAE, RMSE, bias, start/minutes calibration, evidence coverage), baseline and enriched arms on the identical cohort. Final gameweeks only. |
+| Score a gameweek's forecasts | `evaluate --gw 0` | Scores the issued pre-deadline forecasts (MAE, RMSE, bias, start/minutes calibration) and the matched experiment arms on the identical cohort. Final gameweeks only. |
 | Weekly learning update | `learn --gw 0` | Bounded candidate vs current comparison with fixed thresholds; retains the current state on insufficient evidence. `--history`, `--rollback [--to N]`. |
 | Historical walk-forward | `walk-forward --season 2025 --from-gw 6 --to-gw 38` | Workload feature validation with a chronological tune/test split and ablations. |
 
@@ -58,9 +57,7 @@ free transfers from your gameweek history, and chips left from your chip history
 * `ODDS_API_KEY` - bookmaker prices are blended into the team goal rates.
 * `ANTHROPIC_API_KEY` - the scout reads injury/news text and nudges availability (bounded, see architecture).
 * `NOTIFY_WEBHOOK` (or a secret named `Discord_webhook`) - Discord/Slack-style webhook for the weekly report and failure alerts.
-* `X_BEARER_TOKEN` - X API v2 read access for the accounts listed in `config/news_sources.yaml` (none are listed by default). Without it the X sources are skipped and reported as `skipped (missing credentials)`.
-* `NEWS_LLM=1` (with `ANTHROPIC_API_KEY`) - claims are extracted by the scout and validated; otherwise a deterministic rules extractor runs.
-* `FEATURE_NEWS_AVAILABILITY`, `FEATURE_WORKLOAD` - `off`, `shadow` (default) or `on`. Shadow features are computed and scored but never change the plan. See [docs/intelligence.md](docs/intelligence.md).
+* `FEATURE_WORKLOAD` - `off`, `shadow` (default) or `on`. Shadow features are computed and scored but never change the plan. See [docs/intelligence.md](docs/intelligence.md).
 
 ## Automation (GitHub Actions)
 
@@ -86,12 +83,10 @@ src/fpl_agent/
   model/               strength, minutes, player rates, league translation, simulator, projection, backtest
   solver/              MILP planner, chip scenario search, weekly decision
   execution/           safety rails, FPL auth, writer, dry-by-default executor
-  news/                news registry, RSS/Atom and X adapters, storage, entity linking, claims
   scout.py review.py lessons.py learning.py pit.py agent.py cli.py
 tests/                 unit, acceptance, property, recorded-response, workflow and end-to-end tests
 scripts/               data release restore/publish, fixture recorder
 docs/architecture.md docs/intelligence.md
-config/news_sources.yaml  news and social source registry
 ```
 
 ## Testing
@@ -122,7 +117,7 @@ mock transports.
 * **FotMob is an unofficial feed.** It is checked against a contract on every call and by a daily canary; if it changes, the source is skipped and alerted and the other sources carry on.
 * **Odds coverage:** only the competitions the Odds API free tier serves for the Premier League are used; without a key the model runs on results and xG alone.
 * **Scout** is deliberately small: availability only, no transfer rumours or tactical claims.
-* **News and workload features** start in shadow mode. There is no historical news archive, so the news overlay can only be judged going forward; the X adapter is tested against mocked responses only (no live token was available); the rules extractor has low recall. Details in [docs/intelligence.md](docs/intelligence.md).
+* **The workload feature** starts in shadow mode and is promoted only by the weekly learning loop's matched evidence. Details in [docs/intelligence.md](docs/intelligence.md).
 * **Learning loop:** after each finished gameweek the review scores predictions; the next run applies a small, shrunk per-position correction (capped at 10%) from those reviews and logs it. Models are refitted on all history each run. The lessons step lists the week's mistakes and keeps a memory the next plan reads: a few capped switches that fade unless the mistake repeats, and a learned correction for the players most of the top 10k own (see [architecture.md](docs/architecture.md), L9).
 * **Price-change prediction** is not modelled; money in the bank has a small flat value.
 * **Triple Captain** is shown as used in your chip history; the agent plans only the chips FPL says you still have.

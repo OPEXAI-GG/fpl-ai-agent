@@ -294,23 +294,11 @@ DONE = "live-done"  # decisions row mode once FPL accepted every move of a live 
 
 
 def explain_overlays(ovs, proj, names: dict[int, str], shadow: bool) -> list[str]:
-    """Report lines for every next-gameweek change an overlay made, citing its evidence."""
+    """Report lines for every next-gameweek change an overlay made."""
     tag = "shadow, not used by the plan" if shadow else "used by the plan"
     out = []
     for ov in ovs:
-        if ov.name == "news_availability":
-            for c in ov.changed[:8]:
-                top = (c.get("claims") or [{}])[0]
-                out.append(
-                    f"evidence ({tag}): {names.get(c['player_id'], c['player_id'])} availability "
-                    f'{c["from"]:.0%} -> {c["to"]:.0%}: "{top.get("quote", "")}" '
-                    f"({top.get('source')}, tier {top.get('tier')}, {top.get('certainty')}, "
-                    f"seen {top.get('effective_at')}, claim {top.get('claim_id')})"
-                )
-            if ov.counts.get("conflict"):
-                out.append(f"evidence ({tag}): {ov.counts['conflict']} player-weeks left unchanged "
-                           "because confirmed reports disagree")  # fmt: skip
-        elif ov.name == "workload" and ov.changed:
+        if ov.name == "workload" and ov.changed:
             out.append(f"workload ({tag}): P(start) nudged for {ov.changed} players "
                        f"(bounded +-{ov.bound:.2f}); {ov.counts}")  # fmt: skip
     return out

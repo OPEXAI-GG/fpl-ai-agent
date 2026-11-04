@@ -33,7 +33,7 @@ def test_an_older_duckdb_file_upgrades_in_place(tmp_path):
     assert db.query("SELECT run_id, xpts, variant FROM projections").values.tolist() == [
         ["r1", 3.5, None]
     ]
-    for t in ("forecast_runs", "news_items", "evidence_claims", "learning_state", "fpl_events"):
+    for t in ("forecast_runs", "learning_state", "learning_updates", "fpl_events"):
         assert db.counts()[t] == 0
     assert {r[0] for r in db.con.execute("SELECT name FROM schema_migrations").fetchall()} == {
         n for n, _ in MIGRATIONS
@@ -68,22 +68,12 @@ def test_every_table_round_trips_through_parquet(tmp_path):
 
 
 @pytest.mark.parametrize("argv", [
-    ["sources"], ["features"], ["learn", "--history"], ["evaluate", "--gw", "3"],
+    ["features"], ["learn", "--history"], ["evaluate", "--gw", "3"],
     ["learn", "--gw", "3"], ["learn", "--rollback"],
 ])  # fmt: skip
 def test_new_commands_run_on_an_empty_database(tmp_path, argv, capsys):
     assert main([*argv, "--db", str(tmp_path / "x.duckdb")]) == 0
     assert capsys.readouterr().out.strip()
-
-
-def test_news_ingest_cli_with_an_empty_registry_and_a_bad_one(tmp_path, capsys):
-    ok = tmp_path / "ok.yaml"
-    ok.write_text("sources: []\n")
-    assert main(["news-ingest", "--db", str(tmp_path / "x.duckdb"), "--sources", str(ok)]) == 0
-    assert "no sources configured" in capsys.readouterr().out
-    bad = tmp_path / "bad.yaml"
-    bad.write_text("sources:\n  - {id: a, kind: telnet}\n")
-    assert main(["news-ingest", "--db", str(tmp_path / "x.duckdb"), "--sources", str(bad)]) == 2
 
 
 def test_walk_forward_cli_reports_missing_history(tmp_path, capsys):

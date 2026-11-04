@@ -100,44 +100,6 @@ TABLES["forecast_runs"] = """
     eligible BOOLEAN, kind VARCHAR, variant VARCHAR, parent_run_id VARCHAR, model VARCHAR,
     model_version VARCHAR, feature_version VARCHAR, flags JSON, limitations JSON"""
 
-# ---- news and social sources -------------------------------------------------------------------
-TABLES["news_items"] = """
-    item_id VARCHAR PRIMARY KEY, source_id VARCHAR, provider VARCHAR, provider_id VARCHAR,
-    canonical_url VARCHAR, author VARCHAR, published_at TIMESTAMP, first_seen_at TIMESTAMP,
-    retrieved_at TIMESTAMP, content_hash VARCHAR, title VARCHAR, content VARCHAR,
-    revision INTEGER, story_key VARCHAR, repost_of VARCHAR, source_tier INTEGER, raw JSON"""
-
-TABLES["news_revisions"] = """
-    item_id VARCHAR, revision INTEGER, content_hash VARCHAR, title VARCHAR, content VARCHAR,
-    observed_at TIMESTAMP, retrieved_at TIMESTAMP, PRIMARY KEY (item_id, revision)"""
-
-TABLES["news_entities"] = """
-    item_id VARCHAR, revision INTEGER, mention VARCHAR, player_id INTEGER, team_id INTEGER,
-    status VARCHAR, confidence DOUBLE, candidates JSON,
-    PRIMARY KEY (item_id, revision, mention)"""
-
-TABLES["evidence_claims"] = """
-    claim_id VARCHAR PRIMARY KEY, item_id VARCHAR, revision INTEGER, player_id INTEGER,
-    mention VARCHAR, kind VARCHAR, value VARCHAR, return_at TIMESTAMP, certainty VARCHAR,
-    quote VARCHAR, source_id VARCHAR, source_tier INTEGER, entity_confidence DOUBLE,
-    story_key VARCHAR, published_at TIMESTAMP, effective_at TIMESTAMP, expires_at TIMESTAMP,
-    extractor VARCHAR, extraction_version VARCHAR, created_at TIMESTAMP"""
-
-TABLES["source_state"] = """
-    source_id VARCHAR PRIMARY KEY, kind VARCHAR, cursor VARCHAR, etag VARCHAR,
-    last_modified VARCHAR, last_attempt_at TIMESTAMP, last_success_at TIMESTAMP,
-    last_status VARCHAR, last_error VARCHAR, consecutive_failures INTEGER,
-    next_allowed_at TIMESTAMP, items_total INTEGER"""
-
-TABLES["news_extractions"] = """
-    item_id VARCHAR, revision INTEGER, source_id VARCHAR, status VARCHAR, attempts INTEGER,
-    extraction_version VARCHAR, claims INTEGER, error VARCHAR, updated_at TIMESTAMP,
-    PRIMARY KEY (item_id, revision)"""
-
-TABLES["source_runs"] = """
-    source_id VARCHAR, run_at TIMESTAMP, status VARCHAR, requests INTEGER, fetched INTEGER,
-    new_items INTEGER, revised INTEGER, unchanged INTEGER, note VARCHAR"""
-
 # ---- learning loop -----------------------------------------------------------------------------
 TABLES["evaluations"] = """
     season INTEGER, gw INTEGER, variant VARCHAR, run_id VARCHAR, cohort VARCHAR, n INTEGER,

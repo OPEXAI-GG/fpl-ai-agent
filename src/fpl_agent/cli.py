@@ -143,7 +143,7 @@ def status(settings: Settings) -> int:
             return 2
     else:
         print("Mode: DRY - the agent only reports; it never logs in to FPL or changes your team.")
-    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "NOTIFY_WEBHOOK", "X_BEARER_TOKEN"):
+    for k in ("ANTHROPIC_API_KEY", "ODDS_API_KEY", "NOTIFY_WEBHOOK"):
         print(f"{k}: {'set' if os.environ.get(k) else 'not set'}")
     from fpl_agent.model import overlays
 
@@ -313,12 +313,6 @@ def explain_cmd(args: argparse.Namespace) -> int:
             print(f"  by source: {comps}")
             if "p_start" in d:
                 print(f"  P(start) {d['p_start']:.0%}  availability {d.get('availability', 1):.0%}")
-            for e in d.get("evidence") or []:
-                for c in e.get("claims") or []:
-                    print(
-                        f'  evidence [{e.get("state")}]: "{c.get("quote")}" ({c.get("source")}, '
-                        f"tier {c.get('tier')}, {c.get('certainty')}, seen {c.get('effective_at')})"
-                    )
             if d.get("workload"):
                 print(f"  workload: {d['workload']}")
     return 0
@@ -404,34 +398,6 @@ def retro_cmd(args: argparse.Namespace, settings: Settings) -> int:
         from pathlib import Path
 
         Path(args.out).write_text(report + "\n")
-    return 0
-
-
-def news_ingest_cmd(args: argparse.Namespace) -> int:
-    """Fetch the configured news/social sources, store items and claims. Never fails the
-    workflow for an optional source: exit 0 unless the registry itself is invalid."""
-    from fpl_agent.news import ingest, registry
-    from fpl_agent.scout import Scout
-
-    try:
-        sources = registry.load(args.sources)
-    except registry.RegistryError as exc:
-        print(f"news registry invalid: {exc}")
-        return 2
-    db = _open_db(args)
-    only = {x for x in (args.only or "").split(",") if x} or None
-    rep = ingest.run_sources(db, sources, force=args.force, scout=Scout(), only=only)
-    _export(db, args)
-    print(rep.summary())
-    return 0
-
-
-def sources_cmd(args: argparse.Namespace) -> int:
-    from fpl_agent.news import ingest, registry
-
-    db = _open_db(args)
-    h = ingest.health(db, registry.load(args.sources))
-    print("no sources configured" if h.empty else h.to_string(index=False))
     return 0
 
 
@@ -617,19 +583,6 @@ def main(argv: list[str] | None = None) -> int:
     rt.add_argument("--no-chips", action="store_true")
     rt.add_argument("--set", action="append", help="override a setting, e.g. hit_buffer=1.5")
     rt.add_argument("--out", default=None)
-    ni = sub.add_parser("news-ingest", help="fetch configured news/X sources; store items, claims")
-    ni.add_argument("--db", default="data_cache/football.duckdb")
-    ni.add_argument("--import-dir", default=None)
-    ni.add_argument("--export", default=None, help="write the database as parquet here")
-    ni.add_argument(
-        "--sources", default=None, help="registry file (default config/news_sources.yaml)"
-    )
-    ni.add_argument("--only", default="", help="comma list of source ids")
-    ni.add_argument("--force", action="store_true", help="ignore min_interval_minutes")
-    so = sub.add_parser("sources", help="health of every configured news/social source")
-    so.add_argument("--db", default="data_cache/football.duckdb")
-    so.add_argument("--import-dir", default=None)
-    so.add_argument("--sources", default=None)
     fe = sub.add_parser("features", help="feature flags in force (env, learning state, default)")
     fe.add_argument("--db", default="data_cache/football.duckdb")
     fe.add_argument("--import-dir", default=None)
@@ -659,8 +612,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = Settings.from_env()
     extra = {
-        "news-ingest": news_ingest_cmd,
-        "sources": sources_cmd,
         "features": features_cmd,
         "evaluate": evaluate_cmd,
         "learn": learn_cmd,
