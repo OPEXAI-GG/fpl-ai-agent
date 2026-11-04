@@ -102,6 +102,7 @@ class Workload:
     changed: int = 0
     counts: dict = field(default_factory=dict)
     cache: dict = field(default_factory=dict, repr=False)
+    features: pd.DataFrame | None = field(default=None, repr=False)  # inputs, next gameweek
 
     def apply(self, mins: pd.DataFrame, upcoming: pd.DataFrame, cutoff: datetime | None,
               ctx: dict | None = None) -> pd.DataFrame:  # fmt: skip
@@ -131,6 +132,8 @@ class Workload:
         new_rows = both["_new"].to_numpy()
         feat = minutes_features(both.drop(columns=["_new"]))[new_rows]
         wl = workload.workload_features(feat, apps, teams, cutoff=cutoff)
+        self.features = pd.concat([feat[["player_id", "team_id", "kickoff"]].reset_index(drop=True),
+                                   wl.reset_index(drop=True)], axis=1)  # fmt: skip
         known_wl = wl.notna().any(axis=1).to_numpy()
         enriched = self.model.predict(feat[base.cols], wl)
         baseline = base.predict(feat)["p_start"].to_numpy()

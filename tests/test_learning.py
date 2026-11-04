@@ -31,7 +31,7 @@ import pytest
 from fpl_agent import agent, learning, lessons, pit, review
 from fpl_agent.agent import RunOptions, run_weekly
 from fpl_agent.config import Settings
-from fpl_agent.model import calibration, overlays, project
+from fpl_agent.model import overlays, project
 from fpl_agent.model.minutes import EPS
 from tests.synth import build_world
 
@@ -177,7 +177,15 @@ def starters(world, gw, played: bool, n=12):
 
 
 # ---- 1. idempotent updates, corrected outcomes, effective rollback ----------------------------
-def _underpredicted_weeks(world, gws=(7, 8, 9)):
+def _neutral_state(db):
+    """A learning state with identity calibration: its factors are what the agent runs with."""
+    return learning._store_state(db, "current", None, SEASON, 6, None,
+                                 learning.default_config(), {}, {}, "neutral state")  # fmt: skip
+
+
+def _underpredicted_weeks(world, gws=(7, 8, 9), seed=True):
+    if seed:
+        _neutral_state(world.db)
     for gw in gws:
         issue(world, gw)
         inflate(world.db, gw, 15)  # every player scores far more than projected
@@ -207,7 +215,7 @@ def test_a_corrected_outcome_is_reapplied_from_the_state_before_it(world, db):
     assert res.status in ("corrected", "unchanged_after_correction")
     st = learning.current_state(db)
     assert st["config"]["calibration"]["MID"] <= 1.0 + learning.MAX_CAL_STEP  # one step, not two
-    assert st["parent_version"] is None  # re-derived from the state before GW9's update
+    assert st["parent_version"] == 1  # re-derived from the state before GW9's update
 
 
 def test_rollback_reaches_the_agent_and_a_repeated_update_does_not_undo_it(world, db):
@@ -220,15 +228,16 @@ def test_rollback_reaches_the_agent_and_a_repeated_update_does_not_undo_it(world
     assert flags["config"]["calibration"] == st["config"]["calibration"]
     assert flags["config"]["learning_version"] == st["version"]
     assert learning.rollback(db).status == "rolled_back"
-    assert learning.current_state(db) is None
+    back = learning.current_state(db)
+    assert back["config"]["calibration"] == {}  # the neutral state before GW9's update
     for _ in range(2):  # the same evidence again: the rollback stays
         assert learning.weekly_update(db, SEASON, 9).status == "unchanged"
-    assert learning.current_state(db) is None
+    assert learning.current_state(db)["version"] == back["version"]
     issue(world, 10, now=deadline(db, 10) - timedelta(hours=1))  # the next run after rollback
     flags = json.loads(db.con.execute("SELECT flags FROM forecast_runs WHERE run_id = ?",
                                       [primary_run(db, 10)]).fetchone()[0])  # fmt: skip
-    assert flags["config"]["learning_version"] is None
-    assert flags["config"]["calibration"] == calibration.factors(db, SEASON, 10)
+    assert flags["config"]["learning_version"] == back["version"]
+    assert flags["config"]["calibration"] == {}
     assert flags["modes"] == {FEAT: "shadow", "workload": "shadow"}
 
 
@@ -429,13 +438,63 @@ def test_missing_holdout_metrics_never_authorise_a_calibration_change(world, db,
     _underpredicted_weeks(world)
     monkeypatch.setattr(learning, "_holdout_mae", lambda *a, **k: None)
     res = learning.weekly_update(db, SEASON, 9)
-    assert learning.current_state(db) is None and res.status in ("retained", "rejected")
-    assert "holdout" in res.reason
+    assert learning.current_state(db)["config"]["calibration"] == {}
+    assert res.status in ("retained", "rejected") and "holdout" in res.reason
 
 
 def test_calibration_candidate_worse_on_the_holdout_is_rejected(world, db, monkeypatch):
     _underpredicted_weeks(world)
     monkeypatch.setitem(learning.THRESHOLDS, "max_regression", -10.0)  # demand a huge gain
     res = learning.weekly_update(db, SEASON, 9)
-    assert res.status == "rejected" and learning.current_state(db) is None
-    assert learning.history(db)["status"].tolist() == ["rejected"]
+    assert res.status == "rejected" and learning.current_state(db)["version"] == 1
+    assert learning.history(db)["status"].tolist() == ["current", "rejected"]
+
+
+# ---- the effective current configuration, and returning to older evidence ---------------------
+def test_without_a_learning_state_the_review_calibration_is_the_base(world, db):
+    # no learning state: the agent runs on review calibration
+    _underpredicted_weeks(world, seed=False)
+    agent_now = agent.active_config(db, SEASON, 10)[1]
+    applied_gw9 = json.loads(db.con.execute("SELECT flags FROM forecast_runs WHERE run_id = ?",
+                                            [primary_run(db, 9)]).fetchone()[0])["config"]  # fmt: skip
+    assert agent_now.get("MID", 1.0) > 1.0 + learning.MAX_CAL_STEP  # non-neutral, above a step
+    res = learning.weekly_update(db, SEASON, 9)
+    ev = res.evaluation
+    assert ev["base_calibration"] == agent_now  # what the agent would run with next
+    assert ev["holdout_calibration_current"] == applied_gw9["calibration"]  # what it ran with
+    assert ev["holdout_mae_current"] == pytest.approx(
+        learning._holdout_mae(db, SEASON, 9, applied_gw9["calibration"])
+    )
+    after = agent.active_config(db, SEASON, 10)[1]
+    for pos in set(agent_now) | set(after):
+        assert abs(after.get(pos, 1.0) - agent_now.get(pos, 1.0)) <= learning.MAX_CAL_STEP + 1e-9
+
+
+def _set_gw_points(world, db, gw, extra=0, zero=False):
+    orig = world.points[(world.points.season == SEASON) & (world.points.gw == gw)]
+    db.con.execute("DELETE FROM fpl_points_gw WHERE season = ? AND gw = ?", [SEASON, gw])
+    db.append("fpl_points_gw", orig.assign(total_points=0 if zero else orig.total_points + extra))
+    review.prediction_review(db, SEASON, gw)
+
+
+def test_a_correction_back_to_earlier_evidence_restores_its_state_once(world, db):
+    _neutral_state(db)
+    for gw in (7, 8, 9):
+        issue(world, gw)
+        finish(db, gw)
+        review.prediction_review(db, SEASON, gw)
+    _set_gw_points(world, db, 9, extra=15)  # evidence A
+    a = learning.weekly_update(db, SEASON, 9)
+    fac_a = learning.current_state(db)["config"]["calibration"]
+    assert a.status == "promoted" and fac_a.get("MID", 1.0) > 1.0
+    _set_gw_points(world, db, 9, zero=True)  # correction B
+    b = learning.weekly_update(db, SEASON, 9)
+    fac_b = learning.current_state(db)["config"]["calibration"]
+    assert b.status == "corrected" and fac_b != fac_a
+    _set_gw_points(world, db, 9, extra=15)  # back to A
+    back = learning.weekly_update(db, SEASON, 9)
+    assert back.status == "corrected", back.reason
+    assert learning.current_state(db)["config"]["calibration"] == fac_a  # A's state again
+    again = learning.weekly_update(db, SEASON, 9)  # A repeated: nothing changes
+    assert again.status == "unchanged"
+    assert learning.current_state(db)["config"]["calibration"] == fac_a

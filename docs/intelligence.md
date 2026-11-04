@@ -74,6 +74,10 @@ What each input of a projection may see at cutoff `c`:
 
 * **Cutoff:** facts of a match exist from kickoff + 3 h. At inference the run's cutoff applies
   as well. Training rows use only matches before their own kickoff.
+* **Fixture time:** each player is described at his own club's kickoff (a Monday club gets
+  Monday, not the gameweek's first Saturday kickoff). In a double gameweek it is the club's first
+  fixture, and both fixtures share that forecast. The plan and the walk-forward use the same
+  rule, and a test checks that they produce the same workload inputs.
 * **Sources:** `appearances` and `matches` (FotMob, 15 competitions including UCL, UEL and
   UECL). Domestic cups are not in the database.
 * **Training and inference:** a second gradient-boosted P(start) classifier is fitted on the
@@ -117,16 +121,21 @@ Run by `review.yml` after the data update: `fpl-agent evaluate --gw 0` then
    improvement larger than 2 standard errors, and a Brier change on the affected players that is
    present and not worse. An `on` feature whose removal would improve the error by more than 2
    standard errors goes back to `shadow`. Missing metrics never change a mode.
-5. **Candidate vs current.** Calibration factors are re-estimated from final, eligible reviews,
-   each at most 0.03 from the state the update starts from, and nothing changes before two final
-   reviews. The candidate's calibration is validated on the newest final week, estimated
+5. **Candidate vs current.** "Current" is the configuration the agent really runs with
+   (`agent.active_config`): the state's factors, or, with no learning state yet, the factors from
+   final reviews. Calibration factors are re-estimated from final, eligible reviews, each at
+   most 0.03 from that effective current calibration, and nothing changes before two final
+   reviews. The holdout compares the factors the holdout week's forecast was issued with (its
+   recorded configuration) against the candidate. The candidate's calibration is validated on the newest final week, estimated
    *without* that week. With no holdout measurement the calibration is kept. It becomes current
    only if its holdout MAE is no more than 0.01 worse; otherwise it is stored as `rejected`.
 6. **Exactly once per evidence.** Each update records an evidence key in `learning_updates`:
    a digest of the evaluations and final reviews up to that week, its official results, the
-   versions and the thresholds. Running it again with the same key changes nothing, so
+   versions and the thresholds. Running it again with the key that week was last processed
+   with changes nothing, so
    calibration cannot compound and a rollback is never undone by a repeated update. A different
-   key for the newest processed week (FPL corrected the results) is a correction: if the state
+   key for the newest processed week (FPL corrected the results, or a correction was reverted
+   to evidence seen before) is a correction: if the state
    that week produced is still current, the candidate is recomputed from the state before it
    (one weekly step, not two); otherwise (rolled back, or a later week processed since) the
    correction is recorded and the state is left alone. An older week processed out of order
@@ -148,7 +157,9 @@ memory switches as before, but they never count as evidence that a prediction fe
 the chronological check for the workload feature, which does have history. Every test forecast
 is made the way the agent forecasts at a deadline (`learning.walk_forward_rows`): models fitted
 on outcome rows of earlier gameweeks and squad snapshots observed by the refit gameweek's
-deadline; each player scored once from his history before the deadline, so both fixtures of a
+deadline, and reused until the next refit, while the inputs of every forecast are rebuilt from
+the history available at its own deadline (a result that became final since the refit counts);
+each player scored once from his history before the deadline, so both fixtures of a
 double gameweek get the same forecast and the second never sees the first's result; squad rows
 as observed by the deadline (an archive row is stamped at kickoff, so the previous gameweek's
 row is used); workload facts public by the deadline, and for training rows by their own

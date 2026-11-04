@@ -270,15 +270,20 @@ def build_projection(
     rates = apply_set_piece_duty(rates, pool)
     cfg = SimConfig(**{**cfg.__dict__, "noise": fit_bps_noise(history, rules, cfg.bps_save)})
 
-    # minutes probabilities per (player, gw)
-    kick = fx.groupby(["gw"])["kickoff"].min()
-    team_gws = {(r.home, r.gw) for r in fx.itertuples()} | {(r.away, r.gw) for r in fx.itertuples()}
+    # minutes probabilities per (player, gw). Each club's own kickoff: in a double gameweek its
+    # first fixture (both fixtures share the forecast made at the deadline, as in evaluation).
+    home = fx[["gw", "home", "kickoff"]].rename(columns={"home": "team_id"})
+    away = fx[["gw", "away", "kickoff"]].rename(columns={"away": "team_id"})
+    sides = pd.concat([home, away])
+    club_ko = sides.groupby(["team_id", "gw"])["kickoff"].min().to_dict()
     rows = []
     for gw in gws:
-        sel = pool[[(t, gw) in team_gws for t in pool["team_id"]]]
+        sel = pool[[(t, gw) in club_ko for t in pool["team_id"]]]
         rows.append(sel.assign(season=season, gw=gw, horizon=gw - first + 1,
-                               kickoff=kick.get(gw, pd.NaT)))  # fmt: skip
+                               kickoff=[club_ko[(t, gw)] for t in sel["team_id"]]))  # fmt: skip
     upcoming = pd.concat(rows, ignore_index=True) if rows else pool.iloc[0:0]
+    if "kickoff" in upcoming:
+        upcoming["kickoff"] = pd.to_datetime(upcoming["kickoff"])
     mins = minutes_model.forecast(history, upcoming)
     flags: dict = {}
     for ov in overlays or []:

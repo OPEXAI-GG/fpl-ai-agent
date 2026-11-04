@@ -437,6 +437,15 @@ def evidence_key(db: FootballDB, season: int, gw: int) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:32]
 
 
+def effective_calibration(db: FootballDB, season: int, gw: int,
+                          version: int | None) -> dict[str, float]:  # fmt: skip
+    """The calibration a run for `gw` uses under learning-state `version`: the state's factors,
+    or with no state the factors from final reviews before `gw` (as `agent.active_config`)."""
+    if version is None:
+        return calibration.factors(db, season, gw)
+    return dict(_config_of(db, version).get("calibration") or {})
+
+
 def _config_of(db: FootballDB, version: int | None) -> dict:
     if version is None:
         return default_config()
@@ -465,7 +474,9 @@ def weekly_update(db: FootballDB, season: int, gw: int) -> UpdateResult:
     done = db.query("SELECT * FROM learning_updates WHERE season = ? ORDER BY created_at",
                     [season])  # fmt: skip
     mine = done[done["gw"] == gw]
-    if len(mine) and (mine["evidence_key"] == key).any():
+    # a retry of the evidence this gameweek was last processed with changes nothing; a return to
+    # evidence seen earlier (A, then a correction B, then A again) is a correction like any other
+    if len(mine) and mine.iloc[-1]["evidence_key"] == key:
         return UpdateResult("unchanged", cur_v, f"GW{gw} already processed with identical "
                             f"evidence ({key[:8]}): nothing changes", ev)  # fmt: skip
     later = done[done["gw"] > gw]
@@ -487,18 +498,25 @@ def weekly_update(db: FootballDB, season: int, gw: int) -> UpdateResult:
     else:
         base_v = cur_v
     base = _config_of(db, base_v)
-    base_cal: dict[str, float] = base.get("calibration") or {}
+    # the calibration in force, resolved as the agent resolves it (`agent.active_config`): the
+    # state's own factors, or without a state the factors from final reviews. `base_cal` is what
+    # the next run would use; `hold_cal` is what the holdout week's forecast was issued with.
+    base_cal = effective_calibration(db, season, gw + 1, base_v)
+    prow = _run_row(db, ev["primary_run"]) if ev.get("primary_run") else None
+    recorded = ((prow or {}).get("flags") or {}).get("config", {}).get("calibration")
+    hold_cal = dict(recorded) if isinstance(recorded, dict) else effective_calibration(
+        db, season, gw, base_v)  # fmt: skip
     since = dict(base.get("since") or {})
     # calibration: validate the procedure on the holdout week (estimated without it), then refit
     n_reviews = sum(
         1 for b in db.query("SELECT payload FROM reviews WHERE season = ? AND kind = 'prediction' "
                             "AND gw <= ?", [season, gw])["payload"]
         if calibration.usable(json.loads(b)))  # fmt: skip
-    val_fac = _bounded(base_cal, calibration.factors(db, season, gw))
+    val_fac = _bounded(hold_cal, calibration.factors(db, season, gw))
     new_fac = _bounded(base_cal, calibration.factors(db, season, gw + 1))
     if n_reviews < THRESHOLDS["min_calibration_weeks"]:
-        new_fac, val_fac = dict(base_cal), dict(base_cal)
-    mae_cur = _holdout_mae(db, season, gw, base_cal)
+        new_fac, val_fac = dict(base_cal), dict(hold_cal)
+    mae_cur = _holdout_mae(db, season, gw, hold_cal)
     mae_cand = _holdout_mae(db, season, gw, val_fac)
     reasons: dict[str, str] = {}
     if new_fac != base_cal and (mae_cur is None or mae_cand is None):
@@ -512,7 +530,9 @@ def weekly_update(db: FootballDB, season: int, gw: int) -> UpdateResult:
         if new_modes[f] != mode:
             since[f] = gw
     cand = {"calibration": new_fac, "features": new_modes, "since": since}
-    evaluation = {"holdout_gw": gw, "holdout_mae_current": mae_cur,
+    evaluation = {"holdout_gw": gw, "base_calibration": base_cal,
+                  "holdout_calibration_current": hold_cal, "holdout_calibration_candidate": val_fac,
+                  "holdout_mae_current": mae_cur,
                   "holdout_mae_candidate": mae_cand, "features": feats, "decisions": reasons,
                   "thresholds": THRESHOLDS, "evidence_key": key, "base_version": base_v,
                   "correction": correction, "weekly": ev}  # fmt: skip
@@ -521,6 +541,7 @@ def weekly_update(db: FootballDB, season: int, gw: int) -> UpdateResult:
     cutoff = pit.deadline(db, season, gw + 1).at
     reason = "; ".join(f"{k}: {v}" for k, v in reasons.items())
     cur_cfg = _config_of(db, cur_v)
+    cur_cfg["calibration"] = effective_calibration(db, season, gw + 1, cur_v)
     if cand == cur_cfg:  # nothing to change (for a correction: it lands where the state is)
         status = "corrected" if correction else "retained"
         _record_update(db, season, gw, key, status, base_v, cur_v, reason)
@@ -654,7 +675,17 @@ def walk_forward_rows(
     cutoff = pit.deadline(db, season, gw).at
     if not models or cutoff is None:
         return pd.DataFrame()
-    base, hist = models["base"], models["hist"]
+    base = models["base"]  # fitted estimators, reused between refits
+    # the history that feeds this forecast's inputs is rebuilt at its own deadline, so results
+    # final since the last refit count without one; squad rows observed after it never do
+    if models.get("fitted_for") == gw:
+        hist = models["hist"]
+    else:
+        from fpl_agent.model import features
+
+        frame = features.player_gw_frame(db, as_of=cutoff)
+        hist = frame[(frame["season"] < season)
+                     | ((frame["season"] == season) & (frame["gw"] < gw))]  # fmt: skip
     pool = pit_pool(db, season, gw, cutoff)
     sched = db.query(
         "SELECT player_id, fixture_id, kickoff FROM fpl_points_gw WHERE season = ? "
@@ -678,6 +709,7 @@ def walk_forward_rows(
                          "known": wl.notna().any(axis=1).to_numpy()})  # fmt: skip
     for name in ablations:
         pred[f"p_{name}"] = models[name].predict(feat[base.cols], wl)
+    pred = pd.concat([pred, wl.reset_index(drop=True)], axis=1)  # the workload inputs used
     out = up[["player_id", "fixture_id", "kickoff"]].merge(pred, on="player_id", how="left")
     out["cutoff"] = pd.Timestamp(cutoff)
     out["snapshot_players"] = len(pool)
