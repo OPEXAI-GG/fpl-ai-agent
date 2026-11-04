@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible problem in data, forecasts, planning, or the interface.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Keep credentials, refresh tokens, webhook URLs, and private account data out of reports."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or action and a minimal example where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant context
+      description: Commit/version, runtime, season/gameweek, feature modes, and dataset identity where applicable.
+  - type: textarea
+    id: output
+    attributes:
+      label: Sanitized output
+      description: Include the relevant error or result, without credentials or private data.
+      render: text

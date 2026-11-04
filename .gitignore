@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.hypothesis/
 .ruff_cache/
 .env
 .env.*
@@ -10,5 +11,4 @@ data_cache/
 .coverage
 .coverage.*
 htmlcov/
-.env
 *.duckdb

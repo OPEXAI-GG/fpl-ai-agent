@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose a manager benefit or an improvement to the product foundation.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Who benefits, and what decision or task becomes easier?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current limitation
+      description: Describe the current workflow and what is missing.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested approach and evidence
+      description: Optional implementation ideas, alternatives, or a way to measure success.
