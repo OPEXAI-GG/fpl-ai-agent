@@ -20,7 +20,8 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import brier_score_loss, log_loss
 
-from fpl_agent.model.features import MINUTES_FEATURES, minutes_features
+from fpl_agent.model.features import FRAME_KEYS, MINUTES_FEATURES, minutes_features
+from fpl_agent.model.order import canonical
 
 EPS = 1e-4
 # weekly chance a player flagged out comes back, by FPL status
@@ -77,6 +78,7 @@ class MinutesModel:
 
     @classmethod
     def fit(cls, frame: pd.DataFrame, decay: float = 0.85) -> MinutesModel:
+        frame = canonical(frame, FRAME_KEYS)  # rolling features and the boosting read row order
         feat = training_rows(frame)
         cols = [c for c in MINUTES_FEATURES if feat[c].notna().any()]  # all-NaN columns can't bin
         X, started = feat[cols], feat["started"].to_numpy()
@@ -117,10 +119,10 @@ class MinutesModel:
         scores each player once as the "next row" of their history; later horizons decay toward
         the long-run rate; availability is overlaid last.
         """
-        up = upcoming.sort_values(["player_id", "horizon", "gw"]).reset_index(drop=True)
+        up = canonical(upcoming, ["player_id", "horizon", "gw"])
         first = up.groupby("player_id", as_index=False).first()
         stub = first.assign(minutes=0, started=False, fixture_id=-1)
-        known = history[history["player_id"].isin(stub["player_id"])]
+        known = canonical(history[history["player_id"].isin(stub["player_id"])], FRAME_KEYS)
         both = pd.concat([known.assign(_new=False), stub.assign(_new=True)], ignore_index=True)
         both = both.sort_values(["player_id", "_new", "season", "gw"], kind="stable")
         new_rows = both["_new"].to_numpy()  # each player's placeholder is their last row

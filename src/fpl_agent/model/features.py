@@ -10,6 +10,12 @@ import numpy as np
 import pandas as pd
 
 from fpl_agent.db.database import FootballDB
+from fpl_agent.model.order import canonical
+
+# the canonical order of player_gw_frame rows: chronological per player, fixtures in kickoff order
+FRAME_KEYS = ("player_id", "season", "gw", "kickoff", "fixture_id")
+# and of match_frame rows
+MATCH_KEYS = ("match_id", "player_id", "team_id")
 
 POSITION_CODE = {"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}
 STAT_FIELDS = {
@@ -56,8 +62,7 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None, as_of=None) -
     df["started"] = np.where(df["starts"].notna(), df["starts"] > 0, df["minutes"] >= 60)
     df["started"] = df["started"].astype(bool)
     # a double gameweek has two rows per player: collapse nothing, keep fixture order
-    df = df.sort_values(["player_id", "season", "gw", "kickoff", "fixture_id"], kind="stable")
-    return df.reset_index(drop=True)
+    return canonical(df, FRAME_KEYS)
 
 
 def _prev_rolling(s: pd.Series, by: pd.Series, window: int) -> pd.Series:
@@ -130,6 +135,7 @@ def match_frame(db: FootballDB, source: str = "fotmob") -> pd.DataFrame:
               AND tm.source = a.source
         WHERE a.source = ? AND a.minutes IS NOT NULL
         GROUP BY ALL
+        ORDER BY a.match_id, a.player_id, a.team_id
     """
     df = db.query(sql, [source])
     if not df.empty:

@@ -55,6 +55,30 @@ What each input of a projection may see at cutoff `c`:
 | Player history and minutes model | gameweeks before the one being forecast |
 | Workload | appearances whose kickoff + 3 h <= c |
 
+### Repeatability
+
+A forecast depends only on its inputs, its cutoff, its sample count and its seed. It never
+depends on the order the database happens to return rows in. DuckDB returns unordered rows in
+a different order from one process to the next, so every fit and the simulation first put their
+inputs into one canonical order (`model/order.canonical`). That order is the key columns, with
+ties broken by every other column. The loaders also sort in SQL.
+
+The canonical order applies to:
+* the team-ratings fit, ordered by date, competition and the two clubs;
+* the minutes model, ordered by player, season, gameweek, kickoff and fixture;
+* the player rates and the bonus-noise fit;
+* the squad pool, ordered by player id before the simulation hands out each fixture's random
+  draws.
+
+This came from a GW10 re-run on identical inputs. Before the change, that re-run moved the
+Chelsea v Sunderland projections by up to 0.25 points. The cause was the ratings fit: it summed
+its 47,664 matches in a new row order, which moved a goal rate by about 1e-5. That changed how
+many random numbers a Poisson draw used, and every later draw of that fixture was re-dealt.
+
+`tests/test_reproducibility.py` checks this in three ways. It shuffles every source table, it
+shuffles each fit's input and it uses separate interpreter processes. Each time it compares the
+sampled points, aligned by player id, for exact equality.
+
 **Historical backfills are not point-in-time**, and backtests report this under `limitations`:
 
 * vaastav archive squad rows are stamped at kickoff and carry no availability. A backtest uses

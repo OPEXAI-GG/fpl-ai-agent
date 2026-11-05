@@ -18,6 +18,7 @@ import pandas as pd
 from fpl_agent import pit
 from fpl_agent.db.database import FootballDB, now
 from fpl_agent.model import features, minutes, odds, overlays, players, strength, translation
+from fpl_agent.model.order import canonical
 from fpl_agent.model.simulate import BpsNoise, PlayerSpec, SimConfig, simulate_fixture
 from fpl_agent.rules import Rules
 
@@ -83,6 +84,7 @@ def current_pool(
         sql += " AND snapshot_at <= ?"
         params.append(as_of)
     sql += " QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY fpl_id)"
+    sql += " ORDER BY player_id, fpl_id"
     df = db.query(sql, params)
     return df.drop_duplicates("player_id").reset_index(drop=True)
 
@@ -182,7 +184,7 @@ def market_lambdas(
 
 def fit_bps_noise(frame: pd.DataFrame, rules: Rules, save_bps: float = 2.0) -> BpsNoise:
     """BPS not explained by the modelled events, per 90, by position (from official history)."""
-    f = frame[(frame["minutes"] > 0) & frame["bps"].notna()].copy()
+    f = canonical(frame[(frame["minutes"] > 0) & frame["bps"].notna()], features.FRAME_KEYS)
     if len(f) < 500:
         return BpsNoise()
     bp = rules["bps"]
@@ -254,7 +256,8 @@ def build_projection(
                                    "deadline: prices as at kickoff, availability unknown "
                                    "(everyone assumed available)")  # fmt: skip
     fx = fixtures_for(db, season, gws)
-    pool = pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))].reset_index(drop=True)
+    # the simulation deals its random draws by each side's player order: make it the player id
+    pool = canonical(pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))], ["player_id"])
 
     if ratings is None:
         ratings = strength.fit_ratings(strength.load_matches(db, as_of=as_of), as_of)
