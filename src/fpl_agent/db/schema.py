@@ -85,3 +85,43 @@ TABLES["league_translation"] = """
 TABLES["lessons"] = """
     season INTEGER, gw INTEGER, kind VARCHAR, points DOUBLE, what VARCHAR, lesson VARCHAR,
     rule VARCHAR, created_at TIMESTAMP"""
+
+# ---- point-in-time evaluation (additive: new tables only, so old DuckDB files and old parquet
+# exports keep loading; a missing table is simply created empty) --------------------------------
+TABLES["fpl_events"] = """
+    season INTEGER, gw INTEGER, deadline_time TIMESTAMP, finished BOOLEAN, data_checked BOOLEAN,
+    observed_at TIMESTAMP, PRIMARY KEY (season, gw)"""
+
+# One row per stored projection run: when it was made, the data cutoff it used, the deadline of
+# its first gameweek and every version that produced it. `eligible` = made before that deadline.
+TABLES["forecast_runs"] = """
+    run_id VARCHAR PRIMARY KEY, season INTEGER, first_gw INTEGER, gws VARCHAR,
+    created_at TIMESTAMP, cutoff TIMESTAMP, deadline TIMESTAMP, deadline_source VARCHAR,
+    eligible BOOLEAN, kind VARCHAR, variant VARCHAR, parent_run_id VARCHAR, model VARCHAR,
+    model_version VARCHAR, feature_version VARCHAR, flags JSON, limitations JSON"""
+
+# ---- learning loop -----------------------------------------------------------------------------
+TABLES["evaluations"] = """
+    season INTEGER, gw INTEGER, variant VARCHAR, run_id VARCHAR, cohort VARCHAR, n INTEGER,
+    metrics JSON, created_at TIMESTAMP, PRIMARY KEY (season, gw, variant, cohort)"""
+
+TABLES["learning_state"] = """
+    version INTEGER PRIMARY KEY, created_at TIMESTAMP, status VARCHAR, parent_version INTEGER,
+    season INTEGER, through_gw INTEGER, training_cutoff TIMESTAMP, config JSON, samples JSON,
+    evaluation JSON, reason VARCHAR"""
+
+TABLES["learning_updates"] = """
+    season INTEGER, gw INTEGER, evidence_key VARCHAR, status VARCHAR, base_version INTEGER,
+    result_version INTEGER, created_at TIMESTAMP, reason VARCHAR,
+    PRIMARY KEY (season, gw, evidence_key)"""
+
+TABLES["schema_migrations"] = """
+    name VARCHAR PRIMARY KEY, applied_at TIMESTAMP"""
+
+# Additive column changes for tables that already exist in older files. Each runs once, in order,
+# and only ever adds (ADD COLUMN IF NOT EXISTS), so a file written by an older version upgrades
+# in place and parquet written by an older version still imports (columns are matched by name).
+MIGRATIONS: list[tuple[str, str]] = [
+    ("2026-11-projection-variant",
+     "ALTER TABLE projections ADD COLUMN IF NOT EXISTS variant VARCHAR"),
+]  # fmt: skip

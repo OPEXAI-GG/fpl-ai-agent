@@ -36,6 +36,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from fpl_agent import pit
 from fpl_agent.db.database import FootballDB, now
 from fpl_agent.solver.planner import PlannerConfig
 
@@ -337,6 +338,18 @@ def _to_fpl(payload: dict[str, Any], to_fpl: dict[int, int]) -> dict[str, Any]:
 
 
 def _expected(db: FootballDB, season: int, gw: int, to_fpl: dict[int, int]) -> dict[int, float]:
+    """What the issued (pre-deadline) forecast expected; display only. Without a known deadline
+    the newest projection per player is shown, as before."""
+    choice = pit.eligible_run(db, season, gw)
+    if choice.found:
+        proj = pit.run_projection(db, choice.run_id, season, gw)
+        return {
+            to_fpl[int(p)]: float(x)
+            for p, x in zip(proj["player_id"], proj["xpts"], strict=True)
+            if int(p) in to_fpl
+        }
+    if choice.deadline is not None:
+        return {}
     proj = db.query(
         "SELECT player_id, xpts FROM projections WHERE season = ? AND gw = ? "
         "QUALIFY created_at = max(created_at) OVER (PARTITION BY player_id)",
@@ -360,7 +373,12 @@ def save(db: FootballDB, season: int, gw: int, mistakes: list[Mistake]) -> None:
 
 def report(w: Week, mistakes: list[Mistake], done: bool = True) -> str:
     head = f"GW{w.gw} lessons"
-    lines = [head if done else f"{head} (PROVISIONAL: the gameweek is not finished)"]
+    lines = [
+        head
+        if done
+        else f"{head} (PROVISIONAL: the gameweek is not finished and checked; "
+        "nothing is stored for the next plan)"
+    ]
     if w.official is not None:
         exp = f", the plan expected {w.expected:.1f} before hits" if w.expected else ""
         lines.append(f"{w.official} points{exp}")
@@ -373,12 +391,21 @@ def report(w: Week, mistakes: list[Mistake], done: bool = True) -> str:
 
 
 def run(db: FootballDB, fpl, season: int, gw: int, entry: int) -> str:
-    """Find, store and report the gameweek's mistakes."""
+    """Find and report the gameweek's mistakes; store them only once the gameweek is final.
+
+    A provisional gameweek (not finished, or finished but not yet checked by FPL: bonus and
+    late corrections can still move) is reported with a PROVISIONAL header and changes nothing:
+    the lessons the next plan reads come from final results only.
+    """
+    raw = fpl.bootstrap_raw()
+    pit.record_events(db, raw, season)
     w = load_week(db, fpl, season, gw, entry)
-    ev = next((e for e in fpl.bootstrap_raw().get("events", []) if e["id"] == gw), {})
+    ev = next((e for e in raw.get("events", []) if e["id"] == gw), {})
+    done = pit.event_final(ev)
     mistakes = find_mistakes(w)
-    save(db, season, gw, mistakes)
-    return report(w, mistakes, done=bool(ev.get("finished", True)))
+    if done:
+        save(db, season, gw, mistakes)
+    return report(w, mistakes, done=done)
 
 
 # ---- the memory the next plan reads ---------------------------------------------------------
@@ -470,7 +497,10 @@ def template_factor(db: FootballDB, season: int, before_gw: int) -> tuple[float,
     pred = act = 0.0
     n = 0
     for blob in rows["payload"]:
-        t = json.loads(blob).get("template") or {}
+        rep = json.loads(blob)
+        if not (rep.get("final") and rep.get("eligible")):  # provisional or legacy: no lesson
+            continue
+        t = rep.get("template") or {}
         if t.get("n"):
             pred += t["mean_pred"] * t["n"]
             act += t["mean_actual"] * t["n"]

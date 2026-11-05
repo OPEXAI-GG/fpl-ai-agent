@@ -15,8 +15,10 @@ from datetime import date, datetime
 import numpy as np
 import pandas as pd
 
+from fpl_agent import pit
 from fpl_agent.db.database import FootballDB, now
-from fpl_agent.model import features, minutes, odds, players, strength, translation
+from fpl_agent.model import features, minutes, odds, overlays, players, strength, translation
+from fpl_agent.model.order import canonical
 from fpl_agent.model.simulate import BpsNoise, PlayerSpec, SimConfig, simulate_fixture
 from fpl_agent.rules import Rules
 
@@ -34,6 +36,12 @@ class Projection:
     minutes: np.ndarray  # (players, gws, samples) int16
     components: dict[str, np.ndarray] = field(default_factory=dict)  # name -> (players, gws)
     fixtures: dict[int, list[tuple[int, int, bool, float, float]]] = field(default_factory=dict)
+    cutoff: datetime | None = None  # data observed at or before this (naive UTC) only
+    variant: str = "primary"  # "primary" (what the plan used) or a shadow variant
+    flags: dict = field(default_factory=dict)  # feature modes and what each changed
+    limitations: list[str] = field(default_factory=list)  # point-in-time caveats of the inputs
+    minutes_table: pd.DataFrame | None = None  # per (player, gw): p_start, p_cameo, overlays
+    inputs: dict = field(default_factory=dict, repr=False)  # fitted models, to reuse (not saved)
 
     @property
     def player_ids(self) -> list[int]:
@@ -76,8 +84,16 @@ def current_pool(
         sql += " AND snapshot_at <= ?"
         params.append(as_of)
     sql += " QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY fpl_id)"
+    sql += " ORDER BY player_id, fpl_id"
     df = db.query(sql, params)
     return df.drop_duplicates("player_id").reset_index(drop=True)
+
+
+def backfill_pool(db: FootballDB, season: int, gw: int) -> pd.DataFrame:
+    """A historical gameweek's squad rows from an archive backfill (vaastav): stamped at the first
+    kickoff, so they are after the deadline and carry no real availability (status is always
+    'a'). Usable for backtests only, with that limitation reported."""
+    return current_pool(db, season, gw)
 
 
 # Set-piece duty from FPL's own `penalties_order` / `corners_and_indirect_freekicks_order`.
@@ -126,13 +142,38 @@ def fixtures_for(
     )
 
 
-def market_lambdas(db: FootballDB, match_id: int) -> tuple[float, float] | None:
-    """Goal rates implied by the most recent 1X2 (and totals) price we hold for a match."""
-    row = db.con.execute(
-        "SELECT home, draw, away, over25, under25 FROM match_odds WHERE match_id = ? AND home > 1 "
-        "AND draw > 1 AND away > 1 ORDER BY closing DESC, ingested_at DESC LIMIT 1",
-        [match_id],
-    ).fetchone()
+def market_lambdas(
+    db: FootballDB, match_id: int, as_of: datetime | None = None, allow_backfill: bool = True
+) -> tuple[float, float] | None:
+    """Goal rates implied by the most recent 1X2 (and totals) price we hold for a match.
+
+    With `as_of`, only prices that existed then are used. A closing price exists from kickoff,
+    so it is never used before the match starts. A pre-match price observed at or before
+    `as_of` is point-in-time; one loaded later by a historical backfill (its real publication
+    time is unknown) is used only when no point-in-time price exists and `allow_backfill`.
+    """
+    sql = (
+        "SELECT o.home, o.draw, o.away, o.over25, o.under25 FROM match_odds o "
+        "LEFT JOIN matches m ON m.match_id = o.match_id WHERE o.match_id = ? AND o.home > 1 "
+        "AND o.draw > 1 AND o.away > 1"
+    )
+    params: list = [match_id]
+    if as_of is None:
+        row = db.con.execute(sql + " ORDER BY o.closing DESC, o.ingested_at DESC LIMIT 1",
+                             params).fetchone()  # fmt: skip
+    else:
+        pre = " AND NOT (o.closing AND (m.kickoff IS NULL OR m.kickoff > ?))"
+        row = db.con.execute(
+            sql
+            + pre
+            + " AND o.ingested_at <= ? ORDER BY o.closing DESC, o.ingested_at DESC LIMIT 1",
+            [*params, as_of, as_of],
+        ).fetchone()
+        if row is None and allow_backfill:
+            row = db.con.execute(
+                sql + pre + " AND NOT o.closing ORDER BY o.ingested_at ASC LIMIT 1",
+                [*params, as_of],
+            ).fetchone()
     if not row:
         return None
     try:
@@ -143,7 +184,7 @@ def market_lambdas(db: FootballDB, match_id: int) -> tuple[float, float] | None:
 
 def fit_bps_noise(frame: pd.DataFrame, rules: Rules, save_bps: float = 2.0) -> BpsNoise:
     """BPS not explained by the modelled events, per 90, by position (from official history)."""
-    f = frame[(frame["minutes"] > 0) & frame["bps"].notna()].copy()
+    f = canonical(frame[(frame["minutes"] > 0) & frame["bps"].notna()], features.FRAME_KEYS)
     if len(f) < 500:
         return BpsNoise()
     bp = rules["bps"]
@@ -189,18 +230,34 @@ def build_projection(
     pm: pd.DataFrame | None = None,
     odds_weight: float = 0.5,
     pool_gw: int | None = None,
+    cutoff: datetime | None = None,
+    overlays: list | None = None,
+    allow_backfill: bool = True,
 ) -> Projection:
+    """Project `gws`. `cutoff` (naive UTC) is the information cutoff: the squad snapshot, the
+    bookmaker prices and the matches the models see must have existed by then. `overlays` are
+    bounded minutes adjustments (see `model.overlays`), applied after the minutes model and
+    before simulation; each one records what it changed."""
     cfg = cfg or SimConfig()
     rules = rules or Rules.nearest(season)
     first = gws[0]
-    as_of = as_of or date.today()
-    frame = frame if frame is not None else features.player_gw_frame(db)
+    as_of = as_of or (cutoff.date() if cutoff is not None else date.today())
+    limitations: list[str] = []
+    frame = frame if frame is not None else features.player_gw_frame(db, as_of=cutoff)
     history = frame[
         (frame["season"] < season) | ((frame["season"] == season) & (frame["gw"] < first))
     ]
-    pool = pool if pool is not None else current_pool(db, season, pool_gw or first)
+    if pool is None:
+        pool = current_pool(db, season, pool_gw or first, as_of=cutoff)
+        if pool.empty and cutoff is not None and allow_backfill:
+            pool = backfill_pool(db, season, pool_gw or first)
+            if not pool.empty:
+                limitations.append("squad rows from an archive backfill stamped after the "
+                                   "deadline: prices as at kickoff, availability unknown "
+                                   "(everyone assumed available)")  # fmt: skip
     fx = fixtures_for(db, season, gws)
-    pool = pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))].reset_index(drop=True)
+    # the simulation deals its random draws by each side's player order: make it the player id
+    pool = canonical(pool[pool["team_id"].isin(set(fx["home"]) | set(fx["away"]))], ["player_id"])
 
     if ratings is None:
         ratings = strength.fit_ratings(strength.load_matches(db, as_of=as_of), as_of)
@@ -216,16 +273,29 @@ def build_projection(
     rates = apply_set_piece_duty(rates, pool)
     cfg = SimConfig(**{**cfg.__dict__, "noise": fit_bps_noise(history, rules, cfg.bps_save)})
 
-    # minutes probabilities per (player, gw)
-    kick = fx.groupby(["gw"])["kickoff"].min()
-    team_gws = {(r.home, r.gw) for r in fx.itertuples()} | {(r.away, r.gw) for r in fx.itertuples()}
+    # minutes probabilities per (player, gw). Each club's own kickoff: in a double gameweek its
+    # first fixture (both fixtures share the forecast made at the deadline, as in evaluation).
+    home = fx[["gw", "home", "kickoff"]].rename(columns={"home": "team_id"})
+    away = fx[["gw", "away", "kickoff"]].rename(columns={"away": "team_id"})
+    sides = pd.concat([home, away])
+    club_ko = sides.groupby(["team_id", "gw"])["kickoff"].min().to_dict()
     rows = []
     for gw in gws:
-        sel = pool[[(t, gw) in team_gws for t in pool["team_id"]]]
+        sel = pool[[(t, gw) in club_ko for t in pool["team_id"]]]
         rows.append(sel.assign(season=season, gw=gw, horizon=gw - first + 1,
-                               kickoff=kick.get(gw, pd.NaT)))  # fmt: skip
+                               kickoff=[club_ko[(t, gw)] for t in sel["team_id"]]))  # fmt: skip
     upcoming = pd.concat(rows, ignore_index=True) if rows else pool.iloc[0:0]
-    mins = minutes_model.forecast(history, upcoming).set_index(["player_id", "gw"])
+    if "kickoff" in upcoming:
+        upcoming["kickoff"] = pd.to_datetime(upcoming["kickoff"])
+    mins = minutes_model.forecast(history, upcoming)
+    flags: dict = {}
+    for ov in overlays or []:
+        mins = ov.apply(
+            mins, upcoming, cutoff, {"history": history, "minutes_model": minutes_model}
+        )
+        flags[ov.name] = ov.summary()
+    minutes_table = mins.copy()
+    mins = mins.set_index(["player_id", "gw"])
 
     p_idx = {pid: i for i, pid in enumerate(pool["player_id"])}
     g_idx = {gw: i for i, gw in enumerate(gws)}
@@ -238,7 +308,7 @@ def build_projection(
 
     for fxr in fx.itertuples():
         lam = ratings.lambdas(fxr.home, fxr.away, COMPETITION)
-        mk = market_lambdas(db, fxr.match_id)
+        mk = market_lambdas(db, fxr.match_id, as_of=cutoff, allow_backfill=allow_backfill)
         lh, la = odds.blend(lam, mk, odds_weight)
         specs = []
         for team in (fxr.home, fxr.away):
@@ -271,24 +341,58 @@ def build_projection(
 
     meta = pool[["player_id", "position", "team_id", "price", "status", "chance"]].copy()
     return Projection(uuid.uuid4().hex[:12], season, list(gws), meta, points, mins_out,
-                      comp_sum, fixtures_out)  # fmt: skip
+                      comp_sum, fixtures_out, cutoff=cutoff, flags=flags,
+                      limitations=limitations, minutes_table=minutes_table,
+                      inputs={"ratings": ratings, "minutes_model": minutes_model, "frame": frame,
+                              "pm": pm, "pool": pool})  # fmt: skip
 
 
-def save_projection(db: FootballDB, proj: Projection, model: str = MODEL) -> int:
-    """Persist per-player-gameweek expectations (the agent's own history lives in the database)."""
+MINUTES_DETAIL = ("p_start", "p_cameo", "availability")
+
+
+def save_projection(
+    db: FootballDB,
+    proj: Projection,
+    model: str = MODEL,
+    created_at: datetime | None = None,
+    kind: str = "live",
+    parent_run_id: str | None = None,
+    extra_flags: dict | None = None,
+) -> int:
+    """Persist per-player-gameweek expectations and register the run (when it was made, the
+    data cutoff, the deadline of its first gameweek and the versions behind it), so a review can
+    later tell a forecast that was issued before the deadline from one made after it."""
     f = proj.frame()
-    stamp = now()
+    stamp = created_at or now()
     detail = f[["p_zero", "p10", "q10", "q90", "exp_minutes"]].round(4).to_dict("records")
     for name, arr in proj.components.items():  # per-component expectations, same row order
         col = np.concatenate([arr[:, gi] for gi in range(len(proj.gws))])
         for d, v in zip(detail, col, strict=True):
             d.setdefault("components", {})[name] = round(float(v), 4)
+    if proj.minutes_table is not None and not proj.minutes_table.empty:
+        mt = proj.minutes_table.drop_duplicates(["player_id", "gw"]).set_index(["player_id", "gw"])
+        for d, pid, gw in zip(detail, f["player_id"], f["gw"], strict=True):
+            if (pid, gw) not in mt.index:
+                continue
+            r = mt.loc[(pid, gw)]
+            for k in MINUTES_DETAIL:
+                if k in r and pd.notna(r[k]):
+                    d[k] = round(float(r[k]), 4)
+            for name in overlays.FEATURES:  # what each overlay changed for this player
+                v = r.get(name)
+                if isinstance(v, list | dict) and v:
+                    d[name] = v
     out = pd.DataFrame({
         "run_id": proj.run_id, "model": model, "created_at": stamp, "season": proj.season,
         "gw": f["gw"], "player_id": f["player_id"], "xpts": f["xpts"],
-        "detail": [json.dumps(d) for d in detail],
+        "detail": [json.dumps(d, default=str) for d in detail], "variant": proj.variant,
     })  # fmt: skip
-    return db.append("projections", out)
+    n = db.append("projections", out)
+    pit.register_run(db, proj.run_id, proj.season, proj.gws, stamp, proj.cutoff, kind=kind,
+                     variant=proj.variant, parent_run_id=parent_run_id, model=model,
+                     flags={**proj.flags, **(extra_flags or {})},
+                     limitations=proj.limitations)  # fmt: skip
+    return n
 
 
 def load_projection(db: FootballDB, run_id: str) -> pd.DataFrame:

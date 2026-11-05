@@ -1,7 +1,7 @@
 """Review loop: prediction error by position/component and decision quality vs hindsight."""
 
 import json
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -17,7 +17,8 @@ def stored():
     proj = project.build_projection(
         w.db, 2024, [10, 11], as_of=date(2024, 10, 20), cfg=SimConfig(n=300, seed=1), pool_gw=9
     )
-    project.save_projection(w.db, proj)
+    # registered as made before GW10's deadline (the synthetic season is in the past)
+    project.save_projection(w.db, proj, created_at=datetime(2024, 10, 1))
     return w, proj
 
 

@@ -10,6 +10,12 @@ import numpy as np
 import pandas as pd
 
 from fpl_agent.db.database import FootballDB
+from fpl_agent.model.order import canonical
+
+# the canonical order of player_gw_frame rows: chronological per player, fixtures in kickoff order
+FRAME_KEYS = ("player_id", "season", "gw", "kickoff", "fixture_id")
+# and of match_frame rows
+MATCH_KEYS = ("match_id", "player_id", "team_id")
 
 POSITION_CODE = {"GKP": 0, "DEF": 1, "MID": 2, "FWD": 3}
 STAT_FIELDS = {
@@ -26,11 +32,13 @@ def _json(name: str) -> str:
     return f"TRY_CAST(json_extract_string(f.stats, '$.{name}') AS DOUBLE)"
 
 
-def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFrame:
+def player_gw_frame(db: FootballDB, min_season: int | None = None, as_of=None) -> pd.DataFrame:
     """One row per player per fixture: minutes, event counts, official points, price, status.
 
     Sorted chronologically per player. Squad snapshots supply team, position and price; for the
-    current season several snapshots exist per gameweek and the last one is used.
+    current season several snapshots exist per gameweek and the last one is used. With `as_of`
+    (naive UTC) only snapshots observed by then are joined, so a squad row taken after a
+    forecast's cutoff can never reach the history it is fitted on.
     """
     fields = ", ".join(f"{_json(src)} AS {col}" for col, src in STAT_FIELDS.items())
     sql = f"""
@@ -39,12 +47,12 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFra
                s.team_id, s.position, s.now_cost AS price, s.status, s.chance_next AS chance
         FROM fpl_points_gw f
         LEFT JOIN (
-            SELECT * FROM fpl_players_gw
+            SELECT * FROM fpl_players_gw {"WHERE snapshot_at <= ?" if as_of is not None else ""}
             QUALIFY snapshot_at = max(snapshot_at) OVER (PARTITION BY season, gw, fpl_id)
         ) s ON s.season = f.season AND s.gw = f.gw AND s.fpl_id = f.fpl_id
         WHERE f.player_id IS NOT NULL
     """
-    params: list = []
+    params: list = [as_of] if as_of is not None else []
     if min_season is not None:
         sql += " AND f.season >= ?"
         params.append(min_season)
@@ -54,8 +62,7 @@ def player_gw_frame(db: FootballDB, min_season: int | None = None) -> pd.DataFra
     df["started"] = np.where(df["starts"].notna(), df["starts"] > 0, df["minutes"] >= 60)
     df["started"] = df["started"].astype(bool)
     # a double gameweek has two rows per player: collapse nothing, keep fixture order
-    df = df.sort_values(["player_id", "season", "gw", "kickoff", "fixture_id"], kind="stable")
-    return df.reset_index(drop=True)
+    return canonical(df, FRAME_KEYS)
 
 
 def _prev_rolling(s: pd.Series, by: pd.Series, window: int) -> pd.Series:
@@ -128,6 +135,7 @@ def match_frame(db: FootballDB, source: str = "fotmob") -> pd.DataFrame:
               AND tm.source = a.source
         WHERE a.source = ? AND a.minutes IS NOT NULL
         GROUP BY ALL
+        ORDER BY a.match_id, a.player_id, a.team_id
     """
     df = db.query(sql, [source])
     if not df.empty:

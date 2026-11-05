@@ -11,7 +11,11 @@ from fpl_agent.model.project import Projection
 
 
 def add_review(db, gw, pos="MID", pred=3.0, actual=4.0, n=500, season=2026):
-    payload = {"by_position": {pos: {"n": n, "mean_pred": pred, "mean_actual": actual}}}
+    payload = {
+        "by_position": {pos: {"n": n, "mean_pred": pred, "mean_actual": actual}},
+        "final": True,
+        "eligible": True,
+    }
     db.con.execute(
         "INSERT INTO reviews VALUES (?, ?, now(), 'prediction', ?)",
         [season, gw, json.dumps(payload)],

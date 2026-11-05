@@ -3,15 +3,21 @@
 The agent turns public football data into one weekly decision: transfers, chip, starting XI and
 captain. Layers are separate modules with one-way dependencies, each tested on its own.
 
-```
-sources ──► L1 database ──► L2 team strength ─┐
- FPL API                      L3 minutes       ├─► L5 match simulator ─► projection ─► L6 planner ─► L7 rails ─► execute
- FotMob (15 comps)            L4 player rates ─┘        ▲                                 │ chips          │
- Understat                                              │ odds (optional)                 ▼                ▼
- football-data.co.uk                                    │ scout (optional)           decision          dry report / (live)
- vaastav archive (2016→)                                                                  │
- The Odds API (optional)                                                                  ▼
-                                                                         L8 review: prediction error, decision regret
+```mermaid
+flowchart LR
+    Sources[Public football sources] --> DB[DuckDB and source identities]
+    DB --> Models[Team strength, minutes, player rates]
+    Optional[Optional odds and FPL scout] --> Models
+    Models --> Simulation[Match simulation]
+    Simulation --> Planner[Transfers, chips, XI, captain]
+    Planner --> Rails[Safety checks]
+    Rails --> Output[Dry report or authorized execution]
+    Simulation --> Records[Forecast and decision records]
+    Planner --> Records
+    Records --> Review[Finalized outcome review]
+    DB --> Review
+    Review --> Learning[Calibration and learning state]
+    Learning --> Simulation
 ```
 
 | Layer | Module | What it does |
@@ -22,10 +28,13 @@ sources ──► L1 database ──► L2 team strength ─┐
 | L3 minutes | `model/minutes.py` | Gradient-boosted P(start), P(60+), cameo minutes from recent usage, rest, price and position; availability overlay from FPL's status/chance flags with a recovery hazard over the horizon. |
 | L4 player rates | `model/players.py`, `model/translation.py` | Shares of team xG/xA, finishing, DefCon (negative binomial), cards - with shrinkage to position priors. Rates from other leagues are translated to Premier League level with factors estimated from players who moved between leagues. |
 | L5 simulator | `model/simulate.py`, `model/project.py` | Vectorised match simulation: a shared team goal intensity, goals/assists allocated to players on the pitch, clean sheets, saves, DefCon, BPS and the 3-2-1 bonus with FPL's tie rules. Output is a distribution of points per player per gameweek (doubles sum, blanks are zero), so risk and upside are first-class. |
-| L6 planner | `solver/planner.py`, `solver/chips.py`, `solver/decide.py` | A MILP (HiGHS) over a 6-gameweek horizon: legal squad every week, selling prices, three-per-club, free-transfer banking to five (a banked transfer is valued by how many are banked), hits only if they buy `4 + buffer` points. Chips are scenarios (one solve per chip x gameweek) judged on expected points *and* on how often they win across sampled worlds; a Wildcard needs 70%. Windows that close inside the horizon make a chip must-use. |
+| L6 planner | `solver/planner.py`, `solver/chips.py`, `solver/decide.py` | A MILP (HiGHS) over a configurable horizon (eight gameweeks by default for `plan`): legal squad every week, selling prices, three-per-club, free-transfer banking to five (a banked transfer is valued by how many are banked), hits only if they buy `4 + buffer` points. Chips are scenarios (one solve per chip x gameweek) judged on expected points *and* on how often they win across sampled worlds; a Wildcard needs 70%. Windows that close inside the horizon make a chip must-use. |
 | L7 safety + execution | `execution/` | Rails (kill switch, stale data, hit caps, availability, chip guard, transfer count, budget, legal squad, human edits not overwritten) run on our plan and again on FPL's preview. **Dry mode makes no authenticated request at all.** Live path: refresh-token exchange with rotation write-back, preview -> confirm -> lineup -> read-back verify. |
 | L8 review | `review.py` | After each gameweek: prediction error by position and by scoring component, top-20 calibration, drift flags; decision review (captain regret, transfer gain after hits, XI points vs. predicted). Written to the `reviews` table. It reports and flags; it never edits a model by itself. |
 | L9 lessons | `lessons.py` | After each gameweek, from your real team (hand moves included) and the recorded decisions: transfers you had to make yourself, moves the bot held that paid at once, captain, bench order, goalkeeper, hits that lost, field-core hauls you missed. Each mistake is stored in `lessons` with its cost and lesson. Before the next plan, `memory()` turns recent lessons into small capped switches (banked transfers worth up to 30% less and a 5-point lower robustness bar after held moves paid; +1 hit buffer after a bot hit lost), fading by 0.6 a week unless repeated; projections of the top-10k's core are scaled by their learned residual (shrunk, capped 10%). Watched mistakes seen in 3 of 6 weeks are flagged for a model change. Every switch shows as a `memory:` line in the report. |
+| Point in time | `pit.py` | FPL deadlines (`fpl_events`), finality (finished and data checked), the `forecast_runs` registry and the rule that picks one eligible pre-deadline run per gameweek for review, calibration, lessons and learning. Backfilled data that is not point-in-time is flagged as a limitation. |
+| Overlays | `model/overlays.py`, `model/workload.py` | Bounded adjustments to P(start) from cross-competition rest and workload (at most ±0.10), `off`/`shadow`/`on`, through a registry any later feature joins. Matched experiment arms (the issued configuration as a null-intervention control, plus each feature added or removed) are saved next to the primary run, with the issued forecast the planner received; arms never reach the plan. |
+| L10 learning | `learning.py` | Scores issued forecasts per arm on identical cohorts, keeps versioned learning state, promotes or demotes features and bounded calibration steps against thresholds fixed in code, supports rollback, and runs the historical walk-forward for the workload feature. |
 | Scout | `scout.py` | One bounded Claude call over players with injury/news text. Output is validated, can move a player's availability at most 35 points from FPL's own flag, and never revives a player FPL lists as gone. No key = no-op. |
 | Orchestration | `agent.py`, `cli.py`, `.github/workflows/` | `fpl-agent plan` runs the whole chain; workflows keep the database fresh, plan in dry mode and review. |
 
@@ -34,12 +43,12 @@ sources ──► L1 database ──► L2 team strength ─┐
 * **Points are built the way FPL scores them**, position by position, rather than regressing "points" directly. That makes components checkable (the review loop compares each one with FPL's `explain` data) and lets a rule change flow through without retraining.
 * **Distributions, not point estimates.** Every decision can ask "how often would this have been better?" - this is what gates the Wildcard and what captain choice can use.
 * **Skip safely.** A failing optional source (odds, scout, FotMob endpoint) is skipped and reported; only a failing critical source (FPL) aborts, and then nothing is written.
-* **No look-ahead.** Every model sees only data before the gameweek's first kickoff (`model/backtest.py` replays this).
+* **No look-ahead.** Every model sees only data before the gameweek's FPL deadline (`model/backtest.py` replays this, and `pit.py` records the cutoff of every run).
 * **Dry by default, in three places.** `Settings.mode` defaults to `dry`; `execute()` returns before any credential is touched unless mode is `live`; the plan workflow reads `AGENT_MODE` from a repository variable that is unset by default.
 
 ## Data in the database
 
-Tables: `competitions teams players matches team_match appearances player_match_stats shots match_odds fpl_players_gw fpl_points_gw projections decisions reviews lessons league_translation ingest_log ingest_state` plus id maps. The database is rebuilt from sources; it lives as parquet files in a `data` release asset rather than in git.
+Schema changes are additive and recorded in `schema_migrations`, so older database files and parquet exports still load. Tables: `competitions teams players matches team_match appearances player_match_stats shots match_odds fpl_players_gw fpl_points_gw projections decisions reviews lessons league_translation ingest_log ingest_state fpl_events forecast_runs evaluations learning_state learning_updates schema_migrations` plus id maps. The database is rebuilt from sources; it lives as parquet files in a `data` release asset rather than in git.
 
 ## Conventions
 

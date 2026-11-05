@@ -8,7 +8,9 @@ Two things make each week's real outcomes change the next week's plan:
    players actually scored. This module turns those reviews into a gentle multiplicative
    correction per position. It is shrunk toward 1 (little data = little change), capped at
    +-10%, and only built from reviews of gameweeks that were already over, so it can never see
-   the future.
+   the future. A review counts only when it scored an eligible pre-deadline forecast of a
+   gameweek whose results FPL has finished and checked (`final` and `eligible` in the payload);
+   provisional and legacy reviews (written before those flags existed) are ignored.
 
 The correction and its inputs are reported in the weekly output so it is never a black box.
 """
@@ -26,6 +28,11 @@ CAP = 0.10  # at most +-10%
 PRIOR_N = 4000  # player-gameweeks of evidence needed to trust the data as much as the model
 
 
+def usable(review: dict) -> bool:
+    """A review that may teach: final results, scoring an eligible pre-deadline forecast."""
+    return bool(review.get("final")) and bool(review.get("eligible"))
+
+
 def factors(db: FootballDB, season: int, before_gw: int) -> dict[str, float]:
     """Per-position multipliers from reviews of gameweeks before `before_gw`."""
     rows = db.query(
@@ -37,6 +44,8 @@ def factors(db: FootballDB, season: int, before_gw: int) -> dict[str, float]:
     n: dict[str, int] = {}
     for blob in rows["payload"]:
         rep = json.loads(blob)
+        if not usable(rep):
+            continue
         for pos, m in (rep.get("by_position") or {}).items():
             if "mean_pred" not in m:
                 continue

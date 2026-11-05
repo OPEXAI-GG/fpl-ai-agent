@@ -17,6 +17,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from fpl_agent.model.features import FRAME_KEYS, MATCH_KEYS
+from fpl_agent.model.order import canonical
 from fpl_agent.model.translation import TARGET, Translations
 
 POS_SHARE_DEFAULT = {"GKP": 0.0, "DEF": 0.04, "MID": 0.09, "FWD": 0.22}
@@ -84,6 +86,7 @@ def fit_player_rates(
     (official FPL history, used for cards, finishing and the exact DefCon counts).
     """
     tr = translations or Translations(target=target)
+    pm, frame = canonical(pm, MATCH_KEYS), canonical(frame, FRAME_KEYS)  # sums in row order
     pri = position_priors(pm, target)
     disp = nb_dispersion(pm, positions, target)
     d = pm[pm["minutes"] > 0].copy()

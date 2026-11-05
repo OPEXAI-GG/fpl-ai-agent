@@ -21,6 +21,7 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from fpl_agent.db.database import FootballDB
+from fpl_agent.model.order import canonical
 
 MATCH_COLUMNS = ["match_date", "comp", "tier", "home_id", "away_id", "hg", "ag", "hxg", "axg"]
 
@@ -59,8 +60,8 @@ def load_matches(db: FootballDB, as_of: date | None = None, comps: tuple[str, ..
         SELECT m.match_date, m.competition_id AS comp, coalesce(c.tier, 1) AS tier,
                m.home_team_id AS home_id, m.away_team_id AS away_id,
                m.home_goals AS hg, m.away_goals AS ag,
-               avg(CASE WHEN t.is_home THEN t.xg_for END) AS hxg,
-               avg(CASE WHEN NOT t.is_home THEN t.xg_for END) AS axg
+               avg(CASE WHEN t.is_home THEN t.xg_for END ORDER BY t.source, t.xg_for) AS hxg,
+               avg(CASE WHEN NOT t.is_home THEN t.xg_for END ORDER BY t.source, t.xg_for) AS axg
         FROM matches m
         LEFT JOIN competitions c ON c.competition_id = m.competition_id
         LEFT JOIN team_match t ON t.match_id = m.match_id
@@ -73,7 +74,7 @@ def load_matches(db: FootballDB, as_of: date | None = None, comps: tuple[str, ..
     if comps:
         sql += f" AND m.competition_id IN ({', '.join('?' for _ in comps)})"
         params += list(comps)
-    sql += " GROUP BY ALL"
+    sql += " GROUP BY ALL ORDER BY m.match_date, comp, home_id, away_id, hg, ag"
     df = db.query(sql, params)
     df["match_date"] = pd.to_datetime(df["match_date"]).dt.date
     return df[MATCH_COLUMNS]
@@ -89,7 +90,9 @@ def fit_ratings(
     default_comp: str = "ENG1",
 ) -> TeamRatings:
     """Fit ratings on matches before `as_of`. With no matches the result is a neutral model."""
-    m = matches[matches["match_date"] < as_of]
+    m = canonical(
+        matches[matches["match_date"] < as_of], ["match_date", "comp", "home_id", "away_id"]
+    )  # the optimiser sums in row order
     if m.empty:
         return TeamRatings({default_comp: 0.1}, 0.2, {}, {}, tier_prior=tier_prior,
                            default_comp=default_comp)  # fmt: skip
