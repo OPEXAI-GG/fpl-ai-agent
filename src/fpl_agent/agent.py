@@ -47,6 +47,7 @@ class RunOptions:
     samples: int = 1000
     out_dir: Path | None = None
     notify: bool = False
+    team_dir: Path | None = None  # stored screen reads and corrections (git-ignored)
 
 
 @dataclass
@@ -57,6 +58,9 @@ class RunResult:
     outcome: Outcome | None = None
     notes: list[str] = field(default_factory=list)
     report: str = ""
+    team: object | None = None  # the merged CurrentTeam the plan was built from (dry mode)
+    sections: list[str] = field(default_factory=list)  # comparison, scenarios, questions
+    scenarios: list[dict] = field(default_factory=list)  # the advice per free-transfer balance
 
     @property
     def exit_code(self) -> int:
@@ -73,9 +77,20 @@ def format_report(res: RunResult, mode: str) -> str:
     if res.status != "ok" or not res.decision:
         return "\n".join([head, f"status: {res.status}", *res.notes])
     d, o = res.decision, res.outcome
-    lines = [head, d.summary()]
+    lines = [head]
+    if res.team is not None:
+        from fpl_agent.team.report import team_lines
+
+        lines += team_lines(res.team)
+    lines.append(d.summary())
     if d.xp_no_transfers:
         lines.append(f"vs. no moves: {d.xp - d.xp_no_transfers:+.1f} expected points this week")
+    if d.objective is not None:
+        lines.append(
+            f"planner objective of the followed plan: {d.objective:.1f} (not points: "
+            "discounted, bench-weighted, with banked-transfer and bank value)"
+        )
+    lines += res.sections
     if o:
         lines += [f"{'DID' if o.mode == 'live' else 'dry-run'}: {x}" for x in o.done]
         lines += [f"blocked by rails: {x}" for x in o.blocked]
@@ -140,6 +155,29 @@ def run_weekly(
         res.report = format_report(res, settings.mode)
         return res
 
+    run_at = now or datetime.now(UTC)
+    team = None
+    if not settings.is_live:  # (live mode reads the team FPL holds now, below)
+        try:
+            team = _current_team(fpl, opts, entry, ev.id, rules, raw, picks, transfers, history,
+                                 run_at)  # fmt: skip
+        except Exception as exc:  # noqa: BLE001  (keep the public last-deadline state)
+            log.warning("current-team merge failed: %s", exc)
+            res.notes.append(f"current team not merged ({type(exc).__name__}): planned from the "
+                             "public last-deadline state")  # fmt: skip
+        if team is not None and not team.usable:
+            from fpl_agent.team.report import team_lines
+
+            res.status = "error"
+            res.notes = [*team_lines(team), *(f"needed: {q}" for q in team.questions(True))]
+            res.report = format_report(res, settings.mode)
+            return res
+        if team is not None:
+            from fpl_agent.team.merge import to_state
+
+            state = to_state(team, raw, rules, team.ft_scenarios()[0])
+            res.team = team
+
     tokens, live_changed, live_ok = None, False, True
     if settings.is_live:  # plan from the team FPL has now, not the last deadline's
         before = state
@@ -194,7 +232,6 @@ def run_weekly(
     res.notes.append(own_note)
 
     gws = list(range(ev.id, min(ev.id + opts.horizon, 39)))
-    run_at = now or datetime.now(UTC)
     cutoff = pit.utc(run_at)  # the information cutoff of this run (naive UTC), also its stamp
     try:
         fc = forecast(db, opts.season, gws, rules, pool, ev.id, cutoff, opts.samples)
@@ -222,10 +259,21 @@ def run_weekly(
         if target:
             res.notes.append(target.note())
         cfg = mem.planner(PlannerConfig(risk_lambda=rank_risk(ev.id) if eo else 0.0))
-        d = decide(state, proj, rules, names=_names(db), cfg=cfg,
-                   use_chips=opts.use_chips and not live_changed,
-                   ownership=own, eo=eo, chasing=target,
-                   min_win=mem.min_win(ROBUST_MIN_WIN))  # fmt: skip
+
+        def plan_for(st, chips: bool = True):  # one forecast, configuration and thresholds
+            return decide(st, proj, rules, names=names, cfg=cfg,
+                          use_chips=chips and opts.use_chips and not live_changed,
+                          ownership=own, eo=eo, chasing=target,
+                          min_win=mem.min_win(ROBUST_MIN_WIN))  # fmt: skip
+
+        d = plan_for(state)
+        if team is not None:
+            res.sections, res.scenarios = _team_sections(team, d, plan_for, raw, rules, pool,
+                                                         names)  # fmt: skip
+        else:  # live mode: the team FPL holds now; still show what was compared
+            from fpl_agent.team.report import chip_solver_lines, comparison_lines
+
+            res.sections = comparison_lines(d, names) + chip_solver_lines(d)
     except Exception as exc:  # noqa: BLE001
         log.exception("projection/decision failed")
         res.status, res.notes = (
@@ -291,6 +339,57 @@ def run_weekly(
 
 
 DONE = "live-done"  # decisions row mode once FPL accepted every move of a live run
+
+
+def _current_team(fpl, opts: RunOptions, entry: int, gw: int, rules: Rules, raw: dict, picks,
+                  transfers, history, now: datetime):  # fmt: skip
+    """The team merged from public data and the manager's stored screen reads/corrections."""
+    from fpl_agent.team import current_team, public_view
+
+    pv = public_view(entry, gw, picks, transfers, history, raw, rules, now)
+    return current_team(entry=entry, season=opts.season, gameweek=gw, now=now, rules=rules,
+                        bootstrap=raw, public=pv, root=opts.team_dir,
+                        fixtures=lambda: fpl.fixtures_raw())  # fmt: skip
+
+
+def _team_sections(team, d: Decision, plan_for, raw: dict, rules: Rules, pool,
+                   names: dict[int, str]) -> tuple[list[str], list[dict]]:  # fmt: skip
+    """The transfer-count comparison, the advice under every plausible free-transfer balance
+    (each planned with the same forecast and thresholds) and the specific questions left."""
+    from fpl_agent.team.merge import to_state
+    from fpl_agent.team.report import (
+        action_key,
+        chip_solver_lines,
+        comparison_lines,
+        scenario_lines,
+    )
+
+    out = comparison_lines(d, names) + chip_solver_lines(d)
+    fts = team.ft_scenarios()
+    alts = []
+    if d.comparison:  # the free-transfer count can change the advice only when moves are open
+        # the chip search already held every chip; it is not repeated per balance (runtime)
+        for ft in fts[1:]:
+            st = to_canonical(to_state(team, raw, rules, ft), pool)
+            alts.append((ft, plan_for(st, chips=False)))
+    elif len(fts) > 1:
+        out.append(f"free transfers not confirmed (planned with {fts[0]}); transfer counts "
+                   f"were not compared: {d.comparison_note}")  # fmt: skip
+    lines, conditional = scenario_lines(fts[0], d, alts, team, names)
+    if alts:
+        lines.insert(1, "  (each balance re-planned with the same forecast and thresholds; "
+                        "chips stay held as in the main plan)")  # fmt: skip
+    out += lines
+    if team.bank.status in ("unknown", "conflicting") and d.comparison:
+        bank = int(team.bank.value or 0) / 10
+        out.append(f"bank not confirmed: transfer options assume £{bank:.1f}m; more money "
+                   "could open other moves")  # fmt: skip
+        conditional = True
+    out += [f"needed: {q}" for q in team.questions(conditional)]
+    rows = [{"free_transfers": ft, "action": list(action_key(x)), "captain": x.captain,
+             "xp": round(x.xp, 2), "objective": x.objective, "comparison": x.comparison}
+            for ft, x in [(fts[0], d), *alts]]  # fmt: skip
+    return out, rows
 
 
 def explain_overlays(ovs, proj, names: dict[int, str], shadow: bool) -> list[str]:
@@ -488,7 +587,11 @@ def write_outputs(out: Path, res: RunResult, mode: str) -> None:
         (out / f"gw{res.gw}.json").write_text(json.dumps({
             "mode": mode, "decision": review.decision_payload(res.decision),
             "outcome": res.outcome.__dict__ if res.outcome else None,
-            "chips": res.decision.chip_report}, indent=2, default=str))  # fmt: skip
+            "chips": res.decision.chip_report,
+            "objective": res.decision.objective, "solve": res.decision.solve,
+            "comparison": res.decision.comparison,
+            "team": res.team.as_dict() if res.team is not None else None,
+            "ft_scenarios": res.scenarios}, indent=2, default=str))  # fmt: skip
 
 
 __all__ = ["RunOptions", "RunResult", "run_weekly", "format_report", "write_outputs"]

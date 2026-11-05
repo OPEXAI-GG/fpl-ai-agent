@@ -45,6 +45,10 @@ class Decision:
     captain_options: list[dict[str, Any]] = field(
         default_factory=list
     )  # top candidates, with upside
+    objective: float | None = None  # the planner's full objective of the followed plan
+    solve: str = "optimal"  # how the followed plan's solve ended
+    comparison: list[dict[str, Any]] = field(default_factory=list)  # one row per transfer count
+    comparison_note: str = ""  # why no comparison was made, when it was not
 
     @property
     def action(self) -> str:
@@ -129,39 +133,39 @@ TEMPLATE_CAPTAIN, TEMPLATE_CAPTAIN_SLACK = 50.0, 1.0
 ROBUST_MIN_WIN, ROBUST_MIN_GAIN, ROBUST_WORLDS = 0.55, 1.0, 300
 
 
-def _robust_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
-                      cfg: PlannerConfig, names: dict[int, str], warnings: list[str],
-                      checks: list[str], min_win: float | None = None):  # fmt: skip
-    """The chosen plan, or the same plan rolling this week's transfer when the transfers only
-    win on the mean: re-score both across simulated worlds (auto-subs, captain cover, hits)."""
-    import numpy as np
+def _moves(plan, names: dict[int, str]) -> str:
+    first = plan.first
+    pairs = zip(first.transfers_in, first.transfers_out, strict=False)
+    return ", ".join(f"{names.get(o, o)} -> {names.get(i, i)}" for i, o in pairs)
 
-    from fpl_agent.solver.planner import solve_plan
 
-    if any(w.chip for w in chosen.plan.weeks):
-        return chosen  # a chip week scores differently; the chip search already weighed worlds
-    try:
-        roll = solve_plan(replace(base, chips={}, no_transfer_gws=frozenset({base.gws[0]})), cfg)
-    except Exception:  # noqa: BLE001  (no roll plan: keep the transfers)
-        return chosen
-    rng = np.random.default_rng(0)
-    worlds = rng.choice(proj.points.shape[2], size=min(ROBUST_WORLDS, proj.points.shape[2]),
-                        replace=False)  # fmt: skip
-    diff = (chips_mod.score_plan(chosen.plan, proj, rules, worlds)
-            - chips_mod.score_plan(roll, proj, rules, worlds))  # fmt: skip
-    win, gain = float((diff > 0).mean()), float(diff.mean())
-    first = chosen.plan.first
-    moves = ", ".join(
-        f"{names.get(o, o)} -> {names.get(i, i)}"
-        for i, o in zip(first.transfers_in, first.transfers_out, strict=False)
-    )
-    if win < (ROBUST_MIN_WIN if min_win is None else min_win) and gain < ROBUST_MIN_GAIN:
-        warnings.append(f"held {moves}: it beat rolling the transfer in only {win:.0%} of "
-                        f"simulated worlds ({gain:+.1f} pts over the horizon)")  # fmt: skip
-        return chips_mod.Scenario(chosen.chip, chosen.gw, roll)
-    checks.append(f"{moves} beat rolling the transfer in {win:.0%} of simulated worlds "
-                  f"({gain:+.1f} pts over the horizon)")  # fmt: skip
-    return chosen
+def _compare_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
+                       cfg: PlannerConfig, names: dict[int, str], warnings: list[str],
+                       checks: list[str], min_win: float | None = None):  # fmt: skip
+    """Every transfer count this week (0 = roll .. the planner's maximum) solved with the same
+    inputs and scored against rolling in the same worlds; the best that passes the policy is
+    followed, else the transfer is rolled (see `compare.py`). Returns (scenario, comparison)."""
+    from fpl_agent.solver.compare import compare_counts
+
+    need = ROBUST_MIN_WIN if min_win is None else min_win
+    cmp = compare_counts(base, proj, rules, cfg, need, ROBUST_MIN_GAIN, ROBUST_WORLDS)
+    preferred = len(chosen.plan.first.transfers_in)
+    pref = next((o for o in cmp.options if o.transfers == preferred), None)
+    if preferred and pref is not None and not pref.passes and pref.plan is not None:
+        warnings.append(f"held {_moves(pref.plan, names)}: it beat rolling the transfer in only "
+                        f"{pref.win_share:.0%} of simulated worlds ({pref.gain:+.1f} pts over the "
+                        "horizon)")  # fmt: skip
+    pick = cmp.chosen
+    if pick.transfers:
+        checks.append(f"{_moves(pick.plan, names)} beat rolling the transfer in "
+                      f"{pick.win_share:.0%} of simulated worlds ({pick.gain:+.1f} pts over the "
+                      "horizon)")  # fmt: skip
+        if preferred and pick.transfers != preferred:
+            warnings.append(
+                f"chose {pick.transfers} transfer(s) instead of the planner's preferred "
+                f"{preferred}: the best option that passes the policy"
+            )
+    return chips_mod.Scenario(chosen.chip, chosen.gw, pick.plan), cmp
 
 
 def rank_risk(gw: int) -> float:
@@ -278,7 +282,12 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         chosen, report = cd.chosen, {
             "held": cd.held, "play_now": cd.play_now,
             "scenarios": [{"chip": s.chip, "gw": s.gw, "gain": round(s.gain, 2),
-                           "win_share": round(s.win_share, 2), "ok": s.ok} for s in cd.scenarios],
+                           "win_share": round(s.win_share, 2), "ok": s.ok,
+                           "optimal": s.optimal,
+                           "max_gain": None if s.max_gain is None else round(s.max_gain, 2)}
+                          for s in cd.scenarios],
+            "baseline_solve": (cd.baseline.plan.solve.describe()
+                               if cd.baseline.plan.solve else "optimal"),
         }  # fmt: skip
     else:
         from fpl_agent.solver.planner import solve_plan
@@ -288,9 +297,13 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
             {"held": {}, "play_now": None, "scenarios": []},
         )
     checks: list[str] = []
-    first = chosen.plan.first
-    if first.transfers_in and not first.chip and not state.wildcard_active:
-        chosen = _robust_transfers(chosen, base, proj, rules, cfg, names, warnings, checks, min_win)
+    comparison = None
+    locked_all = bool(state.already_transferred) and not state.wildcard_active
+    if (
+        not state.wildcard_active and not locked_all and not any(w.chip for w in chosen.plan.weeks)
+    ):  # a chip plan scores differently; the chip search already weighed its worlds
+        chosen, comparison = _compare_transfers(chosen, base, proj, rules, cfg, names, warnings,
+                                                checks, min_win)  # fmt: skip
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):
@@ -341,6 +354,13 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         ),
         names=names, chip_report=report, horizon=chosen.plan.weeks, warnings=warnings,
         captain_options=options, field_view=view, checks=checks,
+        objective=chosen.plan.objective,
+        solve=chosen.plan.solve.describe() if chosen.plan.solve else "optimal",
+        comparison=comparison.rows() if comparison else [],
+        comparison_note="" if comparison else (
+            "wildcard active: the whole squad is re-planned" if state.wildcard_active else
+            f"{state.already_transferred} transfer(s) already made: squad locked this week"
+            if locked_all else "the plan plays a chip: the chip search weighed it instead"),
     )  # fmt: skip
 
 

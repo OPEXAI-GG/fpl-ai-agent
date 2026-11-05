@@ -216,12 +216,102 @@ def plan(args: argparse.Namespace, settings: Settings) -> int:
         entry_id=args.entry or settings.entry_id, force=args.force,
         use_chips=not args.no_chips, samples=args.samples,
         out_dir=Path(args.out) if args.out else None, notify=args.notify,
+        team_dir=Path(args.team_dir) if args.team_dir else None,
     )  # fmt: skip
     db = _open_db(args)
     res = run_weekly(db, settings, opts)
     _export(db, args)
     print(res.report)
     return res.exit_code
+
+
+def _parse_set(items: list[str]) -> dict:
+    """`key=value` corrections -> Observation fields (chips as `chip:<name>=<state>`)."""
+    out: dict = {"chips": {}}
+    for item in items:
+        key, sep, val = item.partition("=")
+        key, val = key.strip(), val.strip()
+        if not sep or not val:
+            raise ValueError(f"expected key=value, got {item!r}")
+        if key.startswith("chip:"):
+            out["chips"][key[5:]] = val
+        elif key in ("free_transfers", "transfers_made"):
+            out[key] = int(val)
+        elif key == "bank":
+            out[key] = val
+        else:
+            raise ValueError(f"cannot correct {key!r}: use free_transfers, bank, transfers_made, "
+                             "chip:<name>, or a JSON file with players for the squad")  # fmt: skip
+    return out
+
+
+def team_cmd(args: argparse.Namespace, settings: Settings) -> int:
+    """Add a screen read or a correction, or show the merged current team. Local only."""
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from fpl_agent.rules import Rules
+    from fpl_agent.team import current_team, public_view, store
+    from fpl_agent.team.observation import Observation, resolve
+    from fpl_agent.team.report import team_lines
+
+    root = Path(args.team_dir)
+    fpl = FPLClient()
+    raw = fpl.bootstrap_raw()
+    ev = next_event(Bootstrap.model_validate(raw))
+    if ev is None:
+        print("no upcoming gameweek")
+        return 2
+    now = datetime.now(UTC)
+    entry = args.entry or settings.entry_id
+    if args.action in ("add", "correct"):
+        try:
+            if args.action == "add":
+                text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text()
+                data = json.loads(text)
+            else:
+                data = {"kind": "correction", **_parse_set(args.set or []),
+                        "observed_at": now.isoformat(), "note": args.note or ""}  # fmt: skip
+            data.setdefault("entry", entry)
+            data.setdefault("gameweek", ev.id)
+            data.setdefault("season", int(args.season))
+            obs = Observation.model_validate(data)
+        except (ValidationError, ValueError, OSError) as exc:
+            print(f"rejected: {exc}")
+            return 2
+        r = resolve(obs, raw, fpl.fixtures_raw())
+        names = {e["id"]: e.get("web_name", str(e["id"])) for e in raw["elements"]}
+        for p, e in zip(obs.players, r.elements, strict=True):
+            print(f"  {p.name}: " + (f"{names[e]} (id {e})" if e is not None else "UNRESOLVED"))
+        for msg in r.problems:
+            print(f"unresolved: {msg}")
+        for msg in r.errors:
+            print(f"problem: {msg}")
+        if args.check:
+            print("checked only: nothing saved")
+            return 0 if not r.errors else 2
+        print(f"saved {store.save(root, obs)}")
+        entry = obs.entry
+    if not entry:
+        print("no entry id: pass --entry or set FPL_ENTRY_ID")
+        return 2
+    rules = Rules.nearest(int(args.season))
+    pv = public_view(entry, ev.id,
+                     fpl.entry_picks_raw(entry, ev.id - 1) if ev.id > 1 else {"picks": []},
+                     fpl.entry_transfers_raw(entry), fpl.entry_history_raw(entry), raw, rules,
+                     now)  # fmt: skip
+    team = current_team(entry=entry, season=int(args.season), gameweek=ev.id, now=now,
+                        rules=rules, bootstrap=raw, public=pv, root=root,
+                        fixtures=fpl.fixtures_raw)  # fmt: skip
+    if args.json:
+        print(json.dumps(team.as_dict(), indent=2, default=str))
+    else:
+        print("\n".join(team_lines(team)))
+        for q in team.questions(True):
+            print(f"open: {q}")
+    return 0
 
 
 def review_cmd(args: argparse.Namespace) -> int:
@@ -521,6 +611,22 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--export", default=None, help="write the database as parquet here")
     pl.add_argument("--out", default=None, help="write gw<N>.md and gw<N>.json here")
     pl.add_argument("--notify", action="store_true", help="send the report to NOTIFY_WEBHOOK")
+    pl.add_argument("--team-dir", default="data_cache/team",
+                    help="stored screen reads and corrections to merge (dry mode)")  # fmt: skip
+    tm = sub.add_parser("team", help="current team: add a screen read or correction, or show it")
+    tm.add_argument("action", choices=["show", "add", "correct"])
+    tm.add_argument("--entry", type=int, default=None, help="FPL team id (or FPL_ENTRY_ID)")
+    tm.add_argument("--season", default="2026")
+    tm.add_argument("--team-dir", default="data_cache/team")
+    tm.add_argument("--file", default="-", help="add: observation JSON file, or - for stdin")
+    tm.add_argument(
+        "--set",
+        action="append",
+        help="correct: free_transfers=N, bank=0.5, transfers_made=N, chip:freehit=used",
+    )
+    tm.add_argument("--note", default="", help="correct: why (kept with the correction)")
+    tm.add_argument("--check", action="store_true", help="add: validate and resolve, save nothing")
+    tm.add_argument("--json", action="store_true", help="show: print the merged team as JSON")
     rv = sub.add_parser("review", help="score a finished gameweek: predictions and decisions")
     rv.add_argument("--db", default="data_cache/football.duckdb")
     rv.add_argument("--import-dir", default=None)
@@ -633,6 +739,8 @@ def main(argv: list[str] | None = None) -> int:
         return backfill(args)
     if args.cmd == "plan":
         return plan(args, settings)
+    if args.cmd == "team":
+        return team_cmd(args, settings)
     if args.cmd == "review":
         return review_cmd(args)
     if args.cmd == "lessons":

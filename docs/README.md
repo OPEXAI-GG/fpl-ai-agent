@@ -4,6 +4,7 @@
 
 - [Project overview and installation](../README.md)
 - [Your first team plan and CLI reference](usage.md)
+- [Current team and transfer comparison](current-team.md): screenshots, corrections, statuses.
 - [Configuration and operations](operations.md)
 - [Discord interface](discord-bot.md)
 
