@@ -252,8 +252,8 @@ def test_the_plan_reports_its_team_sources_and_compares_transfer_counts(env, tmp
     assert "free transfers: 5, inferred (reconstructed from history" in r
     assert "transfer options this week" in r and "0 (roll)" in r and "objective" in r
     # the count is an estimate: the advice is planned for it and for a 1-transfer balance
-    assert "planned for 5, 1 remaining" in r and "with 1 free" in r
-    assert [s["free_transfers"] for s in res.scenarios] == [5, 1]
+    assert "planned for 5, 1, 0 remaining" in r and "with 1 free" in r and "with 0 free" in r
+    assert [s["free_transfers"] for s in res.scenarios] == [5, 1, 0]
     saved = json.loads((tmp_path / f"gw{GW}.json").read_text())
     assert saved["team"]["free_transfers"]["status"] == "inferred" and saved["comparison"]
 
@@ -272,4 +272,6 @@ def test_a_confirmed_count_is_planned_alone(env, tmp_path):
     assert res.status == "ok", res.notes
     assert "free transfers: 1, confirmed (correction" in res.report
     assert [s["free_transfers"] for s in res.scenarios] == [1]
-    assert "needed:" not in res.report
+    needed = [x for x in res.report.splitlines() if x.startswith("needed:")]
+    # the count is settled; only the squad (public data lags this week's moves) stays open
+    assert len(needed) == 1 and "if you made transfers this gameweek" in needed[0]
