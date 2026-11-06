@@ -240,3 +240,38 @@ def test_the_plan_reads_the_lessons_memory(env):
     assert res.status == "ok", res.notes
     assert any(n.startswith("memory: act now (weight 1.00)") for n in res.notes)
     assert any("lesson from GW9: move now" in n for n in res.notes)
+
+
+def test_the_plan_reports_its_team_sources_and_compares_transfer_counts(env, tmp_path):
+    w = env[0]
+    res = run_weekly(w.db, Settings(), opts(force=True, out_dir=tmp_path, team_dir=tmp_path, use_chips=False),
+                     fpl=fake(env))  # fmt: skip
+    assert res.status == "ok", res.notes
+    r = res.report
+    assert "current team for GW10" in r and "information cutoff" in r
+    assert "free transfers: 5, inferred (reconstructed from history" in r
+    assert "transfer options this week" in r and "0 (roll)" in r and "objective" in r
+    # the count is an estimate: the advice is planned for it and for a 1-transfer balance
+    assert "planned for 5, 1, 0 remaining" in r and "with 1 free" in r and "with 0 free" in r
+    assert [s["free_transfers"] for s in res.scenarios] == [5, 1, 0]
+    saved = json.loads((tmp_path / f"gw{GW}.json").read_text())
+    assert saved["team"]["free_transfers"]["status"] == "inferred" and saved["comparison"]
+
+
+def test_a_confirmed_count_is_planned_alone(env, tmp_path):
+    from fpl_agent.team import store
+    from fpl_agent.team.observation import Observation
+
+    w = env[0]
+    store.save(tmp_path, Observation.model_validate({
+        "kind": "correction", "entry": 1, "season": SEASON, "gameweek": GW,
+        "observed_at": datetime.now(UTC).isoformat(), "free_transfers": 1}))  # fmt: skip
+    f = fake(env)
+    f.fixtures_raw = lambda: []
+    res = run_weekly(w.db, Settings(), opts(force=True, team_dir=tmp_path, use_chips=False), fpl=f)
+    assert res.status == "ok", res.notes
+    assert "free transfers: 1, confirmed (correction" in res.report
+    assert [s["free_transfers"] for s in res.scenarios] == [1]
+    needed = [x for x in res.report.splitlines() if x.startswith("needed:")]
+    # the count is settled; only the squad (public data lags this week's moves) stays open
+    assert len(needed) == 1 and "if you made transfers this gameweek" in needed[0]

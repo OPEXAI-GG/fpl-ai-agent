@@ -18,6 +18,29 @@ class Infeasible(Exception):
     """The solver proved there is no solution (or found none within the time limit)."""
 
 
+@dataclass(frozen=True)
+class SolveInfo:
+    """How a solve ended. `optimal` is False when the time limit stopped HiGHS with a feasible
+    but unproven solution; `bound` is then the best proven upper bound of the (maximised)
+    objective and `gap` the relative distance to it, when HiGHS reports them."""
+
+    optimal: bool
+    status: int
+    message: str
+    gap: float | None = None
+    bound: float | None = None
+
+    def describe(self) -> str:
+        if self.optimal:
+            return "optimal"
+        extra = []
+        if self.bound is not None:
+            extra.append(f"bound {self.bound:.2f}")
+        if self.gap is not None:
+            extra.append(f"gap {self.gap:.1%}")
+        return "time limit, not proven optimal" + (f" ({', '.join(extra)})" if extra else "")
+
+
 @dataclass
 class Model:
     keys: list[Hashable] = field(default_factory=list)
@@ -31,6 +54,7 @@ class Model:
     vals: list[float] = field(default_factory=list)
     lo: list[float] = field(default_factory=list)
     hi: list[float] = field(default_factory=list)
+    info: SolveInfo | None = None  # how the last solve ended
 
     def var(self, key: Hashable, lb: float = 0.0, ub: float = 1.0, integer: bool = True,
             obj: float = 0.0) -> int:  # fmt: skip
@@ -85,4 +109,12 @@ class Model:
         )
         if res.x is None:
             raise Infeasible(res.message)
+        gap = getattr(res, "mip_gap", None)
+        dual = getattr(res, "mip_dual_bound", None)
+        finite = lambda v: v is not None and np.isfinite(v)  # noqa: E731
+        self.info = SolveInfo(
+            optimal=res.status == 0, status=int(res.status), message=str(res.message),
+            gap=float(gap) if finite(gap) else None,
+            bound=float(-dual) if finite(dual) else None,
+        )  # fmt: skip
         return {k: float(res.x[i]) for k, i in self.index.items()}, float(-res.fun)

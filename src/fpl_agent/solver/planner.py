@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from fpl_agent.solver.mip import Infeasible, Model
+from fpl_agent.solver.mip import Infeasible, Model, SolveInfo
 
 SQUAD_COUNTS = {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3}
 FORMATION_MIN = {"GKP": 1, "DEF": 3, "MID": 2, "FWD": 1}
@@ -86,6 +86,11 @@ class PlanInput:
     locked: frozenset[int] = frozenset()  # squad players that cannot be sold in the first week
     kept: frozenset[int] = frozenset()  # squad players not sold in any week of the plan
     eo: dict[int, float] = field(default_factory=dict)  # field effective ownership, 1.0 = 100%
+    # exactly this many transfers in the first week (None: the planner chooses); used to compare
+    # transfer counts under otherwise identical inputs
+    first_transfers: int | None = None
+    # players that may not start in the first week (the availability policy of the rails)
+    no_start: frozenset[int] = frozenset()
 
 
 @dataclass
@@ -110,6 +115,7 @@ class Plan:
     objective: float
     bank: int
     ft_end: int
+    solve: SolveInfo | None = None  # how the solve ended (bound includes the Free Hit constant)
 
     @property
     def first(self) -> WeekPlan:
@@ -127,7 +133,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
     missing = set(squad) - set(cands)
     if missing:
         raise ValueError(f"current squad players missing from candidates: {sorted(missing)}")
-    ids = list(cands)
+    ids = sorted(cands)  # canonical order: the model never depends on the input order
     by_pos = {pos: [i for i in ids if cands[i].position == pos] for pos in SQUAD_COUNTS}
     by_club: dict[int, list[int]] = {}
     for i in ids:
@@ -147,7 +153,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         frozen = t in fh or t in forced_roll
         for i in ids:
             m.var(("s", i, t))
-            m.var(("x", i, t))
+            m.var(("x", i, t), ub=0.0 if t == 0 and i in pi.no_start else 1.0)
             m.var(("c", i, t))
             m.var(("in", i, t), ub=0.0 if frozen else 1.0)
             locked = (t == 0 and i in pi.locked) or i in pi.kept
@@ -214,6 +220,8 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             m.le({("ft", t + 1): 1.0, ("use", t): 1.0, ("ft", t): -1.0}, accrue)
         if t in fh:  # a Free Hit does not use up the banked transfers either
             m.eq({("use", t): 1.0}, 0.0)
+    if pi.first_transfers is not None:
+        m.eq({("in", i, 0): 1.0 for i in ids}, float(pi.first_transfers))
     for t in range(H - 3):  # no more than max_hits_per_4gw hits in any four-week window
         m.le({("hit", u): 1.0 for u in range(t, t + 4)}, cfg.max_hits_per_4gw)
 
@@ -285,19 +293,22 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
             + xp_t(cap) * (2.0 if t in tc else 1.0),
         ))  # fmt: skip
         ft_prev = round(sol[("ft", t + 1)])
-    return Plan(weeks, obj + constant, round(sol[("bank", H - 1)]), ft_prev)
+    info = m.info
+    if info is not None and info.bound is not None:
+        info = SolveInfo(info.optimal, info.status, info.message, info.gap, info.bound + constant)
+    return Plan(weeks, obj + constant, round(sol[("bank", H - 1)]), ft_prev, info)
 
 
 def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerConfig,
-                    club_limit: int = 3):  # fmt: skip
-    ids = [c.player_id for c in cands]
+                    club_limit: int = 3, no_start: frozenset[int] = frozenset()):  # fmt: skip
+    ids = sorted(c.player_id for c in cands)
     cd = {c.player_id: c for c in cands}
     by_pos = {pos: [i for i in ids if cd[i].position == pos] for pos in SQUAD_COUNTS}
     outfield = [i for i in ids if cd[i].position != "GKP"]
     m = Model()
     for i in ids:
         m.var(("s", i))
-        m.var(("x", i))
+        m.var(("x", i), ub=0.0 if i in no_start else 1.0)
         m.var(("c", i))
     for i in outfield:
         for k in range(3):
@@ -336,7 +347,7 @@ def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerCon
             for k in range(3):
                 m.add_obj(("b", i, k), cfg.bench_weights[k] * xp)
     sol, obj = m.solve(cfg.time_limit, cfg.gap)
-    return obj, sol, ids, outfield, cd
+    return obj, sol, ids, outfield, cd, m.info
 
 
 def free_hit_value(cands: list[Candidate], t: int, budget: int, cfg: PlannerConfig | None = None,
@@ -345,14 +356,20 @@ def free_hit_value(cands: list[Candidate], t: int, budget: int, cfg: PlannerConf
 
     Scored like a normal week: XI, captain doubled, weighted bench. Returns (points, squad ids).
     """
-    obj, sol, ids, _, _ = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), club_limit)
+    obj, sol, ids, _, _, _ = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), club_limit)
     return obj, [i for i in ids if sol[("s", i)] > 0.5]
 
 
 def free_hit_team(cands: list[Candidate], t: int, gw: int, budget: int,
-                  cfg: PlannerConfig | None = None) -> tuple[float, WeekPlan]:  # fmt: skip
-    """The Free Hit team as a full week: squad, XI, bench order, captain and vice."""
-    obj, sol, ids, outfield, cd = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), 3)
+                  cfg: PlannerConfig | None = None,
+                  info: list | None = None,
+                  no_start: frozenset[int] = frozenset()) -> tuple[float, WeekPlan]:  # fmt: skip
+    """The Free Hit team as a full week: squad, XI, bench order, captain and vice. Appends how
+    the solve ended to `info` when given. `no_start` players are not started."""
+    obj, sol, ids, outfield, cd, how = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), 3,
+                                                       no_start)  # fmt: skip
+    if info is not None:
+        info.append(how)
     on = lambda k: sol[k] > 0.5  # noqa: E731
     sq = [i for i in ids if on(("s", i))]
     xi = [i for i in ids if on(("x", i))]

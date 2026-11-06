@@ -23,6 +23,7 @@ import numpy as np
 from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
 from fpl_agent.rules.engine import auto_sub, effective_captain
+from fpl_agent.solver.mip import SolveInfo
 from fpl_agent.solver.planner import (
     Candidate,
     Plan,
@@ -60,6 +61,8 @@ class Scenario:
     realized_gain: float = 0.0  # mean sampled-world difference
     ok: bool = True
     note: str = ""
+    optimal: bool = True  # False: the time limit stopped the solve before optimality was proven
+    max_gain: float | None = None  # proven upper bound of `gain` (None: no bound reported)
 
 
 @dataclass
@@ -103,10 +106,16 @@ def scenario(base: PlanInput, chip: str, gw: int, cfg: PlannerConfig,
     pi = _plan_input(base, {gw: chip})
     if chip == "freehit":
         t = base.gws.index(gw)
-        val, wk = free_hit_team(cands, t, gw, squad_value, cfg)
+        how: list = []
+        val, wk = free_hit_team(cands, t, gw, squad_value, cfg, info=how,
+                                no_start=base.no_start if t == 0 else frozenset())  # fmt: skip
         pi = replace(pi, free_hit_values={gw: val})
         plan = solve_plan(pi, cfg)
         plan.weeks[t] = wk
+        if how and how[0] is not None and not how[0].optimal and plan.solve is not None:
+            # the Free Hit team itself is unproven: its value, and so the plan's bound, may be low
+            plan.solve = SolveInfo(False, how[0].status, "free hit team: " + how[0].message,
+                                   plan.solve.gap, None)  # fmt: skip
         return plan
     return solve_plan(pi, cfg)
 
@@ -135,9 +144,13 @@ def search(base: PlanInput, proj: Projection, rules: Rules, available: dict[str,
                 continue
             real = score_plan(plan, proj, rules, worlds)
             gain = _gain(chip, plan, base_plan, base.gws.index(gw), cfg)
+            how = plan.solve
+            optimal = how is None or how.optimal
+            bound = None if how is None or how.bound is None else how.bound - base_plan.objective
             sc = Scenario(chip, gw, plan, gain=gain,
                           win_share=float((real > base_real).mean()),
-                          realized_gain=float((real - base_real).mean()))  # fmt: skip
+                          realized_gain=float((real - base_real).mean()),
+                          optimal=optimal, max_gain=gain if optimal else bound)  # fmt: skip
             out.append(sc)
     return _decide(base, baseline, out, available, cc)
 
@@ -184,9 +197,27 @@ def _decide(base: PlanInput, baseline: Scenario, scenarios: list[Scenario],
             held[chip] = f"gain now {now.gain:+.1f} below the {need:.0f}-point threshold"
         elif best_now is None or now.gain > best_now.gain:
             best_now = now
+    _unproven(held, scenarios, available, horizon_end, cc)
     if best_now is None:
         return ChipDecision(baseline, scenarios, baseline, None, held)
     for s in scenarios:
         if s is not best_now and s.chip and s.gw == now_gw:
             held.setdefault(s.chip, "another chip is better this week")
     return ChipDecision(baseline, scenarios, best_now, best_now.chip, held)
+
+
+def _unproven(held: dict[str, str], scenarios: list[Scenario],
+              available: dict[str, tuple[int, int]], horizon_end: int,
+              cc: ChipConfig) -> None:  # fmt: skip
+    """Say when a hold rests on a scenario the solver did not finish: a timed-out scenario is
+    only a lower bound, so a margin over it does not show the chip cannot win."""
+    for chip, why in list(held.items()):
+        need = 0.0 if available[chip][1] <= horizon_end else cc.min_gain[chip]
+        open_ = [s for s in scenarios if s.chip == chip and s.ok and not s.optimal
+                 and (s.max_gain is None or s.max_gain >= need)]  # fmt: skip
+        if open_:
+            held[chip] = why + "; not proven: " + ", ".join(
+                f"GW{s.gw} hit the solver time limit (found {s.gain:+.1f}, "
+                + ("no bound reported)" if s.max_gain is None
+                   else f"could be up to {s.max_gain:+.1f})")
+                for s in open_)  # fmt: skip

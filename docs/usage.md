@@ -45,9 +45,19 @@ planning horizon is eight gameweeks; use `--horizon` to change it. Output files 
 `data_cache/plans/gw<N>.md` and `.json`. Refresh the data and rerun near the deadline,
 especially after price, availability, or fixture changes.
 
-Public endpoints describe the last deadline's squad. The planner detects transfers made
-since then; inspect the report if you have already changed your team. Authenticated current-team
-reads belong to the optional live path described in [operations](operations.md).
+Public endpoints describe the last deadline's squad and do not publish your free-transfer
+count, and they list this gameweek's transfers only after its deadline. The plan reports every field of
+the team with its source, status and age. To confirm what public data cannot show, add a
+screenshot read or a correction before planning:
+
+```bash
+uv run --frozen fpl-agent team correct --entry 123456 --set free_transfers=2
+uv run --frozen fpl-agent team show --entry 123456
+```
+
+See [current team and transfer comparison](current-team.md) for the screenshot schema, the
+merge rules and how the plan compares transfer counts. Authenticated current-team reads belong
+to the optional live path described in [operations](operations.md).
 
 ## Command reference
 
@@ -60,6 +70,9 @@ All entries below follow `uv run --frozen fpl-agent`.
 | `db-update --points --players --fotmob all --football-data E0,E1,E2 --understat-leagues EPL,La_liga,Serie_A,Bundesliga,Ligue_1` | Update all documented source families and check data quality |
 | `backfill --start 2017` | Resume historical ingestion from 2017/18 |
 | `plan --entry 123456 --force --out data_cache/plans` | Generate a personalized plan; replace the example ID and keep `AGENT_MODE=dry` |
+| `team show --entry 123456` | Show the merged current team, each field's source and age, and what is still open |
+| `team add --file read.json` | Validate, resolve and store a screenshot read (`--check` saves nothing) |
+| `team correct --entry 123456 --set free_transfers=2` | Store a correction (free transfers, bank, transfers made, chips) |
 | `review --gw 0` | Score the latest gameweek with stored points and report finality |
 | `lessons --gw 0 --entry 123456` | Review the manager's decisions and retain lessons from final outcomes |
 | `features` | Show effective feature modes and their source |

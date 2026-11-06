@@ -35,6 +35,11 @@ class SquadState:
     # the squad at the last deadline; FPL checks a Wildcard week's transfers against it
     base_squad: list[SquadPlayer] = field(default_factory=list)
     picks: list[dict[str, Any]] = field(default_factory=list)
+    # dry analysis only: the confirmed free transfers left after this week's completed moves.
+    # When set, further moves are compared (players bought this week stay, players sold this
+    # week are not bought back) and this count is used as is. Live runs never set it, so a
+    # hand-edited team stays locked there.
+    remaining_free_transfers: int | None = None
 
     def chips_available(self, rules: Rules) -> dict[str, tuple[int, int]]:
         """Chip -> (first gw, last gw) of the window it may still be played in."""
