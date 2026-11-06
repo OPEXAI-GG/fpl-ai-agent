@@ -107,7 +107,8 @@ def scenario(base: PlanInput, chip: str, gw: int, cfg: PlannerConfig,
     if chip == "freehit":
         t = base.gws.index(gw)
         how: list = []
-        val, wk = free_hit_team(cands, t, gw, squad_value, cfg, info=how)
+        val, wk = free_hit_team(cands, t, gw, squad_value, cfg, info=how,
+                                no_start=base.no_start if t == 0 else frozenset())  # fmt: skip
         pi = replace(pi, free_hit_values={gw: val})
         plan = solve_plan(pi, cfg)
         plan.weeks[t] = wk

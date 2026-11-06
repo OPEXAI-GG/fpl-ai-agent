@@ -586,6 +586,16 @@ def to_state(
         already_transferred=0 if wc else made,
         wildcard_active=wc,
         base_squad=base,
+        # dry analysis of further moves: only when the squad and this week's completed moves
+        # are confirmed. The remaining count is used as is (never reduced by them again).
+        remaining_free_transfers=(
+            remaining
+            if made
+            and not wc
+            and team.squad.status == CONFIRMED
+            and team.transfers_made.status == CONFIRMED
+            else None
+        ),
     )
 
 

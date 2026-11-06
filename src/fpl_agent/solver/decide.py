@@ -16,7 +16,7 @@ from fpl_agent.model.project import Projection
 from fpl_agent.rules import Rules
 from fpl_agent.solver import chips as chips_mod
 from fpl_agent.solver import rank_target
-from fpl_agent.solver.inputs import build_candidates, prune
+from fpl_agent.solver.inputs import MIN_CHANCE, build_candidates, prune, unstartable
 from fpl_agent.solver.planner import PlanInput, PlannerConfig, WeekPlan
 
 
@@ -247,7 +247,15 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         cands = [c for c in cands if c.player_id not in was - now]
         locked = frozenset(now - was)
     ft = state.free_transfers  # the bank at the start of the week
-    if state.already_transferred and not state.wildcard_active:
+    further = state.remaining_free_transfers is not None  # dry analysis of more moves
+    if state.already_transferred and not state.wildcard_active and further:
+        # respect the completed moves: keep this week's buys, never re-buy this week's sales
+        now = {p.player_id for p in state.squad}
+        was = {p.player_id for p in state.base_squad} or now
+        cands = [c for c in cands if c.player_id not in was - now]
+        locked = frozenset(now - was)
+        ft = max(0, int(state.remaining_free_transfers))  # confirmed: not reduced again
+    elif state.already_transferred and not state.wildcard_active:
         locked = frozenset(p.player_id for p in state.squad)  # this week's moves are done
         ft = max(0, ft - state.already_transferred)  # they used the bank; next week adds one
     # the field's core stays for the whole plan, not just this week: selling a player nearly
@@ -255,9 +263,12 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
     # again every run, so an injured or benched one can still go.
     keep = template_players(proj, [p.player_id for p in state.squad], own, TEMPLATE_KEEP)
     value = sum(p.sell_price for p in state.squad) + state.bank
+    # the execution rails' availability policy, applied to this week's XI by the planner itself
+    benched = unstartable(proj, [c.player_id for c in cands])
     base = PlanInput(gws=list(proj.gws), squad=state.squad, bank=state.bank,
                      free_transfers=ft, candidates=cands,
-                     locked=locked, kept=frozenset(keep), eo=dict(eo or {}))  # fmt: skip
+                     locked=locked, kept=frozenset(keep), eo=dict(eo or {}),
+                     no_start=benched)  # fmt: skip
     avail = state.chips_available(rules) if use_chips else {}
     warnings = []
     if keep:
@@ -269,36 +280,61 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         warnings.append(
             f"{state.already_transferred} transfer(s) already made for GW{state.next_gw}"
         )
-    if state.wildcard_active:  # the Wildcard is already in force: re-plan the whole squad, free
-        cfg_wc = replace(cfg, time_limit=chips_mod.ChipConfig().scenario_time_limit)
-        chosen = chips_mod.Scenario(
-            "wildcard", state.next_gw,
-            chips_mod.scenario(base, "wildcard", state.next_gw, cfg_wc, cands, value),
-        )  # fmt: skip
-        report = {"held": {}, "play_now": "wildcard", "scenarios": [],
-                  "note": "wildcard already active: free changes until the deadline"}  # fmt: skip
-    elif avail:
-        cd = chips_mod.search(base, proj, rules, avail, value, cfg, chip_cfg)
-        chosen, report = cd.chosen, {
-            "held": cd.held, "play_now": cd.play_now,
-            "scenarios": [{"chip": s.chip, "gw": s.gw, "gain": round(s.gain, 2),
-                           "win_share": round(s.win_share, 2), "ok": s.ok,
-                           "optimal": s.optimal,
-                           "max_gain": None if s.max_gain is None else round(s.max_gain, 2)}
-                          for s in cd.scenarios],
-            "baseline_solve": (cd.baseline.plan.solve.describe()
-                               if cd.baseline.plan.solve else "optimal"),
-        }  # fmt: skip
-    else:
-        from fpl_agent.solver.planner import solve_plan
+        if further and not state.wildcard_active:
+            warnings.append(
+                f"dry analysis: further moves compared with {ft} free transfer(s) left as "
+                "confirmed; recommendation only, execution keeps a hand-edited team locked"
+            )
 
-        chosen, report = (
-            chips_mod.Scenario(None, None, solve_plan(base, cfg)),
-            {"held": {}, "play_now": None, "scenarios": []},
-        )
+    def choose(pi: PlanInput):
+        if state.wildcard_active:  # Wildcard already in force: re-plan the whole squad, free
+            cfg_wc = replace(cfg, time_limit=chips_mod.ChipConfig().scenario_time_limit)
+            chosen = chips_mod.Scenario(
+                "wildcard", state.next_gw,
+                chips_mod.scenario(pi, "wildcard", state.next_gw, cfg_wc, cands, value),
+            )  # fmt: skip
+            note = "wildcard already active: free changes until the deadline"
+            report = {"held": {}, "play_now": "wildcard", "scenarios": [], "note": note}
+        elif avail:
+            cd = chips_mod.search(pi, proj, rules, avail, value, cfg, chip_cfg)
+            chosen, report = cd.chosen, {
+                "held": cd.held, "play_now": cd.play_now,
+                "scenarios": [{"chip": s.chip, "gw": s.gw, "gain": round(s.gain, 2),
+                               "win_share": round(s.win_share, 2), "ok": s.ok,
+                               "optimal": s.optimal,
+                               "max_gain": None if s.max_gain is None else round(s.max_gain, 2)}
+                              for s in cd.scenarios],
+                "baseline_solve": (cd.baseline.plan.solve.describe()
+                                   if cd.baseline.plan.solve else "optimal"),
+            }  # fmt: skip
+        else:
+            from fpl_agent.solver.planner import solve_plan
+
+            chosen, report = (
+                chips_mod.Scenario(None, None, solve_plan(pi, cfg)),
+                {"held": {}, "play_now": None, "scenarios": []},
+            )
+        return chosen, report
+
+    from fpl_agent.solver.mip import Infeasible
+
+    try:
+        chosen, report = choose(base)
+    except Infeasible:
+        if not base.no_start:
+            raise
+        base = replace(base, no_start=frozenset())  # no legal XI without them: say so
+        chosen, report = choose(base)
+        warnings.append("no legal XI avoids unavailable/doubtful players this week: the lineup "
+                        "below starts one and execution would block it")  # fmt: skip
+    owned_out = sorted(p.player_id for p in state.squad if p.player_id in base.no_start)
+    if owned_out:
+        warnings.append("not started under the availability rule (status not 'a' or chance "
+                        f"below {MIN_CHANCE}%): "
+                        + ", ".join(names.get(p, str(p)) for p in owned_out))  # fmt: skip
     checks: list[str] = []
     comparison = None
-    locked_all = bool(state.already_transferred) and not state.wildcard_active
+    locked_all = bool(state.already_transferred) and not state.wildcard_active and not further
     if (
         not state.wildcard_active and not locked_all and not any(w.chip for w in chosen.plan.weeks)
     ):  # a chip plan scores differently; the chip search already weighed its worlds

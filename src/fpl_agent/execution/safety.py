@@ -13,7 +13,10 @@ from fpl_agent.config import Settings
 from fpl_agent.data.entry import SquadState
 from fpl_agent.rules import Rules
 from fpl_agent.solver.decide import Decision
-from fpl_agent.solver.inputs import MIN_CHANCE  # noqa: F401  (never buy/start below this chance)
+from fpl_agent.solver.inputs import (  # MIN_CHANCE: never buy/start below this chance
+    MIN_CHANCE,  # noqa: F401
+    available,
+)
 
 MAX_TRANSFERS_OUTSIDE_CHIP = 3
 MAX_HITS_PER_GW = 1
@@ -68,8 +71,7 @@ def _bad_availability(pool: pd.DataFrame, ids: list[int]) -> list[int]:
             bad.append(i)
             continue
         r = rows.loc[i]
-        chance = 100.0 if pd.isna(r["chance"]) else float(r["chance"])
-        if r["status"] != "a" or chance < MIN_CHANCE:
+        if not available(r["status"], r["chance"]):  # the same policy the planner applies
             bad.append(i)
     return bad
 

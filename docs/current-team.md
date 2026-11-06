@@ -108,6 +108,21 @@ the unchanged policy: beat rolling in at least `ROBUST_MIN_WIN` of the worlds, o
 is skipped, and the report says why, when a chip is in the plan, a Wildcard is active, or this
 week's transfers are already made.
 
+**After moves you already made.** In dry mode, when the squad and this week's completed
+transfers are confirmed (a Transfers or Pick Team screen, or a correction), the planner compares
+further moves instead of locking the squad. The confirmed remaining free-transfer count is used
+as is: it is not reduced by the completed moves again. Players bought this week are kept and
+players sold this week are not bought back. Hits, budget, ownership and the robustness policy
+apply unchanged. This is a recommendation only: live runs never set this count, and the
+execution rail still blocks transfers once a gameweek's transfers are made, so a hand-edited
+team stays locked there.
+
+**Lineup and the availability rule.** This week's XI is chosen under the same availability
+rule the execution rails enforce (`fpl_agent.solver.inputs.available`: status `a` and chance at
+least 75%). A doubtful or unavailable squad player is benched and named in the report. If no
+legal XI avoids such players, the planner picks the XI without that restriction and the report
+says that execution would block that lineup. The rule itself is not relaxed.
+
 **Free-transfer uncertainty.** A confirmed count is planned alone. Otherwise the plan is made
 for the estimate and for a 1-transfer balance. A 0 balance is added unless this week's transfers
 are confirmed (as none or as made), and conflicting values are added too. Each balance is re-planned with the same forecast

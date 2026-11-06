@@ -205,7 +205,7 @@ def run_weekly(
         hand = manual_changes(db, opts.season, ev.id, state)
         if hand:  # you changed the team after the bot's last moves: keep it, set the lineup only
             state = replace(state, already_transferred=max(state.already_transferred, len(hand)),
-                            wildcard_active=False)  # fmt: skip
+                            wildcard_active=False, remaining_free_transfers=None)  # fmt: skip
             live_changed = True
             res.notes.append(
                 f"you changed {len(hand)} player(s) by hand after the bot's last moves: kept, "

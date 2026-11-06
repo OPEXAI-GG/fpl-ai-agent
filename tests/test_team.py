@@ -275,3 +275,25 @@ def test_merging_ignores_the_order_of_observations():
                                         "observed_at": NOW.isoformat(), "bank": 9})]  # fmt: skip
     a, b = merged(many).as_dict(), merged(list(reversed(many))).as_dict()
     assert a == b and a["bank"]["value"] == 9 and a["free_transfers"]["value"] == 2
+
+
+def test_confirmed_manual_transfers_with_one_free_transfer_left_are_used_as_is():
+    current = [*SQUAD[:-1], SPARE]  # one move already made and confirmed on the Transfers screen
+    t = merged([obs([card(e) for e in current], free_transfers=1, bank="£1.9m", pending=False,
+                    transfer_cost=0)])  # fmt: skip
+    assert t.squad.status == CONFIRMED and t.transfers_made.value == 1
+    assert t.free_transfers.value == 1 and t.free_transfers.status == CONFIRMED
+    assert t.ft_scenarios() == [1] and t.bank.value == 19
+    st = to_state(t, BOOT, RULES)
+    assert st.remaining_free_transfers == 1  # used directly, not reduced by the completed move
+    assert st.already_transferred == 1 and {p.player_id for p in st.base_squad} == set(SQUAD)
+
+
+def test_unknown_current_squad_despite_an_empty_public_transfer_list():
+    t = merged([])  # FPL lists no transfers before the deadline: that is not "none made"
+    assert t.squad.status == INFERRED and t.transfers_made.status == INFERRED
+    assert "only after the deadline" in t.transfers_made.note
+    assert 0 in t.ft_scenarios()
+    assert any("if you made transfers this gameweek" in q for q in t.questions(True))
+    st = to_state(t, BOOT, RULES)
+    assert st.remaining_free_transfers is None and st.already_transferred == 0

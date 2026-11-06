@@ -27,8 +27,21 @@ def to_canonical(state: SquadState, pool: pd.DataFrame) -> SquadState:
 MIN_CHANCE = 75  # never buy or start a player below this chance of playing (also a safety rail)
 
 
-def _buyable(status, chance) -> bool:
+def available(status, chance) -> bool:
+    """The availability policy shared by planning and the execution rails: a player may be
+    bought or started only when FPL marks him available and his chance is at least MIN_CHANCE."""
     return status == "a" and (chance is None or pd.isna(chance) or float(chance) >= MIN_CHANCE)
+
+
+_buyable = available
+
+
+def unstartable(proj: Projection, ids) -> frozenset[int]:
+    """Players among `ids` the availability policy forbids starting this week."""
+    meta = proj.meta.set_index("player_id")
+    return frozenset(int(i) for i in ids
+                     if i not in meta.index or not available(meta.loc[i, "status"],
+                                                             meta.loc[i, "chance"]))  # fmt: skip
 
 
 def build_candidates(proj: Projection, squad: list[SquadPlayer]) -> list[Candidate]:

@@ -89,6 +89,8 @@ class PlanInput:
     # exactly this many transfers in the first week (None: the planner chooses); used to compare
     # transfer counts under otherwise identical inputs
     first_transfers: int | None = None
+    # players that may not start in the first week (the availability policy of the rails)
+    no_start: frozenset[int] = frozenset()
 
 
 @dataclass
@@ -151,7 +153,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
         frozen = t in fh or t in forced_roll
         for i in ids:
             m.var(("s", i, t))
-            m.var(("x", i, t))
+            m.var(("x", i, t), ub=0.0 if t == 0 and i in pi.no_start else 1.0)
             m.var(("c", i, t))
             m.var(("in", i, t), ub=0.0 if frozen else 1.0)
             locked = (t == 0 and i in pi.locked) or i in pi.kept
@@ -298,7 +300,7 @@ def solve_plan(pi: PlanInput, cfg: PlannerConfig | None = None) -> Plan:
 
 
 def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerConfig,
-                    club_limit: int = 3):  # fmt: skip
+                    club_limit: int = 3, no_start: frozenset[int] = frozenset()):  # fmt: skip
     ids = sorted(c.player_id for c in cands)
     cd = {c.player_id: c for c in cands}
     by_pos = {pos: [i for i in ids if cd[i].position == pos] for pos in SQUAD_COUNTS}
@@ -306,7 +308,7 @@ def _free_hit_solve(cands: list[Candidate], t: int, budget: int, cfg: PlannerCon
     m = Model()
     for i in ids:
         m.var(("s", i))
-        m.var(("x", i))
+        m.var(("x", i), ub=0.0 if i in no_start else 1.0)
         m.var(("c", i))
     for i in outfield:
         for k in range(3):
@@ -360,10 +362,12 @@ def free_hit_value(cands: list[Candidate], t: int, budget: int, cfg: PlannerConf
 
 def free_hit_team(cands: list[Candidate], t: int, gw: int, budget: int,
                   cfg: PlannerConfig | None = None,
-                  info: list | None = None) -> tuple[float, WeekPlan]:  # fmt: skip
+                  info: list | None = None,
+                  no_start: frozenset[int] = frozenset()) -> tuple[float, WeekPlan]:  # fmt: skip
     """The Free Hit team as a full week: squad, XI, bench order, captain and vice. Appends how
-    the solve ended to `info` when given."""
-    obj, sol, ids, outfield, cd, how = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), 3)
+    the solve ended to `info` when given. `no_start` players are not started."""
+    obj, sol, ids, outfield, cd, how = _free_hit_solve(cands, t, budget, cfg or PlannerConfig(), 3,
+                                                       no_start)  # fmt: skip
     if info is not None:
         info.append(how)
     on = lambda k: sol[k] > 0.5  # noqa: E731
