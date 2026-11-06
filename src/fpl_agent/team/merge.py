@@ -102,8 +102,9 @@ class CurrentTeam:
 
     def ft_scenarios(self) -> list[int]:
         """Free-transfer balances (remaining now) to plan for: the confirmed count alone, else
-        the estimate and a 1-transfer balance, plus zero when this week's transfers (made or
-        unknown) may have used the bank, plus any conflicting values. The first is primary."""
+        the estimate and a 1-transfer balance, plus zero unless this week's transfers are
+        confirmed as none (public data shows them only after the deadline), plus any
+        conflicting values. The first is primary."""
         f = self.free_transfers
         if f.status == CONFIRMED:
             return [int(f.value)]
@@ -111,7 +112,7 @@ class CurrentTeam:
             return [1, 0, 2]
         out = [int(f.value), 1, *[int(v) for v in f.alternatives]]
         made = self.transfers_made
-        if made.value is None or made.value > 0 or f.status == CONFLICTING:
+        if made.status != CONFIRMED or made.value or f.status == CONFLICTING:
             out.append(0)
         seen: list[int] = []
         for v in out:
@@ -128,6 +129,11 @@ class CurrentTeam:
             q.append(
                 "your confirmed 15: send the Pick Team screen"
                 + (f" (unresolved: {'; '.join(self.unresolved)})" if self.unresolved else "")
+            )
+        if self.squad.status == INFERRED and not self.unresolved:
+            q.append(
+                "if you made transfers this gameweek, send the Pick Team screen or name them: "
+                "FPL shows them publicly only after the deadline"
             )
         if transfers_matter and self.free_transfers.status != CONFIRMED:
             q.append(
@@ -304,7 +310,13 @@ def merge(
             "confirmed squad compared with the last deadline's",
         )
     elif public:
-        made = Fact(len(public.transfers), INFERRED, "public transfer list", public.fetched_at)
+        made = Fact(
+            len(public.transfers),
+            INFERRED,
+            "public transfer list",
+            public.fetched_at,
+            "FPL lists this gameweek's transfers publicly only after the deadline",
+        )
     else:
         made = Fact(None, UNKNOWN, "none")
 

@@ -156,11 +156,13 @@ def test_public_only_is_inferred_and_the_free_transfer_count_is_an_estimate():
     assert t.squad.status == INFERRED and t.squad.value == sorted(SQUAD)
     assert t.free_transfers.status == INFERRED and "does not publish" in t.free_transfers.note
     assert t.free_transfers.value == 3
-    assert t.ft_scenarios() == [3, 1]
+    assert t.ft_scenarios() == [3, 1, 0]  # this week's transfers are not public yet
+    assert "only after the deadline" in t.transfers_made.note
     assert t.bank.value == 5 and t.bank.status == INFERRED
     assert t.chips["wildcard"].value == "used GW6" and t.chips["freehit"].status == INFERRED
     q = " ".join(t.questions(True))
     assert "free-transfer count" in q and "entry" not in q and "15" not in q
+    assert "if you made transfers this gameweek" in q
 
 
 def test_confirmed_screenshot_beats_public_last_deadline_picks():

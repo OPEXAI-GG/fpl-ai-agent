@@ -10,7 +10,7 @@ every transfer count it could make this week.
 
 | Source | What it gives | Status it can carry |
 | --- | --- | --- |
-| Public API (no login) | Last deadline's picks, lineup and bank; this gameweek's confirmed transfers; chip history; a free-transfer count *reconstructed* from history | inferred (chips played: confirmed) |
+| Public API (no login) | Last deadline's picks, lineup and bank; this gameweek's transfers once FPL lists them (in practice only after the deadline); chip history; a free-transfer count *reconstructed* from history | inferred (chips played: confirmed) |
 | Screenshot read | Pick Team: the confirmed 15, XI, bench order, captain, vice. Transfers: the 15 with selling prices, Budget, Free transfers, Cost. Chips screens | confirmed when the screen shows a confirmed team |
 | Correction | Any field the manager states: free transfers, bank, transfers made, chips, or a squad | confirmed |
 
@@ -92,7 +92,9 @@ asks for the entry ID or for a squad it already knows.
 
 `fpl-agent plan` merges the stored reads for the entry in dry mode (`--team-dir`, default
 `data_cache/team`). Without stored reads, the public view alone is used: the last deadline's
-squad with this week's confirmed transfers applied.
+squad with any listed transfers applied. FPL lists a gameweek's transfers publicly only after
+its deadline, so a squad changed since then is invisible until a screen read or correction
+says so; the report asks for it when transfers matter.
 
 **Transfer counts.** The planner's preferred plan used to be checked once against rolling. If
 it failed the robustness policy, the transfer was rolled without trying a smaller move. Now
@@ -107,8 +109,8 @@ is skipped, and the report says why, when a chip is in the plan, a Wildcard is a
 week's transfers are already made.
 
 **Free-transfer uncertainty.** A confirmed count is planned alone. Otherwise the plan is made
-for the estimate and for a 1-transfer balance. A 0 balance is added when this week's transfers
-are made or unknown, and conflicting values are added too. Each balance is re-planned with the same forecast
+for the estimate and for a 1-transfer balance. A 0 balance is added unless this week's transfers
+are confirmed (as none or as made), and conflicting values are added too. Each balance is re-planned with the same forecast
 and thresholds. Chips stay held as in the main plan, because the chip search is not repeated for
 each balance. If every balance gives the same
 action, the report says so. Otherwise it marks the advice **CONDITIONAL**, keeps the lineup and

@@ -46,7 +46,7 @@ planning horizon is eight gameweeks; use `--horizon` to change it. Output files 
 especially after price, availability, or fixture changes.
 
 Public endpoints describe the last deadline's squad and do not publish your free-transfer
-count. The plan applies this gameweek's confirmed public transfers and reports every field of
+count, and they list this gameweek's transfers only after its deadline. The plan reports every field of
 the team with its source, status and age. To confirm what public data cannot show, add a
 screenshot read or a correction before planning:
 

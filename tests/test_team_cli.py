@@ -33,7 +33,7 @@ def test_show_lists_only_the_open_question(monkeypatch, tmp_path, capsys):
     assert cli.main(["team", "show", "--entry", "7", "--team-dir", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "free transfers: 1, inferred" in out
-    assert "open: your free-transfer count" in out and "Pick Team" not in out
+    assert "open: your free-transfer count" in out and "confirmed 15" not in out
 
 
 def test_a_screen_read_is_checked_without_saving(monkeypatch, tmp_path, capsys):
