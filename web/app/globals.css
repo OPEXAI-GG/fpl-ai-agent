@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/* Matchplan tokens. Chalk-white ground, deep pitch green for structure and actions, navy ink
+   for text, one floodlight yellow reserved for the armband and the single most important
+   number, kit red for costs and risk. */
+@theme {
+  --color-chalk: #f4f7f3;
+  --color-paper: #ffffff;
+  --color-line: #d5ddd6;
+  --color-pitch: #136f43;
+  --color-pitch-deep: #0c4a2d;
+  --color-turf: #1d8452;
+  --color-turf-dark: #17713f;
+  --color-ink: #0d1b2a;
+  --color-slate: #4f5f6b;
+  --color-mist: #e8eee9;
+  --color-flood: #ffd23f;
+  --color-kit: #c7361f;
+  --color-amber: #9a5b00;
+  --color-amber-soft: #fff3d6;
+  --color-info-soft: #e4f1ea;
+
+  --font-display: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+
+  --radius-card: 14px;
+  --radius-chip: 999px;
+}
+
+html {
+  background: var(--color-chalk);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.display {
+  font-family: var(--font-display);
+  letter-spacing: 0.005em;
+  line-height: 1.02;
+}
+
+/* The pitch: mowed stripes and chalk lines, drawn in CSS so it scales with the layout. */
+.pitch {
+  background-color: var(--color-turf);
+  background-image:
+    repeating-linear-gradient(
+      180deg,
+      var(--color-turf) 0 12.5%,
+      var(--color-turf-dark) 12.5% 25%
+    );
+  position: relative;
+  overflow: hidden;
+}
+.pitch::before {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border: 2px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.pitch::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4%;
+  width: 36%;
+  height: 13%;
+  transform: translateX(-50%);
+  border: 2px solid rgb(255 255 255 / 0.35);
+  border-top: none;
+  pointer-events: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-flood);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+.progress-sweep {
+  animation: sweep 1.6s ease-in-out infinite;
+}

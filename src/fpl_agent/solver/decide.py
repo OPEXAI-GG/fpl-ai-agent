@@ -141,14 +141,16 @@ def _moves(plan, names: dict[int, str]) -> str:
 
 def _compare_transfers(chosen, base: PlanInput, proj: Projection, rules: Rules,
                        cfg: PlannerConfig, names: dict[int, str], warnings: list[str],
-                       checks: list[str], min_win: float | None = None):  # fmt: skip
+                       checks: list[str], min_win: float | None = None,
+                       adaptive: bool = False):  # fmt: skip
     """Every transfer count this week (0 = roll .. the planner's maximum) solved with the same
     inputs and scored against rolling in the same worlds; the best that passes the policy is
     followed, else the transfer is rolled (see `compare.py`). Returns (scenario, comparison)."""
     from fpl_agent.solver.compare import compare_counts
 
     need = ROBUST_MIN_WIN if min_win is None else min_win
-    cmp = compare_counts(base, proj, rules, cfg, need, ROBUST_MIN_GAIN, ROBUST_WORLDS)
+    cmp = compare_counts(base, proj, rules, cfg, need, ROBUST_MIN_GAIN, ROBUST_WORLDS,
+                         adaptive=adaptive)  # fmt: skip
     preferred = len(chosen.plan.first.transfers_in)
     pref = next((o for o in cmp.options if o.transfers == preferred), None)
     if preferred and pref is not None and not pref.passes and pref.plan is not None:
@@ -225,14 +227,15 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
            ownership: dict[int, float] | None = None,
            eo: dict[int, float] | None = None,
            chasing: rank_target.Chase | None = None,
-           min_win: float | None = None) -> Decision:  # fmt: skip
+           min_win: float | None = None, adaptive: bool = False) -> Decision:  # fmt: skip
     """`state` must already use canonical player ids (see `inputs.to_canonical`). `ownership`
     (percent of managers by player) keeps popular players and favours them as captain; `eo`
     (the field's effective ownership, 1.0 = 100%) is weighed by `cfg.risk_lambda`. `chasing`
     (behind a rank target) moves the catch-up risk onto the armband: the least-captained player
     within its slack of the best captain, and no switch to the most-owned one. `min_win` is the
     share of simulated worlds this week's moves must beat rolling in (default ROBUST_MIN_WIN;
-    the memory lowers it)."""
+    the memory lowers it). `adaptive` rescores borderline transfer counts in every sampled world
+    (see `compare.compare_counts`)."""
     own = ownership or {}
     names = names or {}
     cfg = cfg or PlannerConfig()
@@ -339,7 +342,7 @@ def decide(state: SquadState, proj: Projection, rules: Rules, names: dict[int, s
         not state.wildcard_active and not locked_all and not any(w.chip for w in chosen.plan.weeks)
     ):  # a chip plan scores differently; the chip search already weighed its worlds
         chosen, comparison = _compare_transfers(chosen, base, proj, rules, cfg, names, warnings,
-                                                checks, min_win)  # fmt: skip
+                                                checks, min_win, adaptive)  # fmt: skip
     wk = chosen.plan.first
     options: list[dict[str, Any]] = []
     if wk.chip != "3xc" and wk.xi and set(wk.xi) <= set(proj.player_ids):

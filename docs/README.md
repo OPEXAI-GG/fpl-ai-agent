@@ -7,6 +7,7 @@
 - [Current team and transfer comparison](current-team.md): screenshots, corrections, statuses.
 - [Configuration and operations](operations.md)
 - [Discord interface](discord-bot.md)
+- [Website demo](website.md): launch, architecture, timings, and model-improvement status.
 
 ## Understand the engine
 

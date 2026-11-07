@@ -144,3 +144,27 @@ def test_solver_reports_a_time_limited_solve_as_unproven():
     assert info.describe().startswith("time limit, not proven optimal")
     assert "bound 101.00" in info.describe() and "gap 2.0%" in info.describe()
     assert SolveInfo(True, 0, "ok").describe() == "optimal"
+
+
+def test_adaptive_scoring_rescores_borderline_counts_in_every_world(world, monkeypatch):
+    proj, st = world
+    n_all = proj.points.shape[2]
+
+    def worlds(k, n):  # one move sits right on the 55% line; two moves clearly lose
+        if k == 0:
+            return np.zeros(n)
+        if k == 1:
+            return np.where(np.arange(n) % 100 < 55, 1.2, -0.3)
+        return np.full(n, -3.0)
+
+    monkeypatch.setattr(chips_mod, "score_plan", scored(worlds))
+    fixed = compare.compare_counts(_base(proj, st), proj, RULES, CFG, 0.55, 1.0, 40)
+    adapt = compare.compare_counts(_base(proj, st), proj, RULES, CFG, 0.55, 1.0, 40, adaptive=True)
+    one_f = next(o for o in fixed.options if o.transfers == 1)
+    one_a = next(o for o in adapt.options if o.transfers == 1)
+    assert one_f.worlds == 40 and one_a.worlds == n_all > 40
+    two = next(o for o in adapt.options if o.transfers == 2)
+    assert two.worlds == 40  # far from every threshold: not rescored
+    r = next(x for x in adapt.rows() if x["transfers"] == 1)
+    assert r["gain_q10"] <= r["gain"] <= r["gain_q90"] and r["gain_sd"] > 0
+    assert len(r["xi"]) == 11 and r["captain"] in r["xi"]

@@ -61,7 +61,7 @@ from fpl_agent import pit
 from fpl_agent.db.database import FootballDB, now
 from fpl_agent.model import calibration, overlays
 
-LEARNING_VERSION = "learn-2026.11.2"
+LEARNING_VERSION = "learn-2026.11.3"  # .3: weekly-block check on promotion
 THRESHOLDS = {
     "min_gameweeks": 4,  # final gameweeks with a valid comparison before a mode can change
     "min_affected": 60,  # player-weeks the feature changed, across those gameweeks
@@ -344,6 +344,7 @@ def _feature_evidence(db: FootballDB, season: int, through_gw: int, mode: str, f
                     [season, through_gw, since_gw or 0])  # fmt: skip
     role = "with" if mode == "shadow" else "without"
     diffs, briers, weeks, invalid = [], [], set(), []
+    by_week: dict[int, list[float]] = {}
     for gw, blob in zip(rows["gw"], rows["payload"], strict=True):
         c = (json.loads(blob).get("comparisons") or {}).get(feature) or {}
         if not c.get("valid"):
@@ -352,9 +353,13 @@ def _feature_evidence(db: FootballDB, season: int, through_gw: int, mode: str, f
         if c.get("role") != role or not c.get("affected"):
             continue
         weeks.add(int(gw))
-        diffs += [float(x["d_abs"]) for x in c["affected"]]
+        d = [float(x["d_abs"]) for x in c["affected"]]
+        diffs += d
+        by_week.setdefault(int(gw), []).extend(d)
         briers += [float(x["d_brier"]) for x in c["affected"] if x.get("d_brier") is not None]
     n = len(diffs)
+    # players in one gameweek share its fixtures and news: the gameweek is the independent unit
+    wk = [float(np.mean(v)) for _, v in sorted(by_week.items())]
     return {
         "mode": mode,
         "role": role,
@@ -366,6 +371,9 @@ def _feature_evidence(db: FootballDB, season: int, through_gw: int, mode: str, f
         "start_brier_change": float(np.mean(briers)) if briers else None,
         "brier_n": len(briers),
         "invalid_weeks": invalid,
+        "per_week": [round(x, 4) for x in wk],
+        "block_mean": float(np.mean(wk)) if wk else None,
+        "block_se": float(np.std(wk, ddof=1) / np.sqrt(len(wk))) if len(wk) > 1 else None,
     }
 
 
@@ -384,9 +392,18 @@ def decide_feature(ev: dict, mode: str) -> tuple[str, str]:
     if mode == "shadow":
         if ev["start_brier_change"] is None:
             return mode, "no P(start) Brier evidence on the affected players: not promoted"
+        bm, bse = ev.get("block_mean"), ev.get("block_se")
         if m + k * se < 0 and ev["start_brier_change"] <= t["max_brier_regression"]:
-            return "on", (f"promoted: abs error {m:+.3f} +- {se:.3f}, Brier "
-                          f"{ev['start_brier_change']:+.4f} per affected player-week")  # fmt: skip
+            if bse is None or bm + k * bse >= 0:  # must also hold across whole gameweeks
+                return mode, (
+                    f"not promoted: player-week abs error {m:+.3f} +- {se:.3f} but the "
+                    "gameweek-level change "
+                    + ("is unavailable" if bse is None else f"{bm:+.3f} +- {bse:.3f}")
+                    + f" is not below zero by {k:g} SE"
+                )
+            return "on", (f"promoted: abs error {m:+.3f} +- {se:.3f} per affected player-week, "
+                          f"{bm:+.3f} +- {bse:.3f} per gameweek, Brier "
+                          f"{ev['start_brier_change']:+.4f}")  # fmt: skip
     if mode == "on" and m - k * se > 0:
         return "shadow", f"demoted: abs error {m:+.3f} +- {se:.3f} per affected player-week"
     return mode, f"no significant change: abs error {m:+.3f} +- {se:.3f}"

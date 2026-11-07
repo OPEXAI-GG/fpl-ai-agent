@@ -715,7 +715,12 @@ def main(argv: list[str] | None = None) -> int:
     wf.add_argument("--to-gw", type=int, default=38)
     wf.add_argument("--refit-every", type=int, default=4)
     wf.add_argument("--out", default=None)
+    from fpl_agent.web import cli as web_cli
+
+    web_cli.add_parser(sub)
     args = parser.parse_args(argv)
+    if args.cmd == "web":
+        return web_cli.run(args)
     settings = Settings.from_env()
     extra = {
         "features": features_cmd,

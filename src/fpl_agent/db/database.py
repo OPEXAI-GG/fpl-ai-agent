@@ -99,6 +99,14 @@ class FootballDB:
             self.con.execute(f"CREATE TABLE IF NOT EXISTS {name} ({ddl})")
         self.migrate()
 
+    @classmethod
+    def read_only(cls, path: str | Path) -> FootballDB:
+        """Open an existing database file for reading only: no tables are created and no
+        migration runs, so several processes can read one immutable snapshot at once."""
+        db = cls.__new__(cls)
+        db.con = duckdb.connect(str(path), read_only=True)
+        return db
+
     def migrate(self) -> list[str]:
         """Apply the additive migrations this file has not seen yet; returns their names."""
         done = {r[0] for r in self.con.execute("SELECT name FROM schema_migrations").fetchall()}

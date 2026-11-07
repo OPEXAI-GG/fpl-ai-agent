@@ -13,6 +13,8 @@ dependencies = [
     "scipy>=1.18.1",
     "scikit-learn>=1.9.1",
     "numpy>=2.5.3",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]
@@ -37,6 +39,7 @@ packages = ["src/fpl_agent"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = [".claude", "web/node_modules"]  # vendored agent skills (skills-lock.json)
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
