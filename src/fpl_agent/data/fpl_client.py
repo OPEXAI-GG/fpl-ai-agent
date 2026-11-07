@@ -64,6 +64,10 @@ class FPLClient:
     def live_raw(self, gw: int) -> dict[str, Any]:
         return self._get(f"event/{gw}/live/")
 
+    def entry_raw(self, entry_id: int) -> dict[str, Any]:
+        """A manager's public summary: team name, overall points and rank, last deadline's bank."""
+        return self._get(f"entry/{int(entry_id)}/")
+
     def entry_history_raw(self, entry_id: int) -> dict[str, Any]:
         return self._get(f"entry/{entry_id}/history/")
 

@@ -74,6 +74,7 @@ Follow the [first-plan guide](docs/usage.md#your-first-team-plan).
 | [Evaluation and learning](docs/intelligence.md) | Cutoffs, workload features, promotion, and rollback |
 | [Runtime verification](docs/validation-2026-11-04.md) | Dataset identity, observed results, and workflow evidence |
 | [Discord](docs/discord-bot.md) | Commands, setup, and deployment configuration |
+| [Website demo](docs/website.md) | Read-only site from a team ID: launch, architecture, and limits |
 | [Contributing](CONTRIBUTING.md) | Development workflow, validation, and review expectations |
 | [Roadmap](ROADMAP.md) | Direction toward a customer-facing subscription product |
 

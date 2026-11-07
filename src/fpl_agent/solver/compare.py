@@ -40,6 +40,10 @@ class Option:
     passes: bool = False  # preferred to rolling by the planner and passes the policy
     reason: str = ""
     solve: str = "optimal"
+    gain_sd: float | None = None  # spread of the per-world gain over rolling
+    gain_q10: float | None = None  # 10th and 90th percentiles of that gain
+    gain_q90: float | None = None
+    worlds: int = 0  # sampled worlds the gain was measured in
 
     def row(self) -> dict:
         return {
@@ -51,6 +55,15 @@ class Option:
             "passes": self.passes, "reason": self.reason, "solve": self.solve,
             "in": self.plan.first.transfers_in if self.plan else [],
             "out": self.plan.first.transfers_out if self.plan else [],
+            "gain_sd": None if self.gain_sd is None else round(self.gain_sd, 2),
+            "gain_q10": None if self.gain_q10 is None else round(self.gain_q10, 2),
+            "gain_q90": None if self.gain_q90 is None else round(self.gain_q90, 2),
+            "worlds": self.worlds,
+            "xi": list(self.plan.first.xi) if self.plan else [],
+            "bench": list(self.plan.first.bench) if self.plan else [],
+            "captain": self.plan.first.captain if self.plan else None,
+            "vice": self.plan.first.vice if self.plan else None,
+            "week_xp_gross": round(self.plan.first.xp, 2) if self.plan else None,
         }  # fmt: skip
 
 
@@ -77,10 +90,18 @@ def max_transfers(base: PlanInput, cfg: PlannerConfig) -> int:
     return min(max(base.free_transfers, 0), cfg.max_free) + cfg.max_hits_per_gw
 
 
+# adaptive scoring: an option whose result lands this close to a policy threshold is scored
+# again in every sampled world (the same worlds for it and for rolling), so a borderline call
+# rests on all the samples rather than on the first subset
+BORDER_WIN, BORDER_GAIN = 0.05, 0.5
+
+
 def compare_counts(base: PlanInput, proj: Projection, rules: Rules, cfg: PlannerConfig,
                    min_win: float, min_gain: float, n_worlds: int,
-                   seed: int = 0) -> Comparison:  # fmt: skip
-    """Solve this week's plan once per transfer count (0 = roll) and choose by the policy."""
+                   seed: int = 0, adaptive: bool = False) -> Comparison:  # fmt: skip
+    """Solve this week's plan once per transfer count (0 = roll) and choose by the policy.
+    `adaptive`: rescore borderline options in all sampled worlds (off by default, so the
+    weekly agent's decisions are unchanged)."""
     gw0 = base.gws[0]
     plain = replace(base, chips={}, free_hit_values={})
     roll_plan = solve_plan(replace(plain, no_transfer_gws=frozenset({gw0})), cfg)
@@ -88,9 +109,12 @@ def compare_counts(base: PlanInput, proj: Projection, rules: Rules, cfg: Planner
     worlds = rng.choice(proj.points.shape[2], size=min(n_worlds, proj.points.shape[2]),
                         replace=False)  # fmt: skip
     roll_real = chips_mod.score_plan(roll_plan, proj, rules, worlds)
+    every = np.arange(proj.points.shape[2])
+    roll_all = None
     wk, hz = _xp(roll_plan)
     roll = Option(0, roll_plan, 0, wk, hz, roll_plan.objective, None, 0.0, True, "roll",
-                  roll_plan.solve.describe() if roll_plan.solve else "optimal")  # fmt: skip
+                  roll_plan.solve.describe() if roll_plan.solve else "optimal",
+                  worlds=len(worlds))  # fmt: skip
     options = [roll]
     for k in range(1, max_transfers(base, cfg) + 1):
         try:
@@ -100,6 +124,12 @@ def compare_counts(base: PlanInput, proj: Projection, rules: Rules, cfg: Planner
             continue
         diff = chips_mod.score_plan(plan, proj, rules, worlds) - roll_real
         win, gain = float((diff > 0).mean()), float(diff.mean())
+        near = abs(win - min_win) <= BORDER_WIN or abs(gain - min_gain) <= BORDER_GAIN
+        if adaptive and near and len(every) > len(worlds):
+            if roll_all is None:
+                roll_all = chips_mod.score_plan(roll_plan, proj, rules, every)
+            diff = chips_mod.score_plan(plan, proj, rules, every) - roll_all
+            win, gain = float((diff > 0).mean()), float(diff.mean())
         wk, hz = _xp(plan)
         preferred = plan.objective > roll_plan.objective
         robust = win >= min_win or gain >= min_gain
@@ -112,9 +142,11 @@ def compare_counts(base: PlanInput, proj: Projection, rules: Rules, cfg: Planner
             )
         else:
             reason = f"passes: beats rolling in {win:.0%} of worlds, {gain:+.1f} pts"
+        q10, q90 = (float(x) for x in np.quantile(diff, [0.1, 0.9]))
         options.append(Option(k, plan, plan.first.hits, wk, hz, plan.objective, win, gain,
                               preferred and robust, reason,
-                              plan.solve.describe() if plan.solve else "optimal"))  # fmt: skip
+                              plan.solve.describe() if plan.solve else "optimal",
+                              float(diff.std()), q10, q90, len(diff)))  # fmt: skip
     passing = [o for o in options[1:] if o.passes]
     chosen = max(passing, key=lambda o: (o.objective, -o.transfers)) if passing else roll
     return Comparison(options, chosen, min_win, min_gain, len(worlds))
