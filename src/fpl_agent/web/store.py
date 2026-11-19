@@ -364,6 +364,17 @@ class Store:
                 ],
             )
 
+    def abandon_active(self, reason: str) -> int:
+        """Fail every queued or running job. Only for a single-machine start, before any worker
+        runs: jobs left by a previous run may wait on a forecast whose revision was removed."""
+        with self.tx() as c:
+            n = c.execute(
+                "UPDATE jobs SET status = 'failed', finished_at = ?, error = ?, worker = NULL "
+                "WHERE status IN ('queued', 'running')",
+                [_now(), reason],
+            ).rowcount
+        return n
+
     def recover_stale(self, older_than: float, max_attempts: int = 2) -> int:
         """Jobs whose worker stopped sending heartbeats: requeued once, then failed."""
         cut = _now() - older_than

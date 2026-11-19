@@ -10,6 +10,9 @@ and it calls the same solver, comparison and rails the weekly agent uses, in dry
 
 ## Launch
 
+For weekly use on your own computer (Windows included), see [local-website.md](local-website.md):
+`uv run fpl-agent web local --entry <id>` or the Windows double-click launcher.
+
 ```bash
 scripts/web_demo.sh                    # install, prepare data if needed, start everything
 DEMO_PUBLISH=1 scripts/web_demo.sh     # also publish a fresh data revision first

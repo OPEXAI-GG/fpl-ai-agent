@@ -6,6 +6,9 @@
   command that writes the working database, and visitors cannot trigger it.
 * `forecast`: build the shared forecast for the next gameweek now (instead of in the worker).
 * `serve`: the HTTP API. `worker`: the background worker.
+* `local`: everything above for one manager on their own computer (Windows, macOS or Linux):
+  refresh the data from the public release, publish, build the site, start it and open it on
+  your team. See `fpl_agent.web.local` and `docs/local-website.md`.
 """
 
 from __future__ import annotations
@@ -20,7 +23,16 @@ def add_parser(sub) -> None:
     w = sub.add_parser("web", help="website service: publish data, run the API and worker")
     w.add_argument(
         "action",
-        choices=["publish", "forecast", "serve", "worker", "sample", "status", "challengers"],
+        choices=[
+            "publish",
+            "forecast",
+            "serve",
+            "worker",
+            "sample",
+            "status",
+            "challengers",
+            "local",
+        ],
     )
     w.add_argument("--update", action="store_true", help="publish: run db-update first")
     w.add_argument(
@@ -32,10 +44,17 @@ def add_parser(sub) -> None:
     w.add_argument("--host", default="127.0.0.1")
     w.add_argument("--port", type=int, default=8000)
     w.add_argument("--once", action="store_true", help="worker: stop when the queue is empty")
+    from fpl_agent.web import local
+
+    local.add_arguments(w)
 
 
 def run(args: argparse.Namespace) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    if args.action == "local":
+        from fpl_agent.web import local
+
+        return local.run(args)
     from fpl_agent.web.config import WebSettings
 
     s = WebSettings.from_env()
