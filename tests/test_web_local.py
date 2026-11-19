@@ -155,3 +155,31 @@ def test_the_local_command_is_wired_into_the_cli():
         8000,
         3000,
     )
+
+
+def test_jobs_left_by_a_previous_run_are_cleared_before_workers_start(tmp_path):
+    from fpl_agent.web.store import Store
+
+    store = Store(tmp_path / "app.sqlite")
+    job, _ = store.enqueue("plan", "plan-old", {"forecast_key": "fc-gone"})
+    done, _ = store.enqueue("forecast", "fc-done", {})
+    store.finish(done.id, "done", {})
+    assert store.abandon_active("left over") == 1
+    assert store.job(job.id).status == "failed" and store.job(done.id).status == "done"
+    assert store.queue_depth() == 0
+
+
+def test_stale_fpl_data_is_refreshed_locally_and_fresh_data_is_left_alone(world, tmp_path):
+    _, db_path, _, _ = world
+    s = WebSettings(data_dir=tmp_path / "web", source_db=db_path, season=SEASON)
+    calls = []
+    assert local.update_fpl_if_stale(s, update=lambda: calls.append(1) or 0) is True
+    assert calls == [1]
+    age = local.fpl_snapshot_age_hours(db_path, SEASON)
+    assert local.update_fpl_if_stale(s, max_age_h=age + 1, update=lambda: calls.append(2)) is False
+
+    def broken():
+        raise OSError("FPL down")
+
+    assert local.update_fpl_if_stale(s, update=broken) is False  # keeps the data you have
+    assert calls == [1]

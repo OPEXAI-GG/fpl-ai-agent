@@ -188,6 +188,55 @@ def refresh_data(settings, force: bool = False) -> dict:
     return {"changed": True, "offline": False, "asset_updated_at": asset.updated_at}
 
 
+FPL_STALE_HOURS = 12
+
+
+def fpl_snapshot_age_hours(db_path: Path, season: int, now: datetime | None = None) -> float | None:
+    from fpl_agent.db.database import FootballDB
+    from fpl_agent.web import snapshots
+
+    db = FootballDB.read_only(db_path)
+    try:
+        snap = snapshots.describe(db, season).get("fpl_snapshot_at")
+    finally:
+        db.close()
+    if not snap:
+        return None
+    t = datetime.fromisoformat(snap)
+    t = t if t.tzinfo else t.replace(tzinfo=UTC)
+    return ((now or datetime.now(UTC)) - t).total_seconds() / 3600
+
+
+def update_fpl_if_stale(settings, max_age_h: float = FPL_STALE_HOURS, update=None) -> bool:
+    """When the release's FPL snapshot is older than `max_age_h` (CI's daily refresh did not
+    run), refresh FPL's public prices, availability and fixtures locally, as the daily CI job
+    does. Runs before any service starts, so nothing else holds the database. Returns whether
+    the database changed; a failure keeps the data you have."""
+    age = fpl_snapshot_age_hours(Path(settings.source_db), settings.season)
+    if age is not None and age < max_age_h:
+        return False
+    say(f"FPL data is {age or 0:.0f} h old; refreshing prices, availability and fixtures")
+    if update is None:
+        from fpl_agent.db.database import FootballDB
+        from fpl_agent.pipeline import UpdateOptions, run_update
+
+        def update():
+            db = FootballDB(settings.source_db)
+            try:
+                return run_update(db, UpdateOptions(season=settings.season), alert=False).exit_code
+            finally:
+                db.close()
+
+    try:
+        code = update()
+    except Exception as exc:  # noqa: BLE001  (network or source failure: keep what we have)
+        say(f"could not refresh FPL data ({type(exc).__name__}); using the data you have")
+        return False
+    if code not in (0, None):
+        say("the FPL refresh reported problems; check data_cache/web/logs if numbers look off")
+    return True
+
+
 # ---- revisions ----------------------------------------------------------------------------------
 def needs_publish(svc, data_changed: bool, now: datetime | None = None) -> str | None:
     """Why a new revision is needed, or None. A revision is republished when the database changed,
@@ -378,11 +427,16 @@ def run(args) -> int:
     except Exception as exc:  # noqa: BLE001
         say(f"could not prepare the football data: {exc}")
         return 2
+    if not args.no_refresh and update_fpl_if_stale(s):
+        res["changed"] = True
 
     from fpl_agent.web.cli import publish as publish_cmd
     from fpl_agent.web.service import Service
 
     svc = Service.create(s)
+    left = svc.store.abandon_active("left over from the previous run")
+    if left:
+        say(f"cleared {left} unfinished job(s) from the previous run")
     why = needs_publish(svc, res.get("changed", False))
     if why:
         say(f"publishing a fresh revision ({why}); this reads FPL's public data")
